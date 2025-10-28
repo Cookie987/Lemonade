@@ -16,7 +16,7 @@ esphome:
 globals:
   - id: firmware_version
     type: std::string
-    initial_value: '"0.1.0"'   # ← 你可以改成自己的版本号
+    initial_value: '"0.2.0"'
   - id: sleeping
     type: bool
     restore_value: no
@@ -104,7 +104,8 @@ font:
     id: "chinese_font14"
     size: 14
     bpp: 8
-    glyphs: [\!",()~，。.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz好不秒表倒计中重开始暂停将至继续构建时间系统更新执行默认设置信息返回加载亮度屏幕背景网络图片自动启无响应确保电量充足请勿关机连接稳定©]
+    # glyphs: !include glyphs.yaml
+    glyphs: [\!",(+-*/)~，。.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz好不秒表倒计中重开始暂停将至继续构建时间系统更新执行默认设置信息返回加载亮度屏幕背景网络图片自动启无响应确保电量充足请勿关机连接稳定©]
   - file: 
       type: gfonts
       family: Lobster
@@ -125,6 +126,8 @@ wifi:
     password: !secret wifi_password
   - ssid: "19"
     password: "88888888"
+  - ssid: "SEEWO"
+    password: "SEEWOSEEWO"
   reboot_timeout: 0s
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
@@ -166,6 +169,11 @@ sensor:
             - 0.706 -> 3.644
             - 0.812 -> 3.853
             - 0.844 -> 4.200
+
+  - platform: wifi_signal
+    id: rssi
+    update_interval: 2s
+
 
 binary_sensor:
   - platform: gpio
@@ -268,26 +276,33 @@ interval:
 
                       std::string mac = "none";
 
-                      std::string ssid = "Disconnected";
 
                       mac = id(text_sensor_mac_address).state;
                       
                       auto battery_voltage_val = id(battery_voltage).state;
                       auto usb_voltage = id(usbinput_voltage).state;
+
+                      auto ssid_val = id(ssid).state;
+                      auto rssi_val = id(rssi).state;
+
                       std::string fw = id(firmware_version);
                       std::string build = __DATE__ " " __TIME__;
 
                       // 拼接文字
                       char buf[256];
                       snprintf(buf, sizeof(buf),
-                              "USB: %sV   "
-                              "Battery: %sV\n"
+                              "USB: %s V    "
+                              "Battery: %s V\n"
+                              "SSID: %s   "
+                              "RSSI: %s dBm\n"
                               "IP: %s    "
-                              "MAC: %s\n"
-                              "Lemonade %s  "
+                              "MAC: %s\n\n"
+                              "Lemonade %s"
                               " at %s\nBased on ESPHome\nCode by Cookie987.\nHardware by ZSVStudio.\n©2025 RedCookieStudios",
                               std::to_string(usb_voltage).c_str(),
                               std::to_string(battery_voltage_val).c_str(),
+                              ssid_val.c_str(),
+                              std::to_string(rssi_val).c_str(),
                               ip.c_str(),
                               mac.c_str(),
                               fw.c_str(),
@@ -460,21 +475,21 @@ light:
 
 http_request:
 
-online_image:
-  - url: "***REMOVED***img/1.png"
-    format: png
-    id: online_image1
-    type: RGB565
+# online_image:
+#   - url: "***REMOVED***img/1.png"
+#     format: png
+#     id: online_image1
+#     type: RGB565
 
-  - url: "***REMOVED***img/2.png"
-    format: png
-    id: online_image2
-    type: RGB565
+#   - url: "***REMOVED***img/2.png"
+#     format: png
+#     id: online_image2
+#     type: RGB565
 
-  - url: "***REMOVED***img/3.png"
-    format: png
-    id: online_image3
-    type: RGB565
+#   - url: "***REMOVED***img/3.png"
+#     format: png
+#     id: online_image3
+#     type: RGB565
 
 
 image:
@@ -489,6 +504,8 @@ text_sensor:
   - platform: wifi_info
     mac_address:
       id: text_sensor_mac_address
+    ssid:
+      id: ssid
 
 select:
   - platform: lvgl
@@ -965,9 +982,9 @@ lvgl:
               disabled: true
             options:
               - 系统默认
-              - 网络图片1
-              - 网络图片2
-              - 网络图片3
+              # - 网络图片1
+              # - 网络图片2
+              # - 网络图片3
               - 无
             text_font: chinese_font14
             on_value:
@@ -980,27 +997,27 @@ lvgl:
                       - lvgl.image.update:
                           id: bg_image
                           src: defaultbg
-                - if:
-                    condition:
-                      lambda: 'return id(roller_image).get_selected_text() == "网络图片1";'
-                    then:
-                      - lvgl.image.update:
-                          id: bg_image
-                          src: online_image1
-                - if:
-                    condition:
-                      lambda: 'return id(roller_image).get_selected_text() == "网络图片2";'
-                    then:
-                      - lvgl.image.update:
-                          id: bg_image
-                          src: online_image2
-                - if:
-                    condition:
-                      lambda: 'return id(roller_image).get_selected_text() == "网络图片3";'
-                    then:
-                      - lvgl.image.update:
-                          id: bg_image
-                          src: online_image3
+                # - if:
+                #     condition:
+                #       lambda: 'return id(roller_image).get_selected_text() == "网络图片1";'
+                #     then:
+                #       - lvgl.image.update:
+                #           id: bg_image
+                #           src: online_image1
+                # - if:
+                #     condition:
+                #       lambda: 'return id(roller_image).get_selected_text() == "网络图片2";'
+                #     then:
+                #       - lvgl.image.update:
+                #           id: bg_image
+                #           src: online_image2
+                # - if:
+                #     condition:
+                #       lambda: 'return id(roller_image).get_selected_text() == "网络图片3";'
+                #     then:
+                #       - lvgl.image.update:
+                #           id: bg_image
+                #           src: online_image3
                 - if:
                     condition:
                       lambda: 'return id(roller_image).get_selected_text() == "无";'
