@@ -1,3 +1,5 @@
+# ESP32S3 无触摸
+
 esphome:
   name: "lemonade"
   friendly_name: "lemonade"
