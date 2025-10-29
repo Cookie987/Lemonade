@@ -1,0 +1,581 @@
+id: lvgl1
+log_level: DEBUG
+keypads:
+  esc: o
+encoders:
+  initial_focus: page_prev
+  enter_button: x
+  sensor:
+    left_button: a
+    right_button: b
+
+top_layer:
+  widgets:
+    - label:
+        id: lbl_battery_status
+        align: TOP_RIGHT
+        y: 20
+        x: -10
+        text_font: roboto_icons_14
+        recolor: true
+        text: "\U000F0091" # start with mdi-battery-unknown
+    - animimg:
+        align: TOP_RIGHT
+        y: 20
+        x: -50
+        hidden: true
+        id: ani_battery_charging
+        src: [
+          batt_empty,
+          batt_10,
+          batt_20,
+          batt_30,
+          batt_40,
+          batt_50,
+          batt_60,
+          batt_70,
+          batt_80,
+          batt_90,
+          batt_full
+          ]
+        duration: 2200ms
+    # 上一页按钮
+    - button:
+        id: page_prev
+        align: bottom_left
+        x: 96
+        width: 48
+        height: 24
+        widgets:
+          - label:
+              align: CENTER
+              text: "\uF053"   # FontAwesome 向左箭头
+        on_release:
+          then:
+            - lvgl.page.previous:
+                animation: MOVE_RIGHT
+                time: 200ms
+
+    # # 电池状态按钮（仅显示，不可点击）
+    # - button:
+    #     id: batteryStatus
+    #     align: bottom_mid
+    #     width: 75
+    #     height: 24
+    #     bg_color: !lambda return lv_color_hex(0x1f95f6);
+    #     widgets:
+    #       - label:
+    #           id: battery_label
+    #           align: CENTER
+    #           text: "4.20V"   # 这里可以由 lambda 动态更新
+    #           recolor: true
+    #     state:
+    #       disabled: true
+
+    # 下一页按钮
+    - button:
+        id: page_next
+        align: bottom_right
+        x: -96
+        width: 48
+        height: 24
+        widgets:
+          - label:
+              align: CENTER
+              text: "\uF054"   # FontAwesome 向右箭头
+        on_release:
+          then:
+            - lvgl.page.next:
+                animation: MOVE_LEFT
+                time: 200ms
+
+msgboxes:
+  - id: update_message_box
+    close_button: false
+    title: Info
+    text_font: chinese_font14
+    state:
+      disabled: true
+    body:
+      text: "将更新至新系统，系统将暂时无响应(~30s)，请确保电量充足，网络连接稳定，请勿关机。系统将自动重启。"
+      text_font: chinese_font14
+    buttons:
+      - id: msgbox_close
+        text: "不"
+        on_click:
+          then:
+            - lvgl.widget.hide: update_message_box
+            - lvgl.widget.enable: [backlight_slider, roller_image, update_system, page_next, page_next]
+            - lvgl.widget.disable: update_message_box
+            - lvgl.widget.focus:
+                  id: update_system
+                  freeze: false
+      - id: msgbox_apply
+        text: "好"
+        on_click:
+          then:
+            - ota.http_request.flash:
+                  md5_url: ***REMOVED***lemonade/ota/lemonade.md5
+                  url: ***REMOVED***lemonade/ota/lemonade.ota.bin
+      
+pages:
+  - id: main_page
+    on_unload:
+      - lvgl.widget.disable:
+        - bg_image
+        - time_label
+    widgets:
+      - image:
+          id: bg_image
+          src: defaultbg
+          state:  
+            disabled: true
+      - label:
+          id: time_label
+          align: CENTER
+          text: "00:00:00"
+          text_color: !lambda return lv_color_hex(0xe8526a);
+          text_font: clock24
+          state:
+            disabled: true
+  - id: timer_page
+    on_load:
+      - lvgl.widget.show: timer_tabview
+    on_unload:
+      - delay: 250ms
+      - lvgl.widget.hide: timer_tabview
+    widgets:
+      - tabview:
+          id: timer_tabview
+          anim_time: 0.5s
+          align: CENTER
+          hidden: true
+          state:
+            disabled: true
+          tabs: 
+            - name: Timer
+              state:
+                disabled: true
+              text_font: chinese_font14
+              widgets:
+                - label:
+                    id: stopwatch_label
+                    text: "00:00:00.00"
+                    align: CENTER
+                    state:
+                      disabled: true
+                    y: -25
+                    text_font: timer60
+                - button:
+                    id: stopwatch_button
+                    x: 55
+                    y: 125
+                    width: 70
+                    height: 30
+                    widgets:
+                      - label:
+                          id: stopwatch_button_text
+                          align: CENTER
+                          text_font: chinese_font14
+                          text: "开始"
+                    on_press:
+                      then:
+                        - lambda: |-
+                            if (!id(timer_running)) {
+                              // 开始计时 - 设置起始时间为当前时间减去暂停时间
+                              id(stopwatch_start_time) = millis() - id(stopwatch_paused_time);
+                              id(timer_running) = true;
+                              lv_label_set_text(id(stopwatch_button_text), "暂停");
+                            } else {
+                              // 暂停计时 - 记录已运行的时间
+                              id(stopwatch_paused_time) = millis() - id(stopwatch_start_time);
+                              id(timer_running) = false;
+                              lv_label_set_text(id(stopwatch_button_text), "继续");
+                            }
+                        
+                - button:
+                    id: stopwatch_reset_button
+                    x: 175
+                    y: 125
+                    width: 70
+                    height: 30
+                    widgets:
+                      - label:
+                          align: CENTER
+                          text_font: chinese_font14
+                          text: "重置"
+                    on_press:
+                      then:
+                        - lambda: |-
+                            id(timer_running) = false;
+                            lv_label_set_text(id(stopwatch_label), "00:00:00.00");
+                            lv_label_set_text(id(stopwatch_button_text), "开始");
+                            // 重置计时器状态
+                            id(stopwatch_start_time) = millis();
+                            id(stopwatch_paused_time) = 0;
+            
+            - name: Countdown
+              state:
+                disabled: true
+              text_font: chinese_font14
+              widgets: 
+                # 小时十位
+                - roller:
+                    id: countdown_hours_tens
+                    x: 10
+                    y: 25
+                    width: 35
+                    height: 100
+                    mode: INFINITE
+                    options: 
+                      - "0"
+                      - "1"
+                      - "2"
+                      - "3"
+                      - "4"
+                      - "5"
+                      - "6"
+                      - "7"
+                      - "8"
+                      - "9"
+                # 小时个位
+                - roller:
+                    id: countdown_hours_ones
+                    x: 50
+                    y: 25
+                    width: 35
+                    height: 100
+                    mode: INFINITE
+                    options: 
+                      - "0"
+                      - "1"
+                      - "2"
+                      - "3"
+                      - "4"
+                      - "5"
+                      - "6"
+                      - "7"
+                      - "8"
+                      - "9"
+                # 分隔符
+                - label:
+                    text: ":"
+                    x: 97
+                    y: 70
+                    state:
+                      disabled: true
+                    text_font: chinese_font14
+                # 分钟十位
+                - roller:
+                    id: countdown_minutes_tens
+                    x: 110
+                    y: 25
+                    width: 35
+                    height: 100
+                    mode: INFINITE
+                    options: 
+                      - 0
+                      - 1
+                      - 2
+                      - 3
+                      - 4
+                      - 5
+                    text_font: chinese_font14
+                # 分钟个位
+                - roller:
+                    id: countdown_minutes_ones
+                    x: 150
+                    y: 25
+                    width: 35
+                    height: 100
+                    mode: INFINITE
+                    options: 
+                      - 0
+                      - 1
+                      - 2
+                      - 3
+                      - 4
+                      - 5
+                      - 6
+                      - 7
+                      - 8
+                      - 9
+                    text_font: chinese_font14
+                # 分隔符
+                - label:
+                    text: ":"
+                    x: 197
+                    y: 70
+                    state:
+                      disabled: true
+                    text_font: chinese_font14
+                # 秒十位
+                - roller:
+                    id: countdown_seconds_tens
+                    x: 210
+                    y: 25
+                    width: 35
+                    height: 100
+                    mode: INFINITE
+                    options: 
+                      - 0
+                      - 1
+                      - 2
+                      - 3
+                      - 4
+                      - 5
+                    text_font: chinese_font14
+                # 秒个位
+                - roller:
+                    id: countdown_seconds_ones
+                    x: 250
+                    y: 25
+                    width: 35
+                    height: 100
+                    mode: INFINITE
+                    options: 
+                      - 0
+                      - 1
+                      - 2
+                      - 3
+                      - 4
+                      - 5
+                      - 6
+                      - 7
+                      - 8
+                      - 9
+                    text_font: chinese_font14     
+                # 控制按钮
+                - button:
+                    id: countdown_button
+                    x: 55
+                    y: 140
+                    width: 70
+                    height: 30
+                    widgets:
+                      - label:
+                          id: countdown_button_text
+                          align: CENTER
+                          text_font: chinese_font14
+                          text: "开始"
+                    on_press:
+                      then:
+                        - lambda: |-
+                            if (!id(countdown_running)) {
+                              // 检查是否是恢复倒计时
+                              if (id(countdown_end_time) > 0) {
+                                // 恢复倒计时 - 重新计算结束时间
+                                id(countdown_end_time) = millis() + id(countdown_end_time);
+                                id(countdown_running) = true;
+                                lv_label_set_text(id(countdown_button_text), "暂停");
+                              } else {
+                                // 获取设置的时间
+                                int hours_tens = lv_roller_get_selected(id(countdown_hours_tens).obj);
+                                int hours_ones = lv_roller_get_selected(id(countdown_hours_ones).obj);
+                                int minutes_tens = lv_roller_get_selected(id(countdown_minutes_tens).obj);
+                                int minutes_ones = lv_roller_get_selected(id(countdown_minutes_ones).obj);
+                                int seconds_tens = lv_roller_get_selected(id(countdown_seconds_tens).obj);
+                                int seconds_ones = lv_roller_get_selected(id(countdown_seconds_ones).obj);
+                                
+                                // 计算总秒数
+                                int hours = hours_tens * 10 + hours_ones;
+                                int minutes = minutes_tens * 10 + minutes_ones;
+                                int seconds = seconds_tens * 10 + seconds_ones;
+                                unsigned long total_seconds = hours * 3600 + minutes * 60 + seconds;
+                                
+                                // 保存设置的时间
+                                id(countdown_hours) = hours;
+                                id(countdown_minutes) = minutes;
+                                id(countdown_seconds) = seconds;
+                                
+                                // 设置结束时间
+                                id(countdown_end_time) = millis() + (total_seconds * 1000);
+                                id(countdown_running) = true;
+                                lv_label_set_text(id(countdown_button_text), "暂停");
+                              }
+                            } else {
+                              // 暂停倒计时 - 保存当前剩余时间
+                              unsigned long current_time = millis();
+                              if (current_time < id(countdown_end_time)) {
+                                // 保存剩余时间
+                                id(countdown_end_time) = id(countdown_end_time) - current_time;
+                              } else {
+                                // 倒计时已经结束，重置
+                                id(countdown_end_time) = 0;
+                              }
+                              id(countdown_running) = false;
+                              lv_label_set_text(id(countdown_button_text), "继续");
+                            }
+                - button:
+                    id: countdown_reset_button
+                    x: 175
+                    y: 140
+                    width: 70
+                    height: 30
+                    widgets:
+                      - label:
+                          align: CENTER
+                          text_font: chinese_font14
+                          text: "重置"
+                    on_press:
+                      then:
+                        - lambda: |-
+                            id(countdown_running) = false;
+                            id(countdown_end_time) = 0;
+                            id(countdown_hours) = 0;
+                            id(countdown_minutes) = 0;
+                            id(countdown_seconds) = 0;
+                            lv_label_set_text(id(countdown_button_text), "开始");
+                            // 重置roller到初始位置
+                            lv_roller_set_selected(id(countdown_hours_tens).obj, 0, LV_ANIM_ON);
+                            lv_roller_set_selected(id(countdown_hours_ones).obj, 0, LV_ANIM_ON);
+                            lv_roller_set_selected(id(countdown_minutes_tens).obj, 0, LV_ANIM_ON);
+                            lv_roller_set_selected(id(countdown_minutes_ones).obj, 0, LV_ANIM_ON);
+                            lv_roller_set_selected(id(countdown_seconds_tens).obj, 0, LV_ANIM_ON);
+                            lv_roller_set_selected(id(countdown_seconds_ones).obj, 0, LV_ANIM_ON);
+    
+  - id: system_info_page
+    widgets:
+      - label:
+          text: "系统信息"
+          text_font: chinese_font14
+          state:
+            disabled: true
+          align: TOP_MID
+      - label:
+          id: sysinfo_label
+          align: CENTER
+          width: 95%
+          y: -5
+          text: "加载中..."
+          text_font: chinese_font14
+          state:
+            disabled: true
+  
+  - id: system_setting_page
+    on_load:
+      - lvgl.widget.enable: [backlight_slider, roller_image, update_system]
+    on_unload:
+      - lvgl.widget.disable: [backlight_slider, roller_image, update_system]
+    widgets:
+      - label:
+          text: "系统设置"
+          text_font: chinese_font14
+          state:
+            disabled: true
+          align: TOP_MID
+      - label:
+          text: "屏幕亮度"
+          text_font: chinese_font14
+          state:
+            disabled: true
+          x: 19
+          y: 53
+      - slider:
+          id: backlight_slider
+          min_value: 1
+          max_value: 50
+          value: 50
+          width: 200
+          x: 93
+          y: 59
+          state:
+            disabled: true
+          on_value:
+            then:
+              - if:
+                  condition:
+                    lambda: 'return !id(slider_changing);'   # 防止循环更新
+                  then:
+                    - lambda: |-
+                        id(slider_changing) = true;   // 标记滑块正在调整
+                    - light.turn_on:
+                        id: backlight
+                        brightness: !lambda 'return lv_slider_get_value(id(backlight_slider)) / 50.0;'
+                    - delay: 100ms                   # 给动画一点时间
+                    - lambda: |-
+                        id(slider_changing) = false;  // 恢复标志
+      - roller:
+          id: roller_image
+          x: 130
+          y: 93
+          width: 163
+          height: 45
+          anim_time: 0.5s
+          mode: INFINITE
+          state:
+            disabled: true
+          options:
+            - 系统默认
+            # - 网络图片1
+            # - 网络图片2
+            # - 网络图片3
+            - 无
+          text_font: chinese_font14
+          on_value:
+            then:
+              - lvgl.widget.show: bg_image
+              - if:
+                  condition:
+                    lambda: 'return id(roller_image).get_selected_text() == "系统默认";'
+                  then:
+                    - lvgl.image.update:
+                        id: bg_image
+                        src: defaultbg
+              # - if:
+              #     condition:
+              #       lambda: 'return id(roller_image).get_selected_text() == "网络图片1";'
+              #     then:
+              #       - lvgl.image.update:
+              #           id: bg_image
+              #           src: online_image1
+              # - if:
+              #     condition:
+              #       lambda: 'return id(roller_image).get_selected_text() == "网络图片2";'
+              #     then:
+              #       - lvgl.image.update:
+              #           id: bg_image
+              #           src: online_image2
+              # - if:
+              #     condition:
+              #       lambda: 'return id(roller_image).get_selected_text() == "网络图片3";'
+              #     then:
+              #       - lvgl.image.update:
+              #           id: bg_image
+              #           src: online_image3
+              - if:
+                  condition:
+                    lambda: 'return id(roller_image).get_selected_text() == "无";'
+                  then:
+                    - lvgl.widget.hide: bg_image
+
+      - label:
+          id: label_2
+          x: 19
+          y: 103
+          text: "背景图片"
+          text_font: chinese_font14
+          state:
+            disabled: true
+      
+      - button:
+          id: update_system
+          x: 19
+          y: 150
+          width: 274
+          height: 32
+          widgets:
+            - label:
+                align: CENTER
+                text_font: chinese_font14
+                text: "执行系统更新"
+          on_click:
+            then: 
+              - lvgl.widget.show: update_message_box
+              - lvgl.widget.disable: [backlight_slider, roller_image, update_system, page_next, page_next]
+              - lvgl.widget.enable: update_message_box
+              - lvgl.widget.focus:
+                  id: msgbox_close
+                  editing: true
+          state:
+            disabled: true

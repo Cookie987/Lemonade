@@ -1,0 +1,39 @@
+grayscale:
+  - file: mdi:battery-10
+    id: batt_10
+    resize: 18x18
+  - file: mdi:battery-20
+    id: batt_20
+    resize: 18x18
+  - file: mdi:battery-30
+    id: batt_30
+    resize: 18x18
+  - file: mdi:battery-40
+    id: batt_40
+    resize: 18x18
+  - file: mdi:battery-50
+    id: batt_50
+    resize: 18x18
+  - file: mdi:battery-60
+    id: batt_60
+    resize: 18x18
+  - file: mdi:battery-70
+    id: batt_70
+    resize: 18x18
+  - file: mdi:battery-80
+    id: batt_80
+    resize: 18x18
+  - file: mdi:battery-90
+    id: batt_90
+    resize: 18x18
+  - file: mdi:battery
+    id: batt_full
+    resize: 18x18
+  - file: mdi:battery-outline
+    id: batt_empty
+    resize: 18x18
+
+rgb565:
+  - file: ***REMOVED***img/default_ryo.png
+    id: defaultbg
+    resize: 320x240
