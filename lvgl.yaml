@@ -816,11 +816,13 @@ pages:
   - id: system_setting_system_page
     skip: true
     on_load:
-      - lvgl.widget.show: [btn_back_setting, btn_update_system]
+      - lvgl.widget.enable: btn_update_system
       - lvgl.widget.hide: [btn_page_prev, btn_page_next]
       - lvgl.widget.focus: btn_update_system
+      - lvgl.widget.show: [btn_back_setting]
     on_unload:
-      - lvgl.widget.hide: [btn_back_setting, btn_update_system]
+      - lvgl.widget.disable: [btn_back_setting, btn_update_system]
+      - lvgl.widget.hide: [btn_back_setting]
       - lvgl.widget.show: [btn_page_prev, btn_page_next]
       - lvgl.widget.focus: btn_page_prev
     widgets:
@@ -842,12 +844,12 @@ pages:
             - label:
                 align: CENTER
                 text_font: chinese_font14
-                text: "执行系统升级"
+                text: "执行系统更新"
           on_click:
             then:
               - lvgl.widget.enable: msgbox_update_message
               - lvgl.widget.show: msgbox_update_message
-              - lvgl.widget.disable: [backlight_slider, roller_image, btn_update_system, btn_page_next, btn_page_next]
+              - lvgl.widget.disable: [btn_update_system, btn_back_setting]
               - lvgl.widget.focus:
                   id: btn_btn_update_system_ok
                   freeze: false    
