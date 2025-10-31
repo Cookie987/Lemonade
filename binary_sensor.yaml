@@ -1,37 +1,35 @@
 - platform: gpio
   pin: GPIO11
   id: a
+  filters:
+    - settle: 10ms
   on_press: 
     then:
-    - light.turn_on:
-        id: backlight
-        transition_length: 0.5s
-    - lambda: id(sleeping)=false;
-    - lvgl.animimg.start: ani_battery_charging
+      - script.execute: wakeup_button
     
 - platform: gpio
   pin: GPIO12
   id: b
+  filters:
+    - settle: 10ms
   on_press: 
     then:
-    - light.turn_on:
-        id: backlight
-        transition_length: 0.5s
-    - lambda: id(sleeping)=false;
-    - lvgl.animimg.start: ani_battery_charging
+      - script.execute: wakeup_button
+
 - platform: gpio
   pin: GPIO38
   id: x
+  filters:
+    - settle: 10ms
   on_press: 
     then:
-    - light.turn_on:
-        id: backlight
-        transition_length: 0.5s
-    - lambda: id(sleeping)=false;
-    - lvgl.animimg.start: ani_battery_charging
+      - script.execute: wakeup_button
+
 - platform: gpio
   pin: GPIO47
   id: o
+  filters:
+    - settle: 10ms
   on_click: 
     - min_length: 10ms
       max_length: 500ms
@@ -40,20 +38,20 @@
             id: backlight
             transition_length: 0.5s
         - delay: 100ms  
-        - lambda: id(sleeping)=!id(sleeping);
+        - lambda: id(is_sleeping)=!id(is_sleeping);
         - lvgl.animimg.start: ani_battery_charging
         - if:
             condition:
-              lambda: 'return id(sleeping);'
+              lambda: 'return id(is_sleeping);'
             then:
               - lvgl.pause:
                   show_snow: false
-                  lvgl_id: lvgl1
+                  lvgl_id: lvgl_1
               - lvgl.animimg.stop: ani_battery_charging
     - min_length: 500ms
       max_length: 2000ms
       then:
         - lvgl.page.show: 
-            id: main_page
+            id: page_main
             animation: FADE_IN
             time: 500ms

@@ -3,11 +3,11 @@
   then:
     - if:
         condition:
-          lambda: 'return !id(sleeping);'
+          lambda: 'return !id(is_sleeping);'
         then:
             - if:
                 condition:
-                  lvgl.page.is_showing: main_page
+                  lvgl.page.is_showing: page_main
                 then:   
                   - lambda: |-
                       auto t = id(ntp_time).now();
@@ -20,11 +20,11 @@
   then:
     - if:
         condition:
-          lambda: 'return !id(sleeping);'
+          lambda: 'return !id(is_sleeping);'
         then:
           - if:
               condition:
-                lvgl.page.is_showing: system_info_page
+                lvgl.page.is_showing: system_setting_system_page
               then:
                 - lambda: |-
                     using namespace esphome;
@@ -44,8 +44,6 @@
 
                     mac = id(text_sensor_mac_address).state;
                     
-                    auto battery_voltage_val = id(battery_voltage).state;
-                    auto usb_voltage = id(usbinput_voltage).state;
 
                     auto ssid_val = id(ssid).state;
                     auto rssi_val = id(rssi).state;
@@ -56,16 +54,12 @@
                     // 拼接文字
                     char buf[256];
                     snprintf(buf, sizeof(buf),
-                            "USB: %s V    "
-                            "Battery: %s V\n"
                             "SSID: %s   "
                             "RSSI: %s dBm\n"
                             "IP: %s    "
                             "MAC: %s\n\n"
                             "Lemonade %s"
                             " at %s\nBased on ESPHome\nCode by Cookie987.\nHardware by ZSVStudio.\n©2025 RedCookieStudios",
-                            std::to_string(usb_voltage).c_str(),
-                            std::to_string(battery_voltage_val).c_str(),
                             ssid_val.c_str(),
                             std::to_string(rssi_val).c_str(),
                             ip.c_str(),
@@ -80,15 +74,15 @@
   then:
       - if:
           condition:
-            lambda: 'return !id(sleeping);'
+            lambda: 'return !id(is_sleeping);'
           then:
             - if:
                 condition:
-                  lvgl.page.is_showing: timer_page
+                  lvgl.page.is_showing: page_timer
                 then:
                 - lambda: |-
                     // 秒表更新逻辑，精确到0.01秒
-                    if (id(timer_running)) {
+                    if (id(is_timer_running)) {
                       unsigned long elapsed = millis() - id(stopwatch_start_time);
                       int hours = (elapsed / 1000) / 3600;
                       int minutes = ((elapsed / 1000) / 60) % 60;
@@ -96,21 +90,21 @@
                       int hundredths = (elapsed % 1000) / 10;  // 精确到0.01秒
                       char buf[16];
                       sprintf(buf, "%02d:%02d:%02d.%02d", hours, minutes, seconds, hundredths);
-                      lv_label_set_text(id(stopwatch_label), buf);
+                      lv_label_set_text(id(lbl_stopwatch), buf);
                     }
 - interval: 1s
   then:
       - if:
           condition:
-            lambda: 'return !id(sleeping);'
+            lambda: 'return !id(is_sleeping);'
           then:
             - if:
                 condition:
-                  lvgl.page.is_showing: timer_page
+                  lvgl.page.is_showing: page_timer
                 then:
                 - lambda: |-
                     // 倒计时更新逻辑
-                    if (id(countdown_running)) {
+                    if (id(is_countdown_running)) {
                       unsigned long current_time = millis();
                       if (current_time < id(countdown_end_time)) {
                         // 计算剩余时间
@@ -122,23 +116,23 @@
                         int seconds = remaining % 60;
                         
                         // 更新roller显示
-                        lv_roller_set_selected(id(countdown_hours_tens).obj, hours / 10, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_hours_ones).obj, hours % 10, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_minutes_tens).obj, minutes / 10, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_minutes_ones).obj, minutes % 10, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_seconds_tens).obj, seconds / 10, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_seconds_ones).obj, seconds % 10, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_hours_tens).obj, hours / 10, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_hours_ones).obj, hours % 10, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_minutes_tens).obj, minutes / 10, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_minutes_ones).obj, minutes % 10, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_seconds_tens).obj, seconds / 10, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, seconds % 10, LV_ANIM_ON);
                       } else {
                         // 倒计时结束
-                        id(countdown_running) = false;
+                        id(is_countdown_running) = false;
                         id(countdown_end_time) = 0;
-                        lv_label_set_text(id(countdown_button_text), "开始");
+                        lv_label_set_text(id(lbl_countdown_button), "开始");
                         // 重置为00:00:00
-                        lv_roller_set_selected(id(countdown_hours_tens).obj, 0, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_hours_ones).obj, 0, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_minutes_tens).obj, 0, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_minutes_ones).obj, 0, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_seconds_tens).obj, 0, LV_ANIM_ON);
-                        lv_roller_set_selected(id(countdown_seconds_ones).obj, 0, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_hours_tens).obj, 0, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_hours_ones).obj, 0, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_minutes_tens).obj, 0, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_minutes_ones).obj, 0, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_seconds_tens).obj, 0, LV_ANIM_ON);
+                        lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, 0, LV_ANIM_ON);
                       }
                     }

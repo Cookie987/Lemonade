@@ -29,15 +29,15 @@ globals:
   - id: firmware_version
     type: std::string
     initial_value: '"0.3.0"'
-  - id: sleeping
+  - id: is_sleeping
     type: bool
     restore_value: no
     initial_value: 'false'
-  - id: slider_changing
+  - id: is_slider_changing
     type: bool
     restore_value: no
     initial_value: "false"
-  - id: timer_running
+  - id: is_timer_running
     type: bool
     # restore_value: yes
     initial_value: 'false'
@@ -49,7 +49,7 @@ globals:
     type: unsigned long
     restore_value: yes
     initial_value: '0'
-  - id: countdown_running
+  - id: is_countdown_running
     type: bool
     restore_value: yes
     initial_value: 'false'
@@ -119,6 +119,8 @@ spi:
   clk_pin: GPIO18
   mosi_pin: GPIO17
 
+script: !include script.yaml
+
 sensor: !include sensor.yaml
 
 binary_sensor: !include binary_sensor.yaml
@@ -153,13 +155,13 @@ time:
               sprintf(buf, "%02d:%02d:%02d.%02d", hours, minutes, seconds, hundredths);
               // lv_label_set_text(id(stopwatch_label), buf);
               // 初始化倒计时状态
-              if (id(countdown_end_time) > 0 && id(countdown_running)) {
+              if (id(countdown_end_time) > 0 && id(is_countdown_running)) {
                 // 如果倒计时正在运行且未结束，则继续倒计时
                 unsigned long current_time = millis();
-                lv_label_set_text(id(countdown_button_text), "暂停");
+                lv_label_set_text(id(lbl_countdown_button), "暂停");
                 if (current_time >= id(countdown_end_time)) {
                   // 如果倒计时已经结束，重置状态
-                  id(countdown_running) = false;
+                  id(is_countdown_running) = false;
                   id(countdown_end_time) = 0;
                 }
               }
@@ -174,12 +176,12 @@ time:
                 int seconds = remaining % 60;
                 
                 // 更新roller显示
-                lv_roller_set_selected(id(countdown_hours_tens).obj, hours / 10, LV_ANIM_ON);
-                lv_roller_set_selected(id(countdown_hours_ones).obj, hours % 10, LV_ANIM_ON);
-                lv_roller_set_selected(id(countdown_minutes_tens).obj, minutes / 10, LV_ANIM_ON);
-                lv_roller_set_selected(id(countdown_minutes_ones).obj, minutes % 10, LV_ANIM_ON);
-                lv_roller_set_selected(id(countdown_seconds_tens).obj, seconds / 10, LV_ANIM_ON);
-                lv_roller_set_selected(id(countdown_seconds_ones).obj, seconds % 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_hours_tens).obj, hours / 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_hours_ones).obj, hours % 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_minutes_tens).obj, minutes / 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_minutes_ones).obj, minutes % 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_seconds_tens).obj, seconds / 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, seconds % 10, LV_ANIM_ON);
                 
               }
             }
@@ -206,19 +208,14 @@ light:
     default_transition_length: 0.1s
     on_state:
       then:
-        - if:
-            condition:
-              lambda: 'return !id(slider_changing);'   # 防止循环更新
-            then:
-              - lambda: |-
-                    id(slider_changing) = true;
-              - delay: 100ms   
-              - lvgl.slider.update:
-                  id: backlight_slider
-                  value: !lambda 'return id(backlight).current_values.get_brightness() * 50.0;'
-                  animated: false  
-              - lambda: |-
-                    id(slider_changing) = false;  // 恢复标志
+        if: 
+          condition:
+            lambda: 'return !id(is_slider_changing);'
+          then:
+            - lvgl.slider.update:
+                id: backlight_slider
+                value: !lambda 'return id(backlight).current_values.get_brightness() * 50.0;'
+                animated: true
 
 http_request:
 
