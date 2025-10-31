@@ -108,3 +108,7 @@
 - platform: wifi_signal
   id: rssi
   update_interval: 2s
+
+- platform: internal_temperature
+  id: internal_temp
+  update_interval: 2s

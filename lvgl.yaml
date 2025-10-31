@@ -125,17 +125,17 @@ msgboxes:
       text: "将更新至新系统，系统将暂时无响应(~30s)，请确保电量充足，网络连接稳定，请勿关机。系统将自动重启。"
       text_font: chinese_font14
     buttons:
-      - id: btn_btn_update_system_close
+      - id: btn_update_system_close
         text: "不"
         on_click:
           then:
             - lvgl.widget.hide: msgbox_update_message
-            - lvgl.widget.enable: [btn_update_system, btn_back_setting]
             - lvgl.widget.disable: msgbox_update_message
+            - lvgl.widget.enable: [btn_update_system, btn_back_setting]
             - lvgl.widget.focus:
                   id: btn_update_system
                   freeze: false
-      - id: btn_btn_update_system_ok
+      - id: btn_update_system_ok
         text: "好"
         on_click:
           then:
@@ -708,12 +708,12 @@ pages:
   - id: system_setting_display_page
     skip: true
     on_load:
-      - lvgl.widget.enable: [backlight_slider, roller_image, btn_update_system]
+      - lvgl.widget.enable: [backlight_slider, roller_image]
       - lvgl.widget.show: [btn_back_setting]
       - lvgl.widget.hide: [btn_page_prev, btn_page_next]
       - lvgl.widget.focus: backlight_slider
     on_unload:
-      - lvgl.widget.disable: [backlight_slider, roller_image, btn_update_system]
+      - lvgl.widget.disable: [backlight_slider, roller_image]
       - lvgl.widget.hide: [btn_back_setting]
       - lvgl.widget.show: [btn_page_prev, btn_page_next]
       - lvgl.widget.focus: btn_page_prev
@@ -819,10 +819,10 @@ pages:
       - lvgl.widget.enable: btn_update_system
       - lvgl.widget.hide: [btn_page_prev, btn_page_next]
       - lvgl.widget.focus: btn_update_system
-      - lvgl.widget.show: [btn_back_setting]
+      - lvgl.widget.show: btn_back_setting
     on_unload:
-      - lvgl.widget.disable: [btn_back_setting, btn_update_system]
-      - lvgl.widget.hide: [btn_back_setting]
+      - lvgl.widget.disable: btn_update_system
+      - lvgl.widget.hide: btn_back_setting
       - lvgl.widget.show: [btn_page_prev, btn_page_next]
       - lvgl.widget.focus: btn_page_prev
     widgets:
@@ -847,10 +847,10 @@ pages:
                 text: "执行系统更新"
           on_click:
             then:
-              - lvgl.widget.enable: msgbox_update_message
               - lvgl.widget.show: msgbox_update_message
               - lvgl.widget.disable: [btn_update_system, btn_back_setting]
               - lvgl.widget.focus:
-                  id: btn_btn_update_system_ok
-                  freeze: false    
+                  id: btn_update_system_ok
+                  freeze: false   
+                  editing: true
   
