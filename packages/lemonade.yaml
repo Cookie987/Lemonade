@@ -1,8 +1,8 @@
 # ESP32S3 无触摸
 
 esphome:
-  name: "lemonade"
-  friendly_name: "lemonade"
+  name: "${lemonade_device_name}"
+  friendly_name: ${lemonade_device_friendly_name}
   on_boot:
     then:
       - light.turn_on:
@@ -13,7 +13,7 @@ esphome:
           lv_slider_set_value(id(backlight_slider), b * 50.0, LV_ANIM_ON);
           
 esp32:
-  board: um_pros3
+  board: ${lemonade_board}
   cpu_frequency: 240MHz
   framework:
     type: esp-idf
@@ -24,12 +24,12 @@ psram:
   mode: octal
   speed: 80MHz
 
-captive_portal:
+# captive_portal:
+
+debug:
+  update_interval: 5s
 
 globals:
-  - id: firmware_version
-    type: std::string
-    initial_value: '"0.3.0"'
   - id: is_sleeping
     type: bool
     restore_value: no
@@ -82,7 +82,7 @@ api:
 
 ota:
   - platform: esphome
-    password: "bd5d6555da5018ba504773dfe83992d1"
+    password: ${lemonade_ota_password}
     on_begin:
       - output.set_level:
           id: backlight_pin
@@ -99,8 +99,6 @@ update:
     name: Firmware Update
     source: http://iot.cookie987.top/lemonade/manifest.json
 
-font: !include font.yaml
-
 wifi:
   networks:
   - ssid: !secret wifi_ssid
@@ -115,18 +113,7 @@ wifi:
     ssid: "Lemonade"
     password: "Lemonade"
   power_save_mode: HIGH
-    
-spi:
-  clk_pin: GPIO18
-  mosi_pin: GPIO17
 
-script: !include script.yaml
-
-sensor: !include sensor.yaml
-
-binary_sensor: !include binary_sensor.yaml
-
-interval: !include interval.yaml
 
 time:
   - platform: sntp
@@ -187,18 +174,31 @@ time:
               }
             }
         
+sensor: 
+  - platform: wifi_signal
+    id: rssi
+    update_interval: 2s
 
-switch:
-  - platform: gpio
-    pin: GPIO48
-    id: acc
-    restore_mode: ALWAYS_ON
+  - platform: internal_temperature
+    id: internal_temp
+    update_interval: 2s
+    
+  - platform: debug
+    free:
+      id: heap_free
+    block:
+      id: heap_block
+    loop_time:
+      id: loop_time
+    psram:
+      id: psram_free
+    cpu_frequency:
+      id: cpu_freq
 
-
-output:
-  - platform: ledc
-    pin: GPIO13
-    id: backlight_pin
+rtttl:
+  output: rttl_pin
+  id: rtttl_player
+  gain: 60%
 
 light:
   - platform: monochromatic
@@ -237,33 +237,23 @@ http_request:
 #     type: RGB565
 
 
-image: !include image.yaml
-
 text_sensor:
   - platform: wifi_info
     mac_address:
       id: text_sensor_mac_address
     ssid:
       id: ssid
+  - platform: debug
+    device:
+      id: device_info
+    reset_reason:
+      id: reset_reason
+  - platform: version
+    id: esphome_version
+
 
 select:
   - platform: lvgl
     widget: roller_image
     name: Background Select
     restore_value: True
-
-display:
-  - platform: mipi_spi
-    id: watchface
-    data_rate: 80MHz
-    model: M5CORE
-    cs_pin: GPIO14
-    reset_pin: GPIO16
-    dc_pin: GPIO15
-    show_test_card: false
-    color_order: bgr
-    invert_colors: true
-    auto_clear_enabled: false
-    update_interval: never
-
-lvgl: !include lvgl.yaml

@@ -1,0 +1,199 @@
+display:
+  - platform: mipi_spi
+    id: watchface
+    data_rate: 80MHz
+    model: M5CORE
+    cs_pin: GPIO14
+    reset_pin: GPIO16
+    dc_pin: GPIO15
+    show_test_card: false
+    color_order: bgr
+    invert_colors: true
+    auto_clear_enabled: false
+    update_interval: never
+    # pages:
+    #   - id: page_game_breakout
+    #     lambda: !include "features/breakout.cpp"
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO17
+
+switch:
+  - platform: gpio
+    pin: GPIO48
+    id: acc
+    restore_mode: ALWAYS_ON
+
+output:
+  - platform: ledc
+    pin: GPIO13
+    id: backlight_pin
+  - platform: ledc
+    pin: GPIO9
+    id: rttl_pin
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO11
+    id: a
+    filters:
+      - settle: 20ms
+    on_press: 
+      then:
+        - script.execute: wakeup_button
+      
+  - platform: gpio
+    pin: GPIO12
+    id: b
+    filters:
+      - settle: 20ms
+    on_press: 
+      then:
+        - script.execute: wakeup_button
+
+  - platform: gpio
+    pin: GPIO38
+    id: x
+    filters:
+      - settle: 20ms
+    on_press: 
+      then:
+        - script.execute: wakeup_button
+
+  - platform: gpio
+    pin: GPIO47
+    id: o
+    filters:
+      - settle: 20ms
+    on_click: 
+      - min_length: 10ms
+        max_length: 500ms
+        then:
+          - light.toggle:
+              id: backlight
+              transition_length: 0.5s
+          - delay: 100ms  
+          - lambda: id(is_sleeping)=!id(is_sleeping);
+          - lvgl.animimg.start: ani_battery_charging
+          - if:
+              condition:
+                lambda: 'return id(is_sleeping);'
+              then:
+                - lvgl.pause:
+                    show_snow: false
+                    lvgl_id: lvgl_1
+                - lvgl.animimg.stop: ani_battery_charging
+      - min_length: 500ms
+        max_length: 2000ms
+        then:
+          - lvgl.page.show: 
+              id: page_main
+              animation: FADE_IN
+              time: 500ms
+sensor:
+  - platform: adc
+    pin: GPIO6
+    id: usb_input_voltage
+    update_interval: 2s
+    attenuation: auto
+    filters:
+      - multiply: 5
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - if:
+                condition:
+                  lvgl.page.is_showing: system_setting_power_page
+                then:
+                  - lvgl.indicator.update:
+                      id: usb_voltage_indicator
+                      value: !lambda 'return id(usb_input_voltage).state * 10;'
+                  - lvgl.label.update:
+                      id: usb_voltage_text
+                      text:
+                        format: "%.2fV"
+                        args: [ 'x' ]
+          
+  - platform: adc
+    pin: GPIO7
+    id: battery_voltage
+    update_interval: 2s
+    attenuation: auto
+    filters:
+      - multiply: 5 
+    on_value:
+    - if:
+        condition:
+          lambda: 'return !id(is_sleeping);'
+        then:
+          - if:
+              condition:
+                lambda: 'return id(usb_input_voltage).state > 4.5;'
+              then:
+                - lvgl.widget.show: ani_battery_charging
+              else:
+                - lvgl.widget.hide: ani_battery_charging
+          - if:
+              condition:
+                lvgl.page.is_showing: system_setting_power_page
+              then:
+                - lvgl.indicator.update:
+                    id: battery_voltage_indicator
+                    value: !lambda 'return id(battery_voltage).state * 10;'
+                - lvgl.label.update:
+                    id: battery_voltage_text
+                    text:
+                      format: "%.2fV"
+                      args: [ 'x' ]
+          - lvgl.label.update:
+              id: lbl_battery_status
+              text: !lambda |-
+                float v = id(battery_voltage).state;
+                // 保留两位小数（四舍五入）
+                float rounded = (int)(v * 100 + 0.5f) / 100.0f;
+                // 电压映射到百分比
+                // 4.20V = 100%，3.00V = 0%
+                float percent = (rounded - 3.0f) / (4.2f - 3.0f) * 100.0f;
+                if (percent > 100.0f) percent = 100.0f;
+                if (percent < 0.0f) percent = 0.0f;
+                // 根据电量百分比选择 MDI 图标
+                std::string icon;
+                if (percent == 100.0f)
+                    icon = "\U000F0079"; // mdi-battery (full)
+                else if (percent > 90)
+                    icon = "\U000F0082"; // mdi-battery-90
+                else if (percent > 80)
+                    icon = "\U000F0081"; // mdi-battery-80
+                else if (percent > 70)
+                    icon = "\U000F0080"; // mdi-battery-70
+                else if (percent > 60)
+                    icon = "\U000F007F"; // mdi-battery-60
+                else if (percent > 50)
+                    icon = "\U000F007E"; // mdi-battery-50
+                else if (percent > 40)
+                    icon = "\U000F007D"; // mdi-battery-40
+                else if (percent > 30)
+                    icon = "\U000F007C"; // mdi-battery-30
+                else if (percent > 20)
+                    icon = "\U000F007B"; // mdi-battery-20
+                else if (percent > 10)
+                    icon = "\U000F007A"; // mdi-battery-10
+                else if (percent > 0)
+                    icon = "\U000F008E"; // mdi-battery-outline
+                else
+                    icon = "\U000F0091"; // mdi-battery-unknown
+                if (id(usb_input_voltage).state > 4.5) {
+                    // 充电中图标覆盖
+                    icon = " "; // mdi-battery-charging
+                }
+                // 格式化电压字符串
+                char buf[8];
+                sprintf(buf, "%.2f", rounded);
+                // 低电量红色警告（<3.4V）
+                if (v < 3.4f)
+                    return std::string("#FF0000 ") + icon + " " + buf + "V#";
+                else
+                    return icon + std::string(" ") + buf + "V";

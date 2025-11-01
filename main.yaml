@@ -1,0 +1,15 @@
+substitutions:
+  # 基本信息
+  lemonade_board: "um_pros3"
+  lemonade_device_name: "lemonade"
+  lemonade_device_friendly_name: "Lemonade"
+  lemonade_version: "0.4.0-rc1"
+  lemonade_ota_password: !secret ota_password
+
+packages:
+  - !include packages/lemonade.yaml
+  - !include packages/lvgl.yaml
+  - !include packages/hardware.yaml
+  - !include packages/script.yaml
+  - !include packages/interval.yaml
+  - !include packages/resources.yaml
