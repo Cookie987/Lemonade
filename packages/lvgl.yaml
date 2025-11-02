@@ -21,6 +21,14 @@ lvgl:
           state:
             disabled: true
       - label:
+          id: lbl_wifi_status
+          align: BOTTOM_LEFT
+          y: 3
+          x: -10
+          text_font: roboto_icons_14
+          recolor: true
+          text: "\U000F092E --dBm" # start with mdi-battery-unknown
+      - label:
           id: lbl_battery_status
           align: BOTTOM_RIGHT
           y: -3
@@ -860,4 +868,4 @@ lvgl:
             state:
               disabled: true
     
-    - id: page_weather_forecast  
+

@@ -51,14 +51,11 @@ image:
       resize: 320x240
 
 font:
-  - file: 
-      type: gfonts
-      family: Noto Sans SC
-      weight: 500
+  - file: "fonts/MiSans-Medium.ttf"
     id: "chinese_font14"
     size: 14
     bpp: 4
-    glyphs: [(+-*/)~，。.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz星期一二三四五六日天气频率显示和个性化池源压好不秒表倒计中重开始暂停将至继续构建时间系统更新执行默认设置信息返回加载亮度屏幕背适景网络图片自动启无响应确保电量充足请勿关机连接稳定©"!\,","]
+    glyphs: !include ../fonts/glyphs.yaml
     extras:
       - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
         glyphs: ["\uF104", "\uF105", "\uF2EA"]  # arrow-left, arrow-right, rotate-left
@@ -98,6 +95,12 @@ font:
           "\U000F0079", # mdi-battery (full)
           "\U000F008E", # mdi-battery-outline
           "\U000F0091", # mdi-battery-unknown
+          "\U000F091F", # mdi-wifi-strength-1
+          "\U000F0922", # mdi-wifi-strength-2
+          "\U000F0925", # mdi-wifi-strength-3
+          "\U000F0928", # mdi-wifi-strength-4
+          "\U000F092B", # mdi-wifi-strength-alert-outline
+          "\U000F092E", # mdi-wifi-strength-off-outline
           ]
  
   # - file: "fonts/materialdesignicons-webfont.ttf"
@@ -124,8 +127,8 @@ font:
   #     ]
       
   - file: "fonts/materialdesignicons-webfont.ttf"
-    id: icons_60
-    size: 60
+    id: icons_80
+    size: 80
     bpp: 4
     glyphs: [
       "\U000F0594", # clear-night

@@ -155,8 +155,8 @@ sensor:
                 // 保留两位小数（四舍五入）
                 float rounded = (int)(v * 100 + 0.5f) / 100.0f;
                 // 电压映射到百分比
-                // 4.20V = 100%，3.00V = 0%
-                float percent = (rounded - 3.0f) / (4.2f - 3.0f) * 100.0f;
+                // 4.15V = 100%，3.50V = 0%
+                float percent = (rounded - 3.55f) / (4.15f - 3.55f) * 100.0f;
                 if (percent > 100.0f) percent = 100.0f;
                 if (percent < 0.0f) percent = 0.0f;
                 // 根据电量百分比选择 MDI 图标
@@ -193,7 +193,7 @@ sensor:
                 char buf[8];
                 sprintf(buf, "%.2f", rounded);
                 // 低电量红色警告（<3.4V）
-                if (v < 3.4f)
+                if (v < 3.55f or percent < 20.0f)
                     return std::string("#FF0000 ") + icon + " " + buf + "V#";
                 else
                     return icon + std::string(" ") + buf + "V";

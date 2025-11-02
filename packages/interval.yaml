@@ -13,7 +13,6 @@ interval:
                     - lambda: |-
                         auto t = id(ntp_time).now();
                         char buf[9];
-                        // #d94848
                         snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.hour, t.minute, t.second);
                         lv_label_set_text(id(time_label), buf);
                         

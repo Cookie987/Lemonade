@@ -15,6 +15,7 @@ esphome:
 esp32:
   board: ${lemonade_board}
   cpu_frequency: 240MHz
+  flash_size: 16MB
   framework:
     type: esp-idf
     advanced:
@@ -24,7 +25,7 @@ psram:
   mode: octal
   speed: 80MHz
 
-# captive_portal:
+captive_portal:
 
 debug:
   update_interval: 5s
@@ -173,6 +174,30 @@ sensor:
   - platform: wifi_signal
     id: rssi
     update_interval: 2s
+    on_value: 
+      then:
+        - lvgl.label.update:
+            id: lbl_wifi_status
+            text: !lambda |-
+              char buf[10];
+              if (x <= -100) {
+                sprintf(buf, "--dBm");
+              } else {
+                sprintf(buf, "%ddBm", (int)x);
+              }
+              const char* icon;
+              if (x >= -50) {
+                icon = "\U000F0928"; // mdi-wifi-strength-4
+              } else if (x >= -65) {
+                icon = "\U000F0925"; // mdi-wifi-strength-3
+              } else if (x >= -80) {
+                icon = "\U000F0922"; // mdi-wifi-strength-2
+              } else if (x >= -95) {
+                icon = "\U000F091F"; // mdi-wifi-strength-1
+              } else {
+                icon = "\U000F092E"; // mdi-wifi-strength-off-outline
+              }
+              return std::string(icon) + " " + std::string(buf);
 
   - platform: internal_temperature
     id: internal_temp
