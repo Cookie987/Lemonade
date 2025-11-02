@@ -79,7 +79,7 @@ font:
     id: roboto_icons_14
     size: 16
     bpp: 4
-    glyphs: [V -.0123456789]
+    glyphs: [V -.0123456789dBm]
     extras:
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [

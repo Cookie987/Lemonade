@@ -23,8 +23,8 @@ lvgl:
       - label:
           id: lbl_wifi_status
           align: BOTTOM_LEFT
-          y: 3
-          x: -10
+          y: -3
+          x: 10
           text_font: roboto_icons_14
           recolor: true
           text: "\U000F092E --dBm" # start with mdi-battery-unknown
