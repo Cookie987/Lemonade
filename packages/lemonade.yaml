@@ -93,11 +93,6 @@ ota:
       - output.set_level:
           id: backlight_pin
           level: 100%
-    
-update:
-  - platform: http_request
-    name: Firmware Update
-    source: http://iot.cookie987.top/lemonade/manifest.json
 
 wifi:
   networks:
@@ -250,6 +245,8 @@ text_sensor:
       id: reset_reason
   - platform: version
     id: esphome_version
+  - platform: git_commit_sha
+    id: lemonade_git_commit_sha
 
 
 select:

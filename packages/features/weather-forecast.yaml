@@ -1,0 +1,93 @@
+lvgl:
+  pages:
+    - id: !extend page_weather_forecast
+      widgets: 
+        - obj:
+              align: CENTER
+              width: 320
+              height: 240
+              pad_all: 10
+              layout:
+                pad_column: 0
+                type: GRID
+                grid_rows: [FR(48), FR(13), FR(13), FR(13), FR(13)]
+                grid_columns: [FR(10), FR(40), FR(40), FR(10)]
+              widgets:
+                - label:
+                    text: "\U000F14E4"
+                    id: lbl_weather_forecast_condition_icon
+                    text_font: icons_100
+                    text_align: CENTER
+                    grid_cell_row_pos: 0
+                    grid_cell_column_pos: 0
+                    grid_cell_column_span: 2
+                    grid_cell_x_align: CENTER
+                    grid_cell_y_align: START
+
+                - label:
+                    text: "Unknown"
+                    id: lbl_weather_forecast_condition_name
+                    text_align: CENTER
+                    grid_cell_row_pos: 0
+                    grid_cell_column_pos: 2
+                    grid_cell_column_span: 2
+                    grid_cell_x_align: STRETCH
+                    grid_cell_y_align: CENTER
+
+                - label:
+                    text: "Feels like:"
+                    grid_cell_row_pos: 1
+                    grid_cell_column_pos: 1
+
+                - label:
+                    text: "--.- °C"
+                    id: lbl_weather_forecast_tempap
+                    text_align: RIGHT
+                    grid_cell_row_pos: 1
+                    grid_cell_column_pos: 2
+                    grid_cell_x_align: STRETCH
+
+                - label:
+                    text: "Maximum:"
+                    grid_cell_row_pos: 2
+                    grid_cell_column_pos: 1
+
+                - label:
+                    text: "--.- °C"
+                    id: lbl_weather_forecast_temphi
+                    text_align: RIGHT
+                    grid_cell_row_pos: 2
+                    grid_cell_column_pos: 2
+                    grid_cell_x_align: STRETCH
+
+                - label:
+                    text: "Minimum:"
+                    grid_cell_row_pos: 3
+                    grid_cell_column_pos: 1
+
+                - label:
+                    text: "--.- °C"
+                    id: lbl_weather_forecast_templo
+                    text_align: RIGHT
+                    grid_cell_row_pos: 3
+                    grid_cell_column_pos: 2
+                    grid_cell_x_align: STRETCH
+
+                - label:
+                    text: "Now:"
+                    grid_cell_row_pos: 4
+                    grid_cell_column_pos: 1
+
+                - label:
+                    text: "--.- °C"
+                    id: lbl_weather_outdnoor_now
+                    text_align: RIGHT
+                    grid_cell_row_pos: 4
+                    grid_cell_column_pos: 2
+                    grid_cell_x_align: STRETCH
+        - label:
+            text: "天气"
+            text_font: chinese_font14
+            state:
+              disabled: true
+            align: TOP_MID

@@ -1,36 +1,47 @@
 image:
   grayscale:
     - file: mdi:battery-10
+      transparency: alpha_channel
       id: batt_10
       resize: 18x18
     - file: mdi:battery-20
+      transparency: alpha_channel
       id: batt_20
       resize: 18x18
     - file: mdi:battery-30
+      transparency: alpha_channel
       id: batt_30
       resize: 18x18
     - file: mdi:battery-40
+      transparency: alpha_channel
       id: batt_40
       resize: 18x18
     - file: mdi:battery-50
+      transparency: alpha_channel
       id: batt_50
       resize: 18x18
     - file: mdi:battery-60
+      transparency: alpha_channel
       id: batt_60
       resize: 18x18
     - file: mdi:battery-70
+      transparency: alpha_channel
       id: batt_70
       resize: 18x18
     - file: mdi:battery-80
+      transparency: alpha_channel
       id: batt_80
       resize: 18x18
     - file: mdi:battery-90
+      transparency: alpha_channel
       id: batt_90
       resize: 18x18
     - file: mdi:battery
+      transparency: alpha_channel
       id: batt_full
       resize: 18x18
     - file: mdi:battery-outline
+      transparency: alpha_channel
       id: batt_empty
       resize: 18x18
 
@@ -47,18 +58,21 @@ font:
     id: "chinese_font14"
     size: 14
     bpp: 4
-    # glyphs: !include glyphs.yaml
-    glyphs: [(+-*/)~，。.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz星期一二三四五六日频率显示和个性化池源压好不秒表倒计中重开始暂停将至继续构建时间系统更新执行默认设置信息返回加载亮度屏幕背适景网络图片自动启无响应确保电量充足请勿关机连接稳定©"!\,","]
+    glyphs: [(+-*/)~，。.:°0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz星期一二三四五六日天气频率显示和个性化池源压好不秒表倒计中重开始暂停将至继续构建时间系统更新执行默认设置信息返回加载亮度屏幕背适景网络图片自动启无响应确保电量充足请勿关机连接稳定©"!\,","]
+    extras:
+      - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
+        glyphs: ["\uF104", "\uF105", "\uF2EA"]  # arrow-left, arrow-right, rotate-left
 
   - file: "fonts/JetBrainsMono-Bold-7.ttf"
     id: "clock24"
-    size: 62
+    size: 58
     bpp: 4
     glyphs: [\:0123456789]
+
   - file: "***REMOVED***font/HFDigits.ttf"
     id: "timer60"
     size: 60
-    bpp: 4
+    bpp: 1
     glyphs: [\:0123456789.]
 
   - file: 
@@ -85,3 +99,26 @@ font:
           "\U000F008E", # mdi-battery-outline
           "\U000F0091", # mdi-battery-unknown
           ]
+ 
+  - file: "fonts/materialdesignicons-webfont.ttf"
+    id: icons_100
+    size: 100
+    bpp: 4
+    glyphs: [
+      "\U000F0594", # clear-night
+      "\U000F0590", # cloudy
+      "\U000F0F2F", # exceptional
+      "\U000F0591", # fog
+      "\U000F0592", # hail
+      "\U000F0593", # lightning
+      "\U000F067E", # lightning-rainy
+      "\U000F0595", # partlycloudy
+      "\U000F0596", # pouring
+      "\U000F0597", # rainy
+      "\U000F0598", # snowy
+      "\U000F067F", # snowy-rainy
+      "\U000F0599", # sunny
+      "\U000F059D", # windy
+      "\U000F059E", # windy-variant
+      "\U000F14E4", # sunny-off
+      ]

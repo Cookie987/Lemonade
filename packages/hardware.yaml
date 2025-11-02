@@ -186,8 +186,8 @@ sensor:
                 else
                     icon = "\U000F0091"; // mdi-battery-unknown
                 if (id(usb_input_voltage).state > 4.5) {
-                    // 充电中图标覆盖
-                    icon = " "; // mdi-battery-charging
+                    // 充电中图标隐藏
+                    icon = " "; 
                 }
                 // 格式化电压字符串
                 char buf[8];

@@ -58,7 +58,8 @@ lvgl:
           widgets:
             - label:
                 align: CENTER
-                text: "\uF053"   # FontAwesome 向左箭头
+                y: 2
+                text: "\uF104"   # angle-left
           on_release:
             then:
               - lvgl.page.previous:
@@ -74,7 +75,8 @@ lvgl:
           widgets:
             - label:
                 align: CENTER
-                text: "\uF00C" # FontAwesome 对号
+                y: 2
+                text: "\uF2EA" # rotate-left
           hidden: true
           on_release:
             then:
@@ -93,7 +95,8 @@ lvgl:
           widgets:
             - label:
                 align: CENTER
-                text: "\uF054"   # FontAwesome 向右箭头
+                y: 2
+                text: "\uF105"   # angle-right
           on_release:
             then:
               - lvgl.page.next:
@@ -144,7 +147,7 @@ lvgl:
               - ota.http_request.flash:
                     md5_url: ***REMOVED***lemonade/ota/lemonade.md5
                     url: ***REMOVED***lemonade/ota/lemonade.ota.bin
-        
+  default_font: chinese_font14      
   pages:
     - id: page_main
       widgets:
@@ -173,6 +176,7 @@ lvgl:
             text_font: chinese_font14
             state:
               disabled: true
+    
     - id: page_timer
       on_load:
         - lvgl.widget.show: tabview_timer
@@ -188,7 +192,7 @@ lvgl:
             state:
               disabled: true
             tabs: 
-              - name: Timer
+              - name: 秒表
                 state:
                   disabled: true
                 text_font: chinese_font14
@@ -249,7 +253,7 @@ lvgl:
                               id(stopwatch_start_time) = millis();
                               id(stopwatch_paused_time) = 0;
               
-              - name: Countdown
+              - name: 倒计时
                 state:
                   disabled: true
                 text_font: chinese_font14
@@ -468,6 +472,7 @@ lvgl:
                               lv_roller_set_selected(id(roller_countdown_minutes_ones).obj, 0, LV_ANIM_ON);
                               lv_roller_set_selected(id(roller_countdown_seconds_tens).obj, 0, LV_ANIM_ON);
                               lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, 0, LV_ANIM_ON);
+    
     - id: page_setting_menu
       on_load:
         - lvgl.widget.enable: [tile_view, btn_display_setting, btn_battery_setting, btn_system_setting]
@@ -696,6 +701,7 @@ lvgl:
                     length: 10
                     color: 0x404040
                     label_gap: 10
+    
     - id: system_setting_display_page
       skip: true
       on_load:
@@ -803,6 +809,7 @@ lvgl:
             text_font: chinese_font14
             state:
               disabled: true
+    
     - id: system_setting_system_page
       skip: true
       on_load:
@@ -852,4 +859,5 @@ lvgl:
             text_font: chinese_font14
             state:
               disabled: true
-        
+    
+    - id: page_weather_forecast  
