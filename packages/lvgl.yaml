@@ -23,7 +23,7 @@ lvgl:
       - label:
           id: lbl_wifi_status
           align: BOTTOM_LEFT
-          y: -3
+          y: -2
           x: 10
           text_font: roboto_icons_14
           recolor: true
