@@ -8,7 +8,7 @@ display:
     dc_pin: GPIO15
     show_test_card: false
     color_order: bgr
-    invert_colors: true
+    invert_colors: false
     auto_clear_enabled: false
     update_interval: never
     # pages:
