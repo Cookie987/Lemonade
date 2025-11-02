@@ -1,22 +1,22 @@
 lvgl:
   pages:
     - id: !extend page_weather_forecast
-      widgets: 
+      widgets:
         - obj:
               align: CENTER
-              width: 320
-              height: 240
+              width: 280
+              height: 190
               pad_all: 10
               layout:
                 pad_column: 0
                 type: GRID
-                grid_rows: [FR(48), FR(13), FR(13), FR(13), FR(13)]
-                grid_columns: [FR(10), FR(40), FR(40), FR(10)]
+                grid_rows: [FR(40), FR(12), FR(12), FR(12), FR(12)]
+                grid_columns: [FR(5), FR(45), FR(45), FR(5)]
               widgets:
                 - label:
                     text: "\U000F14E4"
                     id: lbl_weather_forecast_condition_icon
-                    text_font: icons_100
+                    text_font: icons_60
                     text_align: CENTER
                     grid_cell_row_pos: 0
                     grid_cell_column_pos: 0

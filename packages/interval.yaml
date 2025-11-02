@@ -78,7 +78,7 @@ interval:
                               "IP: %s    "
                               "MAC: %s\n\nLemonade OS ${lemonade_version}"
                               " %s\n"
-                              "ESPHome %s\nOS by Cookie987, Hardware by ZSVStudio.\n©2025 RedCookieStudios.",
+                              "ESPHome %s\nOS by Cookie987, HW by ZSVStudio.\n©2025 RedCookieStudios.",
                               ssid_val.c_str(),
                               std::to_string(rssi_val).c_str(),
                               ip.c_str(),

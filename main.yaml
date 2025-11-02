@@ -7,7 +7,7 @@ substitutions:
   lemonade_ota_password: !secret ota_password
 
 external_components:
-  - source: github://tlanfer/esphome-custom-components
+  - source: github://cookie987/esphome-custom-components
 
 packages:
   # 核心组件
