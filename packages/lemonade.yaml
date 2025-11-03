@@ -179,6 +179,11 @@ sensor:
         - lvgl.label.update:
             id: lbl_wifi_status
             text: !lambda |-
+              // 检查是否处于AP模式
+              if (id(ssid).state == "") {
+              // 未连接到任何SSID，认为处于AP模式
+              return std::string("\U000F092E") + " AP";
+              }
               char buf[10];
               if (x <= -100) {
                 sprintf(buf, "--dBm");
@@ -272,7 +277,12 @@ text_sensor:
     id: esphome_version
   - platform: git_commit_sha
     id: lemonade_git_commit_sha
-
+  - platform: uptime
+    id: uptime_text
+    update_interval: 30s
+    format:
+      separator: " "
+      expand: true
 
 select:
   - platform: lvgl

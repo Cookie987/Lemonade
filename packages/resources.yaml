@@ -79,7 +79,7 @@ font:
     id: roboto_icons_14
     size: 16
     bpp: 4
-    glyphs: [V -.0123456789dBm]
+    glyphs: [V -.0123456789dBmAP]
     extras:
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [
@@ -101,6 +101,7 @@ font:
           "\U000F0928", # mdi-wifi-strength-4
           "\U000F092B", # mdi-wifi-strength-alert-outline
           "\U000F092E", # mdi-wifi-strength-off-outline
+          "\U000F0003", # mdi-access-point
           ]
  
   # - file: "fonts/materialdesignicons-webfont.ttf"

@@ -68,20 +68,27 @@ interval:
                       auto esphome_ver = id(esphome_version).state;
                       auto ssid_val = id(ssid).state;
                       auto rssi_val = id(rssi).state;
+                      
+                      if (ssid_val.empty()) {
+                        ssid_val = "(AP模式)";
+                        rssi_val = 0;
+                      }
 
                       // 拼接文字
                       char buf[256];
                       snprintf(buf, sizeof(buf),
                               "SSID: %s   "
                               "RSSI: %s dBm\n"
-                              "IP: %s    "
-                              "MAC: %s\n\nLemonade OS ${lemonade_version}"
+                              "IP: %s  "
+                              "MAC: %s\n"
+                              "运行时间: %s\n\nLemonade OS ${lemonade_version}"
                               " %s\n"
                               "ESPHome %s\nOS by Cookie987, HW by ZSVStudio.\n©2025 RedCookieStudios.",
                               ssid_val.c_str(),
-                              std::to_string(rssi_val).c_str(),
+                              std::to_string((int)rssi_val).c_str(),
                               ip.c_str(),
                               mac.c_str(),
+                              id(uptime_text).state.c_str(),
                               commit.c_str(),
                               esphome_ver.c_str()
                               );

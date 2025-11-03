@@ -3,7 +3,7 @@ substitutions:
   lemonade_board: "um_pros3"
   lemonade_device_name: "lemonade"
   lemonade_device_friendly_name: "Lemonade"
-  lemonade_version: "0.5.0-rc1"
+  lemonade_version: "0.5.0-rc2"
   lemonade_ota_password: !secret ota_password
 
 external_components:
