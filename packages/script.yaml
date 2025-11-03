@@ -6,3 +6,122 @@ script:
           transition_length: 0.5s
       - lambda: id(is_sleeping)=false;
       - lvgl.animimg.start: ani_battery_charging
+  
+  - id: update_date
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - lambda: |-
+                // 更新日期显示
+                auto t = id(ntp_time).now();
+                char date_buf[30];
+                char weekday_buf[10];
+                // ESPHome中day_of_week: 1=Sunday, 2=Monday, ..., 7=Saturday
+                switch(t.day_of_week) {
+                  case 1: strcpy(weekday_buf, "星期日"); break;
+                  case 2: strcpy(weekday_buf, "星期一"); break;
+                  case 3: strcpy(weekday_buf, "星期二"); break;
+                  case 4: strcpy(weekday_buf, "星期三"); break;
+                  case 5: strcpy(weekday_buf, "星期四"); break;
+                  case 6: strcpy(weekday_buf, "星期五"); break;
+                  case 7: strcpy(weekday_buf, "星期六"); break;
+                  default: strcpy(weekday_buf, "未知"); break;
+                }
+                snprintf(date_buf, sizeof(date_buf), "%04d-%02d-%02d %s",
+                        t.year, t.month, t.day_of_month, weekday_buf);
+                lv_label_set_text(id(date_label), date_buf);
+            - lvgl.label.update:
+                id: lbl_topbar_date
+                text: !lambda |-
+                  static const char * const day_names[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+                  auto t = id(ntp_time).now();
+                  char buf[20];
+                  auto a = day_names[id(ntp_time).now().day_of_week - 1]; // Adjust for 0-based index
+                  snprintf(buf, sizeof(buf), "%02d.%02d %s", t.month, t.day_of_month, a);
+                  return std::string(buf);
+
+  - id: update_time
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - lambda: |-
+                // 更新时间显示
+                auto t = id(ntp_time).now();
+                char buf[9];
+                // 00:00 格式
+                char buf1[6];
+                snprintf(buf1, sizeof(buf), "%02d:%02d", t.hour, t.minute);
+                snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.hour, t.minute, t.second);
+                lv_label_set_text(id(time_label), buf);
+                lv_label_set_text(id(lbl_topbar_time), buf1);
+  
+  - id: refresh_info_page
+    then:
+      - if:
+            condition:
+              lambda: 'return !id(is_sleeping);'
+            then:
+              - if:
+                  condition:
+                    lvgl.page.is_showing: system_setting_system_page
+                  then:
+                    - lambda: |-
+                        using namespace esphome;
+
+                        // 获取 WiFi 全局对象
+                        auto wifi = wifi::global_wifi_component;
+                        if (wifi == nullptr) return;
+            
+                        std::string ip = "N/A";
+                        auto ip_list = wifi->get_ip_addresses();
+                        if (!ip_list.empty()) {
+                          ip = ip_list[0].str();
+                        }
+
+                        std::string mac = "none";
+                        std::string commit = "fffffff";
+
+                        mac = id(text_sensor_mac_address).state;
+                        commit = id(lemonade_git_commit_sha).state.substr(0, 7);
+                        
+                        auto esphome_ver = id(esphome_version).state;
+                        auto ssid_val = id(ssid).state;
+                        auto rssi_val = id(rssi).state;
+                        auto captive_portal = captive_portal::global_captive_portal;
+                        bool in_ap_mode = captive_portal->is_active();
+                        if (in_ap_mode) {
+                          ssid_val = "(AP模式)";
+                          rssi_val = 0;
+                        }
+
+                        
+
+                        std::string rssi_str = std::to_string((int)rssi_val);
+                        if (ssid_val == "") {
+                          ssid_val = "(未连接)";
+                          rssi_str = "-∞";
+                        }
+                        // 拼接文字
+                        char buf[256];
+                        snprintf(buf, sizeof(buf),
+                                "SSID: %s   "
+                                "RSSI: %s dBm\n"
+                                "IP: %s  "
+                                "MAC: %s\n"
+                                "运行时间: %s\n\nLemonade OS ${lemonade_version}"
+                                " %s\n"
+                                "ESPHome %s\nOS by Cookie987, HW by ZSVStudio.\n©2025 RedCookieStudios.",
+                                ssid_val.c_str(),
+                                std::to_string((int)rssi_val).c_str(),
+                                ip.c_str(),
+                                mac.c_str(),
+                                id(uptime_text).state.c_str(),
+                                commit.c_str(),
+                                esphome_ver.c_str()
+                                );
+
+                        lv_label_set_text(id(lbl_sysinfo), buf);

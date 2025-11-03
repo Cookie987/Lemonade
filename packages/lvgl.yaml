@@ -12,6 +12,26 @@ lvgl:
 
   top_layer:
     widgets:
+      - label:
+          id: lbl_topbar_title
+          align: TOP_MID
+          height: 14
+          text: "系统设置"
+          text_font: chinese_font14
+      - label:
+          id: lbl_topbar_date
+          x: 8
+          align: TOP_LEFT
+          height: 14
+          text: "01.01 Thu"
+          text_font: chinese_font14
+      - label:
+          id: lbl_topbar_time
+          align: TOP_RIGHT
+          x: -8
+          height: 14
+          text: "00:00"
+          text_font: chinese_font14
       - obj:
           align: BOTTOM_MID
           width: 320
@@ -92,7 +112,6 @@ lvgl:
                   id: page_setting_menu
                   animation: MOVE_RIGHT
                   time: 200ms
-
       # 下一页按钮
       - button:
           id: btn_page_next
@@ -158,6 +177,10 @@ lvgl:
   default_font: chinese_font14      
   pages:
     - id: page_main
+      on_load:
+        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+      on_unload:
+        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
       widgets:
         - image:
             id: background_image
@@ -188,6 +211,9 @@ lvgl:
     - id: page_timer
       on_load:
         - lvgl.widget.show: tabview_timer
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "计时器"
       on_unload:
         - delay: 250ms
         - lvgl.widget.hide: tabview_timer
@@ -195,7 +221,10 @@ lvgl:
         - tabview:
             id: tabview_timer
             anim_time: 0.5s
-            align: CENTER
+            x: 0
+            y: 18
+            width: 320
+            height: 198
             hidden: true
             state:
               disabled: true
@@ -211,12 +240,12 @@ lvgl:
                       align: CENTER
                       state:
                         disabled: true
-                      y: -25
+                      y: -15
                       text_font: timer60
                   - button:
                       id: btn_stopwatch
                       x: 55
-                      y: 125
+                      y: 105
                       width: 70
                       height: 30
                       widgets:
@@ -243,7 +272,7 @@ lvgl:
                   - button:
                       id: btn_reset_stopwatch
                       x: 175
-                      y: 125
+                      y: 105
                       width: 70
                       height: 30
                       widgets:
@@ -270,45 +299,25 @@ lvgl:
                   - roller:
                       id: roller_countdown_hours_tens
                       x: 10
-                      y: 25
+                      y: 5
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: 
-                        - "0"
-                        - "1"
-                        - "2"
-                        - "3"
-                        - "4"
-                        - "5"
-                        - "6"
-                        - "7"
-                        - "8"
-                        - "9"
+                      options: [0,1,2,3,4,5,6,7,8,9]
                   # 小时个位
                   - roller:
                       id: roller_countdown_hours_ones
                       x: 50
-                      y: 25
+                      y: 5
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: 
-                        - "0"
-                        - "1"
-                        - "2"
-                        - "3"
-                        - "4"
-                        - "5"
-                        - "6"
-                        - "7"
-                        - "8"
-                        - "9"
+                      options: [0,1,2,3,4,5,6,7,8,9]
                   # 分隔符
                   - label:
                       text: ":"
                       x: 97
-                      y: 70
+                      y: 45
                       state:
                         disabled: true
                       text_font: chinese_font14
@@ -316,43 +325,27 @@ lvgl:
                   - roller:
                       id: roller_countdown_minutes_tens
                       x: 110
-                      y: 25
+                      y: 5
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: 
-                        - 0
-                        - 1
-                        - 2
-                        - 3
-                        - 4
-                        - 5
+                      options: [0,1,2,3,4,5]
                       text_font: chinese_font14
                   # 分钟个位
                   - roller:
                       id: roller_countdown_minutes_ones
                       x: 150
-                      y: 25
+                      y: 5
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: 
-                        - 0
-                        - 1
-                        - 2
-                        - 3
-                        - 4
-                        - 5
-                        - 6
-                        - 7
-                        - 8
-                        - 9
+                      options: [0,1,2,3,4,5,6,7,8,9]
                       text_font: chinese_font14
                   # 分隔符
                   - label:
                       text: ":"
                       x: 197
-                      y: 70
+                      y: 45
                       state:
                         disabled: true
                       text_font: chinese_font14
@@ -360,43 +353,27 @@ lvgl:
                   - roller:
                       id: roller_countdown_seconds_tens
                       x: 210
-                      y: 25
+                      y: 5
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: 
-                        - 0
-                        - 1
-                        - 2
-                        - 3
-                        - 4
-                        - 5
+                      options: [0,1,2,3,4,5]
                       text_font: chinese_font14
                   # 秒个位
                   - roller:
                       id: roller_countdown_seconds_ones
                       x: 250
-                      y: 25
+                      y: 5
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: 
-                        - 0
-                        - 1
-                        - 2
-                        - 3
-                        - 4
-                        - 5
-                        - 6
-                        - 7
-                        - 8
-                        - 9
+                      options: [0,1,2,3,4,5,6,7,8,9]
                       text_font: chinese_font14     
                   # 控制按钮
                   - button:
                       id: btn_countdown
                       x: 55
-                      y: 140
+                      y: 115
                       width: 70
                       height: 30
                       widgets:
@@ -455,8 +432,8 @@ lvgl:
                               }
                   - button:
                       id: btn_countdown_reset
-                      x: 175
-                      y: 140
+                      x: 162
+                      y: 115
                       width: 70
                       height: 30
                       widgets:
@@ -484,6 +461,9 @@ lvgl:
     - id: page_setting_menu
       on_load:
         - lvgl.widget.enable: [tile_view, btn_display_setting, btn_battery_setting, btn_system_setting]
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "系统设置"
       on_unload:
         - lvgl.widget.disable: [tile_view, btn_display_setting, btn_battery_setting, btn_system_setting]
       widgets: 
@@ -573,12 +553,7 @@ lvgl:
                               animation: MOVE_LEFT
                               time: 200ms
 
-        - label:
-            text: "系统设置"
-            text_font: chinese_font14
-            state:
-              disabled: true
-            align: TOP_MID
+        
     
     - id: system_setting_power_page
       skip: true
@@ -586,17 +561,14 @@ lvgl:
         - lvgl.widget.show: [btn_back_setting]
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "电源和电池"
       on_unload:
         - lvgl.widget.hide: [btn_back_setting]
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_page_prev
       widgets:
-        - label:
-            text: "电源和电池"
-            text_font: chinese_font14
-            state:
-              disabled: true
-            align: TOP_MID
         - meter:
             id: usb_voltage_meter
             align: center
@@ -717,18 +689,15 @@ lvgl:
         - lvgl.widget.show: [btn_back_setting]
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: backlight_slider
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "显示和个性化"
       on_unload:
         - lvgl.widget.disable: [backlight_slider, roller_image]
         - lvgl.widget.hide: [btn_back_setting]
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_page_prev
       widgets:
-        - label:
-            text: "显示和个性化"
-            text_font: chinese_font14
-            state:
-              disabled: true
-            align: TOP_MID
         - label:
             text: "屏幕亮度"
             text_font: chinese_font14
@@ -825,18 +794,16 @@ lvgl:
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_update_system
         - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "系统"
+        - script.execute: refresh_info_page
       on_unload:
         - lvgl.widget.disable: [btn_update_system]
         - lvgl.widget.hide: btn_back_setting
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_page_prev
       widgets:
-        - label:
-            text: "系统"
-            text_font: chinese_font14
-            state:
-              disabled: true
-            align: TOP_MID
         - button:
             id: btn_update_system
             align: CENTER

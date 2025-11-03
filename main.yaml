@@ -3,7 +3,7 @@ substitutions:
   lemonade_board: "um_pros3"
   lemonade_device_name: "lemonade"
   lemonade_device_friendly_name: "Lemonade"
-  lemonade_version: "0.5.0-rc2"
+  lemonade_version: "0.5.0-rc3"
   lemonade_ota_password: !secret ota_password
 
 external_components:
@@ -17,6 +17,7 @@ packages:
   - !include packages/script.yaml
   - !include packages/interval.yaml
   - !include packages/resources.yaml
+  - !include packages/networks.yaml
 
   # 其他组件
   - !include packages/features/weather-forecast.yaml

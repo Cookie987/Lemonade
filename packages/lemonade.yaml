@@ -96,19 +96,21 @@ ota:
           level: 100%
 
 wifi:
-  networks:
-  - ssid: !secret wifi_ssid
-    password: !secret wifi_password
-  - ssid: "19"
-    password: "88888888"
-  - ssid: "SEEWO"
-    password: "SEEWOSEEWO"
   reboot_timeout: 0s
+  enable_btm: true
+  enable_rrm: true
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Lemonade"
     password: "Lemonade"
+    ap_timeout: 30s
   power_save_mode: HIGH
+  on_disconnect:
+    then:
+      - logger.log: WiFi signal is too weak or not connected. Reconnecting...
+      - wifi.disable
+      - delay: 5s
+      - wifi.enable
 
 
 time:
@@ -120,6 +122,8 @@ time:
       - cn.pool.ntp.org
     on_time_sync: 
       then:
+        - script.execute: update_date
+        - script.execute: update_time
         - lambda: |-
             // 初始化秒表状态（仅在没有保存的状态时）
             static bool initialized = false;
@@ -169,7 +173,16 @@ time:
                 
               }
             }
-        
+    on_time: 
+      - seconds: '*'
+        then:
+          - script.execute: update_time
+      - hours: '*'
+        minutes: '0'
+        seconds: '0'
+        then:
+          - script.execute: update_date
+
 sensor: 
   - platform: wifi_signal
     id: rssi
@@ -180,9 +193,11 @@ sensor:
             id: lbl_wifi_status
             text: !lambda |-
               // 检查是否处于AP模式
-              if (id(ssid).state == "") {
-              // 未连接到任何SSID，认为处于AP模式
-              return std::string("\U000F092E") + " AP";
+              // Check if ESP32 WiFi access point is enabled
+              auto captive_portal = captive_portal::global_captive_portal;
+              bool in_ap_mode = captive_portal->is_active();
+              if (in_ap_mode) {
+                return "\U000F0003 AP";
               }
               char buf[10];
               if (x <= -100) {
@@ -191,6 +206,9 @@ sensor:
                 sprintf(buf, "%ddBm", (int)x);
               }
               const char* icon;
+              if (x == 0){
+                return "\U000F092E -∞dBm"; // mdi-wifi-strength-off-outline
+              }
               if (x >= -50) {
                 icon = "\U000F0928"; // mdi-wifi-strength-4
               } else if (x >= -65) {

@@ -79,7 +79,7 @@ font:
     id: roboto_icons_14
     size: 16
     bpp: 4
-    glyphs: [V -.0123456789dBmAP]
+    glyphs: [V -.0123456789dBmAP∞]
     extras:
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [
@@ -103,49 +103,3 @@ font:
           "\U000F092E", # mdi-wifi-strength-off-outline
           "\U000F0003", # mdi-access-point
           ]
- 
-  # - file: "fonts/materialdesignicons-webfont.ttf"
-  #   id: icons_100
-  #   size: 100
-  #   bpp: 4
-  #   glyphs: [
-  #     "\U000F0594", # clear-night
-  #     "\U000F0590", # cloudy
-  #     "\U000F0F2F", # exceptional
-  #     "\U000F0591", # fog
-  #     "\U000F0592", # hail
-  #     "\U000F0593", # lightning
-  #     "\U000F067E", # lightning-rainy
-  #     "\U000F0595", # partlycloudy
-  #     "\U000F0596", # pouring
-  #     "\U000F0597", # rainy
-  #     "\U000F0598", # snowy
-  #     "\U000F067F", # snowy-rainy
-  #     "\U000F0599", # sunny
-  #     "\U000F059D", # windy
-  #     "\U000F059E", # windy-variant
-  #     "\U000F14E4", # sunny-off
-  #     ]
-      
-  - file: "fonts/materialdesignicons-webfont.ttf"
-    id: icons_80
-    size: 80
-    bpp: 4
-    glyphs: [
-      "\U000F0594", # clear-night
-      "\U000F0590", # cloudy
-      "\U000F0F2F", # exceptional
-      "\U000F0591", # fog
-      "\U000F0592", # hail
-      "\U000F0593", # lightning
-      "\U000F067E", # lightning-rainy
-      "\U000F0595", # partlycloudy
-      "\U000F0596", # pouring
-      "\U000F0597", # rainy
-      "\U000F0598", # snowy
-      "\U000F067F", # snowy-rainy
-      "\U000F0599", # sunny
-      "\U000F059D", # windy
-      "\U000F059E", # windy-variant
-      "\U000F14E4", # sunny-off
-      ]

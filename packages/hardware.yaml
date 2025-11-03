@@ -155,7 +155,7 @@ sensor:
                 // 保留两位小数（四舍五入）
                 float rounded = (int)(v * 100 + 0.5f) / 100.0f;
                 // 电压映射到百分比
-                // 4.15V = 100%，3.50V = 0%
+                // 4.15V = 100%，3.55V = 0%
                 float percent = (rounded - 3.55f) / (4.15f - 3.55f) * 100.0f;
                 if (percent > 100.0f) percent = 100.0f;
                 if (percent < 0.0f) percent = 0.0f;
@@ -181,7 +181,7 @@ sensor:
                     icon = "\U000F007B"; // mdi-battery-20
                 else if (percent > 10)
                     icon = "\U000F007A"; // mdi-battery-10
-                else if (percent > 0)
+                else if (percent >= 0)
                     icon = "\U000F008E"; // mdi-battery-outline
                 else
                     icon = "\U000F0091"; // mdi-battery-unknown

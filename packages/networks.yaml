@@ -1,0 +1,14 @@
+wifi:  
+  networks:
+  - ssid: !secret wifi_ssid
+    password: !secret wifi_password
+  - ssid: "19"
+    password: "88888888"
+  - ssid: "SEEWO"
+    password: "SEEWOSEEWO"
+  - ssid: "baogaoting-10"
+    password: "baogaoting10"
+  - ssid: "baogaoting-11"
+    password: "baogaoting11"
+  - ssid: "Route"
+    password: "Weiyuqi0000"
