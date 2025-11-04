@@ -10,7 +10,7 @@ substitutions:
   lemonade_ibeacon_minor: "115"
   lemonade_ibeacon_measured_power: "-59"
   lemonade_ota_md5_url: ***REMOVED***lemonade/ota/wsy/lemonade.md5
-  lemonade_ota_url: ***REMOVED***lemonade/ota/wsy/lemonade.ota.bin
+  lemonade_ota_url: ***REMOVED***lemonade/ota/wsy/firmware.ota.bin
 
 external_components:
   - source: github://cookie987/esphome-custom-components
@@ -24,6 +24,7 @@ packages:
   - !include packages/interval.yaml
   - !include packages/resources.yaml
   - !include packages/networks.yaml
-
+  # 游戏
+  - !include packages/games/game_core.yaml
   # 其他组件
   - !include packages/features/weather-forecast.yaml

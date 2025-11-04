@@ -149,13 +149,13 @@ lvgl:
             - spinner:
                 align: CENTER
                 y: 75
-                height: 50
-                width: 50
+                height: 40
+                width: 40
                 spin_time: 1s
                 arc_length: 60deg
                 arc_width: 8
                 indicator:
-                  arc_color: 0x18bcf2 #18bcf2
+                  arc_color: 0xffffff #ffffffff
                   arc_width: 8
           on_press:
             - lvgl.widget.hide: boot_screen
