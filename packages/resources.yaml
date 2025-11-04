@@ -49,6 +49,10 @@ image:
     - file: ***REMOVED***img/bocchi.png
       id: defaultbg
       resize: 320x240
+    
+    - file: imgs/ota.png
+      id: otaimg
+      resize: 320x240
 
 font:
   - file: "fonts/MiSans-Medium.ttf"
@@ -72,6 +76,12 @@ font:
     size: 58
     bpp: 4
     glyphs: [\:0123456789]
+
+  - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
+    id: "cookielogo"
+    size: 64
+    bpp: 4
+    glyphs: ["\uF564"]
 
   - file: "***REMOVED***font/HFDigits.ttf"
     id: "timer60"

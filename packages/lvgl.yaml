@@ -1,8 +1,6 @@
 lvgl:
   id: lvgl_1
   log_level: WARN
-  keypads:
-    esc: o
   encoders:
     initial_focus: btn_page_prev
     enter_button: x
@@ -34,6 +32,7 @@ lvgl:
           text_font: chinese_font14
       - obj:
           align: BOTTOM_MID
+          id: obj_bottom_bar
           width: 320
           height: 25
           scrollbar_mode: "OFF"
@@ -129,7 +128,37 @@ lvgl:
               - lvgl.page.next:
                   animation: MOVE_LEFT
                   time: 200ms
-
+      - obj:
+          id: boot_screen
+          x: 0
+          y: 0
+          width: 100%
+          height: 100%
+          bg_color: 0x000000 #000000
+          bg_opa: COVER
+          radius: 0
+          pad_all: 0
+          border_width: 0
+          widgets:
+            - label:
+                align: CENTER
+                text_font: cookielogo
+                recolor: true
+                text: "#ffffff \uF564#"
+                y: -20
+            - spinner:
+                align: CENTER
+                y: 75
+                height: 50
+                width: 50
+                spin_time: 1s
+                arc_length: 60deg
+                arc_width: 8
+                indicator:
+                  arc_color: 0x18bcf2 #18bcf2
+                  arc_width: 8
+          on_press:
+            - lvgl.widget.hide: boot_screen
   msgboxes:
     - id: msgbox_battery_low
       close_button: false
@@ -171,9 +200,8 @@ lvgl:
           text: "好"
           on_click:
             then:
-              - ota.http_request.flash:
-                    md5_url: ***REMOVED***lemonade/ota/lemonade.md5
-                    url: ***REMOVED***lemonade/ota/lemonade.ota.bin
+              - lvgl.page.show: page_ota
+
   default_font: chinese_font14      
   pages:
     - id: page_main
@@ -834,6 +862,7 @@ lvgl:
         - lvgl.widget.hide: [btn_back_setting]
         - lvgl.widget.disable: [switch_wifi]
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
+        - lvgl.widget.focus: btn_page_prev
       widgets:
         - label:
             text: "Wi-Fi"
@@ -853,11 +882,11 @@ lvgl:
             text_font: chinese_font14
             state:
               disabled: true
-            x: 149
+            x: 179
             y: 53
         - switch:
             id: switch_bluetooth
-            x: 220
+            x: 250
             y: 48
             state:
               checked: true
@@ -920,4 +949,48 @@ lvgl:
             state:
               disabled: true
     
-
+    - id: page_ota
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [obj_bottom_bar, btn_page_prev, btn_page_next, btn_back_setting, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - lvgl.canvas.fill:
+            id: ota_canvas
+            color: !lambda return lv_color_hex(0x000000);
+        - lvgl.widget.hide: msgbox_update_message
+        - delay: 500ms
+        - ota.http_request.flash:
+                    md5_url: ${lemonade_ota_md5_url}
+                    url: ${lemonade_ota_url}
+        - lvgl.widget.hide: lbl_ota_prompt
+        - lvgl.widget.show: lbl_ota_fail_prompt
+      on_unload:
+        - lvgl.widget.show: [obj_bottom_bar, btn_page_prev, btn_page_next, lbl_topbar_date, lbl_topbar_time]
+        - lvgl.widget.enable: btn_back_setting
+        - lvgl.widget.disable: btn_update_system
+        - lvgl.widget.focus: btn_page_prev
+      widgets:
+        - canvas:
+            id: ota_canvas
+            align: CENTER
+            width: 320
+            height: 240
+        - image:
+            src: otaimg
+            align: CENTER
+            width: 320
+            height: 240
+        - label:
+            align: CENTER
+            id: lbl_ota_prompt
+            y: 90
+            recolor: true
+            text_align: CENTER
+            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 可能需要几十秒。请勿关闭设备。#"
+        - label:
+            align: CENTER
+            id: lbl_ota_fail_prompt
+            y: 90
+            recolor: true
+            hidden: true
+            text_align: CENTER
+            text: "#ff0000 更新失败，请长按并松开 O 键返回主页。#"

@@ -95,7 +95,7 @@ binary_sensor:
           - light.toggle:
               id: backlight
               transition_length: 0.5s
-          - delay: 100ms  
+          - delay: 100ms
           - lambda: id(is_sleeping)=!id(is_sleeping);
           - lvgl.animimg.start: ani_battery_charging
           - if:

@@ -1,0 +1,144 @@
+external_components:
+  - source: github://stuartparmenter/games-esphome@main
+    components: [lvgl_game_runner, game_snake, game_breakout, game_pong]
+
+game_snake:
+  id: snake
+
+lvgl_game_runner:
+  - id: game_runner_breakout
+    game: snake   # References the registered game name
+    canvas: game_canvas
+    fps: 30
+    start_paused: true
+
+lvgl:
+  id: lvgl_1
+  pages:
+    - id: page_game_menu
+      on_load:
+        - lvgl.widget.enable: [tile_view_game_menu, btn_snake]
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "游戏"
+      on_unload:
+        - lvgl.widget.disable: [tile_view_game_menu, btn_snake]
+      widgets: 
+        - tileview:
+            id: tile_view_game_menu
+            x: 0
+            y: 0
+            width: 320
+            height: 185
+            align: CENTER
+            state:
+              disabled: true
+            tiles: 
+              - id: tile_snake
+                x: 0
+                row: 0
+                column: 0
+                y: 0
+                widgets:
+                  - button:
+                      id: btn_snake
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "贪吃蛇"
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: snake_game_page
+                              animation: MOVE_LEFT
+                              time: 200ms
+    - id: snake_game_page
+      skip: true
+      on_load:
+
+        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "游戏"
+      on_unload:
+
+        - lvgl.widget.show: [btn_page_prev, btn_page_next]
+      widgets:
+        - canvas:
+            id: game_canvas
+            x: 0
+            y: -10
+            width: 240
+            height: 160
+            align: CENTER
+        - label:
+            align: CENTER
+            y: 70
+            text: "长按 X：上一页；X：暂停；双击 X：重新开始"
+
+binary_sensor:
+  - id: !extend a
+    on_press:
+      - if:
+          condition:
+            lvgl.page.is_showing: snake_game_page
+          then:
+            - lvgl_game_runner.send_input:
+                id: game_runner_breakout
+                input: "ROTATE_CCW"
+  - id: !extend b
+    on_press:
+      - if:
+          condition:
+            lvgl.page.is_showing: snake_game_page
+          then:
+            - lvgl_game_runner.send_input:
+                id: game_runner_breakout
+                input: "ROTATE_CW"
+  - id: !extend x
+    on_multi_click:
+    - timing:
+        - ON for at most 1s
+        - OFF for at most 1s
+        - ON for at most 1s
+        - OFF for at least 0.2s
+      then:
+        - if:
+            condition:
+              lvgl.page.is_showing: snake_game_page
+            then:
+              - logger.log: "Double Clicked"
+              - lvgl_game_runner.start:
+                  id: game_runner_breakout
+    - timing:
+        - ON for 1s to 5s
+        - OFF for at least 0.5s
+      then:
+        - if:
+            condition:
+              lvgl.page.is_showing: snake_game_page
+            then:
+              - logger.log: "Single Long Clicked"
+              - lvgl.page.show: 
+                  id: page_game_menu
+                  animation: FADE_IN
+                  time: 200ms
+    - timing:
+        - ON for at most 1s
+        - OFF for at least 0.5s
+      then:        
+        - if:
+            condition:
+              lvgl.page.is_showing: snake_game_page
+            then:
+              - logger.log: "Single Short Clicked"
+              - lvgl_game_runner.toggle:
+                    id: game_runner_breakout
+       

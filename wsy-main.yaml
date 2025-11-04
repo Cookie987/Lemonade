@@ -1,16 +1,16 @@
 substitutions:
   # 基本信息
   lemonade_board: "um_pros3"
-  lemonade_device_name: "lemonade"
-  lemonade_device_friendly_name: "Lemonade"
-  lemonade_version: "0.6.0-rc1"
+  lemonade_device_name: "lemonade-wsy"
+  lemonade_device_friendly_name: "LemonadeWSY"
+  lemonade_version: "0.5.0-rc4"
   lemonade_ota_password: !secret ota_password
   lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
   lemonade_ibeacon_major: "987"
-  lemonade_ibeacon_minor: "114"
+  lemonade_ibeacon_minor: "115"
   lemonade_ibeacon_measured_power: "-59"
-  lemonade_ota_md5_url: ***REMOVED***lemonade/ota/lemonade.md5
-  lemonade_ota_url: ***REMOVED***lemonade/ota/lemonade.ota.bin
+  lemonade_ota_md5_url: ***REMOVED***lemonade/ota/wsy/lemonade.md5
+  lemonade_ota_url: ***REMOVED***lemonade/ota/wsy/lemonade.ota.bin
 
 external_components:
   - source: github://cookie987/esphome-custom-components
@@ -27,6 +27,3 @@ packages:
 
   # 其他组件
   - !include packages/features/weather-forecast.yaml
-
-  # 游戏
-  - !include packages/games/game_core.yaml

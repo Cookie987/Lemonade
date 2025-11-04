@@ -30,7 +30,7 @@ lvgl:
                 widgets:
                   - image:
                       id: img_current_weather
-                      src: sunny_1x_black
+                      src: sunny_2x_black
                       x: 28
                       align: LEFT_MID
               - name: 7日预报

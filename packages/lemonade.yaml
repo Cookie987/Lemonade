@@ -11,6 +11,8 @@ esphome:
       - lambda: |-
           float b = id(backlight).current_values.get_brightness();
           lv_slider_set_value(id(backlight_slider), b * 50.0, LV_ANIM_ON);
+      - delay: 5s
+      - lvgl.widget.hide: boot_screen
           
 esp32:
   board: ${lemonade_board}
@@ -85,9 +87,11 @@ ota:
   - platform: esphome
     password: ${lemonade_ota_password}
     on_begin:
+      - lvgl.page.show: page_ota
       - output.set_level:
           id: backlight_pin
           level: 100%
+      - delay: 1s
 
   - platform: http_request
     on_begin:
@@ -107,10 +111,14 @@ wifi:
   power_save_mode: HIGH
   on_disconnect:
     then:
-      - logger.log: WiFi signal is too weak or not connected. Reconnecting...
-      - wifi.disable
-      - delay: 5s
-      - wifi.enable
+      - if:
+          condition: 
+            lambda: 'return id(wifi_switch).state;'
+          then:
+            - logger.log: WiFi signal is too weak or not connected. Reconnecting...
+            - wifi.disable
+            - delay: 5s
+            - wifi.enable
 
 
 time:
@@ -245,9 +253,10 @@ rtttl:
 
 esp32_ble_beacon:
   type: iBeacon
-  uuid: 'c2c77f58-9876-4a2a-a43d-dcb5ab317fae'
-  major: 987
-  minor: 114
+  uuid: ${lemonade_ibeacon_uuid}
+  major: ${lemonade_ibeacon_major}
+  minor: ${lemonade_ibeacon_minor}
+  measured_power: ${lemonade_ibeacon_measured_power}
 
 light:
   - platform: monochromatic
