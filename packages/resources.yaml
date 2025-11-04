@@ -79,7 +79,7 @@ font:
 
   - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
     id: "cookielogo"
-    size: 64
+    size: 72
     bpp: 4
     glyphs: ["\uF564"]
 
