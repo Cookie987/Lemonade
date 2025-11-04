@@ -225,9 +225,12 @@ lvgl:
             y: 18
             width: 320
             height: 198
+            size: 15%
             hidden: true
             state:
               disabled: true
+            tab_style:
+              scrollbar_mode: "OFF"
             tabs: 
               - name: 秒表
                 state:
@@ -304,6 +307,12 @@ lvgl:
                       height: 100
                       mode: INFINITE
                       options: [0,1,2,3,4,5,6,7,8,9]
+                      on_focus:
+                        then:
+                          - lvgl.tabview.select:
+                              id: tabview_timer
+                              index: 1
+                              animated: true
                   # 小时个位
                   - roller:
                       id: roller_countdown_hours_ones
@@ -432,7 +441,7 @@ lvgl:
                               }
                   - button:
                       id: btn_countdown_reset
-                      x: 162
+                      x: 165
                       y: 115
                       width: 70
                       height: 30
@@ -460,12 +469,12 @@ lvgl:
     
     - id: page_setting_menu
       on_load:
-        - lvgl.widget.enable: [tile_view, btn_display_setting, btn_battery_setting, btn_system_setting]
+        - lvgl.widget.enable: [tile_view, btn_display_setting, btn_battery_setting, btn_system_setting, btn_network_setting]
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "系统设置"
       on_unload:
-        - lvgl.widget.disable: [tile_view, btn_display_setting, btn_battery_setting, btn_system_setting]
+        - lvgl.widget.disable: [tile_view, btn_display_setting, btn_battery_setting, btn_system_setting, btn_network_setting]
       widgets: 
         - tileview:
             id: tile_view
@@ -477,11 +486,36 @@ lvgl:
             state:
               disabled: true
             tiles: 
-              - id: tile_display_settings
+              - id: tile_network_setting
                 x: 0
                 row: 0
                 column: 0
                 y: 0
+                widgets:
+                  - button:
+                      id: btn_network_setting
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "\uF0AC Wi-Fi、蓝牙与 ZSV IoT"
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: system_setting_network_page
+                              animation: MOVE_LEFT
+                              time: 200ms
+              - id: tile_display_settings
+                x: 0
+                row: 1
+                column: 0
+                y: 48
                 widgets:
                   - button:
                       id: btn_display_setting
@@ -495,7 +529,7 @@ lvgl:
                         - label:
                             align: CENTER
                             text_font: chinese_font14
-                            text: "显示和个性化"
+                            text: "\uF53F 显示和个性化"
                       on_click:
                         then:
                           - lvgl.page.show:
@@ -504,9 +538,9 @@ lvgl:
                               time: 200ms
               - id: tile_battery_setting
                 x: 0
-                row: 1
+                row: 2
                 column: 0
-                y: 48
+                y: 96
                 widgets:
                   - button:
                       id: btn_battery_setting
@@ -520,7 +554,7 @@ lvgl:
                         - label:
                             align: CENTER
                             text_font: chinese_font14
-                            text: "电源和电池"
+                            text: "\uF240 电源和电池"
                       on_click:
                         then:
                           - lvgl.page.show:
@@ -529,9 +563,9 @@ lvgl:
                               time: 200ms
               - id: tile_system_setting
                 x: 0
-                row: 2
+                row: 3
                 column: 0
-                y: 96
+                y: 144
                 widgets:
                   - button:
                       id: btn_system_setting
@@ -545,7 +579,7 @@ lvgl:
                         - label:
                             align: CENTER
                             text_font: chinese_font14
-                            text: "系统"
+                            text: "\uF05A 关于"
                       on_click:
                         then:
                           - lvgl.page.show:
@@ -553,8 +587,6 @@ lvgl:
                               animation: MOVE_LEFT
                               time: 200ms
 
-        
-    
     - id: system_setting_power_page
       skip: true
       on_load:
@@ -787,6 +819,59 @@ lvgl:
             state:
               disabled: true
     
+    - id: system_setting_network_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: [btn_back_setting]
+        - lvgl.widget.enable: [switch_wifi]
+        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
+        - lvgl.widget.focus: switch_wifi
+        - script.execute: refresh_info_page
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "Wi-Fi、蓝牙与 ZSV IoT"
+      on_unload:
+        - lvgl.widget.hide: [btn_back_setting]
+        - lvgl.widget.disable: [switch_wifi]
+        - lvgl.widget.show: [btn_page_prev, btn_page_next]
+      widgets:
+        - label:
+            text: "Wi-Fi"
+            text_font: chinese_font14
+            state:
+              disabled: true
+            x: 19
+            y: 53
+        - switch:
+            id: switch_wifi
+            x: 80
+            y: 48
+            state:
+              disabled: true
+        - label:
+            text: "蓝牙"
+            text_font: chinese_font14
+            state:
+              disabled: true
+            x: 149
+            y: 53
+        - switch:
+            id: switch_bluetooth
+            x: 220
+            y: 48
+            state:
+              checked: true
+              disabled: true
+        - label:
+            id: lbl_wifi_info
+            align: CENTER
+            width: 95%
+            y: -5
+            text: "加载中..."
+            text_font: chinese_font14
+            state:
+              disabled: true
+
     - id: system_setting_system_page
       skip: true
       on_load:
@@ -796,7 +881,7 @@ lvgl:
         - lvgl.widget.show: btn_back_setting
         - lvgl.label.update:
             id: lbl_topbar_title
-            text: "系统"
+            text: "关于"
         - script.execute: refresh_info_page
       on_unload:
         - lvgl.widget.disable: [btn_update_system]

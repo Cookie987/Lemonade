@@ -243,6 +243,12 @@ rtttl:
   id: rtttl_player
   gain: 60%
 
+esp32_ble_beacon:
+  type: iBeacon
+  uuid: 'c2c77f58-9876-4a2a-a43d-dcb5ab317fae'
+  major: 987
+  minor: 114
+
 light:
   - platform: monochromatic
     output: backlight_pin

@@ -58,7 +58,14 @@ font:
     glyphs: !include ../fonts/glyphs.yaml
     extras:
       - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
-        glyphs: ["\uF104", "\uF105", "\uF2EA"]  # arrow-left, arrow-right, rotate-left
+        glyphs: ["\uF104", 
+                "\uF105", 
+                "\uF2EA",
+                "\uF240", # battery-full
+                "\uF53F", # pattle
+                "\uF05A", # info-circle
+                "\uF0AC" # globe
+                ]  # arrow-left, arrow-right, rotate-left
 
   - file: "fonts/JetBrainsMono-Bold-7.ttf"
     id: "clock24"

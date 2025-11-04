@@ -18,6 +18,7 @@ lvgl:
             width: 320
             height: 198
             hidden: true
+            size: 20%
             state:
               disabled: true
             tabs:
@@ -29,11 +30,11 @@ lvgl:
                 widgets:
                   - image:
                       id: img_current_weather
-                      src: sunny_1x_black
+                      src: sunny_2x_black
                       y: 33
                       x: 28
-                      width: 50
-                      height: 50
+                      width: 128
+                      height: 128
               - name: 7日预报
                 state:
                   disabled: true
@@ -284,242 +285,322 @@ lvgl:
 image:
   rgb565:
     - file: "imgs/weather/black1x/0@1x.png"
+      resize: 60x60
       id: sunny_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/1@1x.png"
+      resize: 60x60
       id: clear_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/2@1x.png"
+      resize: 60x60
       id: fair_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/3@1x.png"
+      resize: 60x60
       id: fair_night_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/4@1x.png"
+      resize: 60x60
       id: cloudy_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/5@1x.png"
+      resize: 60x60
       id: partly_cloudy_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/6@1x.png"
+      resize: 60x60
       id: partly_cloudy_night_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/7@1x.png"
+      resize: 60x60
       id: mostly_cloudy_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/8@1x.png"
+      resize: 60x60
       id: mostly_cloudy_night_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/9@1x.png"
+      resize: 60x60
       id: overcast_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/10@1x.png"
+      resize: 60x60
       id: shower_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/11@1x.png"
+      resize: 60x60
       id: thundershower_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/12@1x.png"
+      resize: 60x60
       id: thundershower_with_hail_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/13@1x.png"
+      resize: 60x60
       id: light_rain_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/14@1x.png"
+      resize: 60x60
       id: moderate_rain_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/15@1x.png"
+      resize: 60x60
       id: heavy_rain_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/16@1x.png"
+      resize: 60x60
       id: storm_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/17@1x.png"
+      resize: 60x60
       id: heavy_storm_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/18@1x.png"
+      resize: 60x60
       id: severe_storm_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/19@1x.png"
+      resize: 60x60
       id: ice_rain_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/20@1x.png"
+      resize: 60x60
       id: sleet_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/21@1x.png"
+      resize: 60x60
       id: snow_flurry_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/22@1x.png"
+      resize: 60x60
       id: light_snow_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/23@1x.png"
+      resize: 60x60
       id: moderate_snow_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/24@1x.png"
+      resize: 60x60
       id: heavy_snow_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/25@1x.png"
+      resize: 60x60
       id: snowstorm_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/26@1x.png"
+      resize: 60x60
       id: dust_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/27@1x.png"
+      resize: 60x60
       id: sand_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/28@1x.png"
+      resize: 60x60
       id: duststorm_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/29@1x.png"
+      resize: 60x60
       id: sandstorm_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/30@1x.png"
+      resize: 60x60
       id: foggy_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/31@1x.png"
+      resize: 60x60
       id: haze_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/32@1x.png"
+      resize: 60x60
       id: windy_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/33@1x.png"
+      resize: 60x60
       id: blustery_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/34@1x.png"
+      resize: 60x60
       id: hurricane_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/35@1x.png"
+      resize: 60x60
       id: tropical_storm_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/36@1x.png"
+      resize: 60x60
       id: tornado_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/37@1x.png"
+      resize: 60x60
       id: cold_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/38@1x.png"
+      resize: 60x60
       id: hot_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/99@1x.png"
+      resize: 60x60
       id: unknown_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/0@2x.png"
+      resize: 128x128
       id: sunny_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/1@2x.png"
+      resize: 128x128
       id: clear_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/2@2x.png"
+      resize: 128x128
       id: fair_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/3@2x.png"
+      resize: 128x128
       id: fair_night_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/4@2x.png"
+      resize: 128x128
       id: cloudy_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/5@2x.png"
+      resize: 128x128
       id: partly_cloudy_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/6@2x.png"
+      resize: 128x128
       id: partly_cloudy_night_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/7@2x.png"
+      resize: 128x128
       id: mostly_cloudy_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/8@2x.png"
+      resize: 128x128
       id: mostly_cloudy_night_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/9@2x.png"
+      resize: 128x128
       id: overcast_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/10@2x.png"
+      resize: 128x128
       id: shower_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/11@2x.png"
+      resize: 128x128
       id: thundershower_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/12@2x.png"
+      resize: 128x128
       id: thundershower_with_hail_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/13@2x.png"
+      resize: 128x128
       id: light_rain_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/14@2x.png"
+      resize: 128x128
       id: moderate_rain_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/15@2x.png"
+      resize: 128x128
       id: heavy_rain_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/16@2x.png"
+      resize: 128x128
       id: storm_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/17@2x.png"
+      resize: 128x128
       id: heavy_storm_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/18@2x.png"
+      resize: 128x128
       id: severe_storm_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/19@2x.png"
+      resize: 128x128
       id: ice_rain_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/20@2x.png"
+      resize: 128x128
       id: sleet_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/21@2x.png"
+      resize: 128x128
       id: snow_flurry_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/22@2x.png"
+      resize: 128x128
       id: light_snow_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/23@2x.png"
+      resize: 128x128
       id: moderate_snow_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/24@2x.png"
+      resize: 128x128
       id: heavy_snow_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/25@2x.png"
+      resize: 128x128
       id: snowstorm_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/26@2x.png"
+      resize: 128x128
       id: dust_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/27@2x.png"
+      resize: 128x128
       id: sand_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/28@2x.png"
+      resize: 128x128
       id: duststorm_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/29@2x.png"
+      resize: 128x128
       id: sandstorm_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/30@2x.png"
+      resize: 128x128
       id: foggy_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/31@2x.png"
+      resize: 128x128
       id: haze_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/32@2x.png"
+      resize: 128x128
       id: windy_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/33@2x.png"
+      resize: 128x128
       id: blustery_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/34@2x.png"
+      resize: 128x128
       id: hurricane_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/35@2x.png"
+      resize: 128x128
       id: tropical_storm_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/36@2x.png"
+      resize: 128x128
       id: tornado_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/37@2x.png"
+      resize: 128x128
       id: cold_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/38@2x.png"
+      resize: 128x128
       id: hot_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/99@2x.png"
+      resize: 128x128
       id: unknown_2x_black
       transparency: alpha_channel
