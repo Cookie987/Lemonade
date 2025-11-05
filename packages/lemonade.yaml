@@ -73,6 +73,10 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
+  - id: zsv_iot_last_status
+    type: string
+    restore_value: no
+    initial_value: '失败'
 
 # Enable logging
 logger:
@@ -108,7 +112,7 @@ wifi:
     ssid: "Lemonade"
     password: "Lemonade"
     ap_timeout: 30s
-  power_save_mode: HIGH
+  power_save_mode: LIGHT
   on_disconnect:
     then:
       - if:
@@ -190,6 +194,9 @@ time:
         seconds: '0'
         then:
           - script.execute: update_date
+      - minutes: '/5'
+        then:
+          - script.execute: zsv_iot_update
 
 sensor: 
   - platform: wifi_signal
@@ -277,7 +284,7 @@ light:
                 animated: true
 
 http_request:
-
+  useragent: "Lemonade/${lemonade_version} (https://cookie987.top)"
 # online_image:
 #   - url: "***REMOVED***img/1.png"
 #     format: png

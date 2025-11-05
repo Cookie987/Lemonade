@@ -12,6 +12,8 @@ substitutions:
   lemonade_ota_md5_url: ***REMOVED***lemonade/ota/lemonade.md5
   lemonade_ota_url: ***REMOVED***lemonade/ota/firmware.ota.bin
 
+  zsv_iot_url: http://iot.zsvstudio.top/
+
 external_components:
   - source: github://cookie987/esphome-custom-components
 

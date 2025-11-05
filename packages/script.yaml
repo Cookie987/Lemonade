@@ -7,6 +7,24 @@ script:
       - lambda: id(is_sleeping)=false;
       - lvgl.animimg.start: ani_battery_charging
   
+  - id: sleep_button
+    then:
+      - light.toggle:
+          id: backlight
+          transition_length: 0.5s
+      - delay: 100ms
+      - lambda: id(is_sleeping)=!id(is_sleeping);
+      - lvgl.resume: lvgl_1
+      - lvgl.animimg.start: ani_battery_charging
+      - if:
+          condition:
+            lambda: 'return id(is_sleeping);'
+          then:
+            - lvgl.pause:
+                show_snow: false
+                lvgl_id: lvgl_1
+            - lvgl.animimg.stop: ani_battery_charging
+
   - id: update_date
     then:
       - if:
@@ -131,3 +149,28 @@ script:
                                 );
                         lv_label_set_text(id(lbl_wifi_info), buf_wifi_info);
                         lv_label_set_text(id(lbl_sysinfo), buf);
+
+  - id: zsv_iot_update
+    then:
+      - http_request.get:
+          url: !lambda |-
+            return "${zsv_iot_url}" + id(text_sensor_mac_address).state
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |-
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                      if (root["producetime"]) {
+                          id(zsv_iot_produce_time).publish_state(root["producetime"]);
+                          // 更新时间显示
+                          auto t = id(ntp_time).now();
+                          char buf[9];
+                          snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.hour, t.minute, t.second);
+                          id(zsv_iot_last_success) = "成功." + std::string(buf);
+                          return true;
+                      }
+                      else {
+                        ESP_LOGD(TAG,"No 'producetime' key in this json!");
+                        return false;
+                      }
+                  });
