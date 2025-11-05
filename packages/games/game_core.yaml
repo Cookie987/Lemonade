@@ -5,6 +5,12 @@ external_components:
 game_snake:
   id: snake
 
+game_pong:
+  id: pong
+
+game_breakout:
+  id: breakout
+
 lvgl_game_runner:
   - id: game_runner_breakout
     game: snake   # References the registered game name
@@ -17,12 +23,12 @@ lvgl:
   pages:
     - id: page_game_menu
       on_load:
-        - lvgl.widget.enable: [tile_view_game_menu, btn_snake]
+        - lvgl.widget.enable: [tile_view_game_menu, btn_snake, btn_pong]
         - lvgl.label.update:
             id: lbl_topbar_title
-            text: "游戏"
+            text: "例程"
       on_unload:
-        - lvgl.widget.disable: [tile_view_game_menu, btn_snake]
+        - lvgl.widget.disable: [tile_view_game_menu, btn_snake, btn_pong]
       widgets: 
         - tileview:
             id: tile_view_game_menu
@@ -52,13 +58,73 @@ lvgl:
                         - label:
                             align: CENTER
                             text_font: chinese_font14
-                            text: "贪吃蛇"
+                            text: "贪心算法的 Python 实现"
                       on_click:
                         then:
+                          - lvgl_game_runner.set_game:
+                              id: game_runner_breakout
+                              game: snake
                           - lvgl.page.show:
                               id: snake_game_page
                               animation: MOVE_LEFT
                               time: 200ms
+              - id: tile_pong
+                x: 0
+                row: 1
+                column: 0
+                y: 48
+                widgets:
+                  - button:
+                      id: btn_pong
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "网络 Ping （自动）"
+                      on_click:
+                        then:
+                          - lvgl_game_runner.set_game:
+                              id: game_runner_breakout
+                              game: pong
+                          - lvgl.page.show:
+                              id: snake_game_page
+                              animation: MOVE_LEFT
+                              time: 200ms
+
+              - id: tile_breakout
+                x: 0
+                row: 1
+                column: 0
+                y: 96
+                widgets:
+                  - button:
+                      id: btn_breakout
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "防火墙攻防实践"
+                      on_click:
+                        then:
+                          - lvgl_game_runner.set_game:
+                              id: game_runner_breakout
+                              game: breakout
+                          - lvgl.page.show:
+                              id: snake_game_page
+                              animation: MOVE_LEFT
+                              time: 200ms         
     - id: snake_game_page
       skip: true
       on_load:
@@ -83,7 +149,7 @@ lvgl:
         - label:
             align: CENTER
             y: 80
-            text: "长按 X：返回  X：暂停  双击 X  重新开始"
+            text: "长按 X：返回   X：暂停   双击 X：重新开始"
 
 binary_sensor:
   - id: !extend a
@@ -107,9 +173,9 @@ binary_sensor:
   - id: !extend x
     on_multi_click:
     - timing:
-        - ON for at most 1s
-        - OFF for at most 1s
-        - ON for at most 1s
+        - ON for at most 0.5s
+        - OFF for at most 0.5s
+        - ON for at most 0.5s
         - OFF for at least 0.2s
       then:
         - if:

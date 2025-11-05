@@ -851,7 +851,7 @@ lvgl:
       skip: true
       on_load:
         - lvgl.widget.show: [btn_back_setting]
-        - lvgl.widget.enable: [switch_wifi]
+        - lvgl.widget.enable: [switch_wifi, btn_get_zsv_iot_now]
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: switch_wifi
         - script.execute: refresh_info_page
@@ -860,7 +860,7 @@ lvgl:
             text: "Wi-Fi、蓝牙与 ZSV IoT"
       on_unload:
         - lvgl.widget.hide: [btn_back_setting]
-        - lvgl.widget.disable: [switch_wifi]
+        - lvgl.widget.disable: [switch_wifi, btn_get_zsv_iot_now]
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_page_prev
       widgets:
@@ -900,6 +900,22 @@ lvgl:
             text_font: chinese_font14
             state:
               disabled: true
+        - button:
+            id: btn_get_zsv_iot_now
+            align: CENTER
+            y: 70
+            width: 260
+            height: 32
+            state:
+              disabled: true
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "立即获取 ZSV IoT 配置"
+            on_click:
+              then:
+                - script.execute: zsv_iot_update
+
 
     - id: system_setting_system_page
       skip: true
@@ -952,19 +968,20 @@ lvgl:
     - id: page_ota
       skip: true
       on_load:
-        - lvgl.widget.hide: [obj_bottom_bar, btn_page_prev, btn_page_next, btn_back_setting, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - lvgl.widget.hide: [obj_bottom_bar, btn_page_prev, ani_battery_charging, lbl_wifi_status, lbl_battery_status, btn_page_next, btn_back_setting, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - lvgl.widget.hide: lbl_ota_fail_prompt
         - lvgl.canvas.fill:
             id: ota_canvas
             color: !lambda return lv_color_hex(0x000000);
         - lvgl.widget.hide: msgbox_update_message
         - delay: 500ms
         - ota.http_request.flash:
-                    md5_url: ${lemonade_ota_md5_url}
-                    url: ${lemonade_ota_url}
+            md5_url: ${lemonade_ota_md5_url}
+            url: ${lemonade_ota_url}
         - lvgl.widget.hide: lbl_ota_prompt
         - lvgl.widget.show: lbl_ota_fail_prompt
       on_unload:
-        - lvgl.widget.show: [obj_bottom_bar, btn_page_prev, btn_page_next, lbl_topbar_date, lbl_topbar_time]
+        - lvgl.widget.show: [obj_bottom_bar, btn_page_prev, btn_page_next, ani_battery_charging, lbl_wifi_status, lbl_battery_status, lbl_topbar_date, lbl_topbar_time]
         - lvgl.widget.enable: btn_back_setting
         - lvgl.widget.disable: btn_update_system
         - lvgl.widget.focus: btn_page_prev
@@ -993,4 +1010,4 @@ lvgl:
             recolor: true
             hidden: true
             text_align: CENTER
-            text: "#ff0000 更新失败，请长按并松开 O 键返回主页。#"
+            text: "#ff0000 更新失败，请长按 O 键返回主页。#"

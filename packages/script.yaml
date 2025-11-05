@@ -14,7 +14,8 @@ script:
           transition_length: 0.5s
       - delay: 100ms
       - lambda: id(is_sleeping)=!id(is_sleeping);
-      - lvgl.resume: lvgl_1
+      - lvgl.resume: 
+          lvgl_id: lvgl_1
       - lvgl.animimg.start: ani_battery_charging
       - if:
           condition:
@@ -117,10 +118,13 @@ script:
                           ssid_val = "(AP模式)";
                           rssi_val = 0;
                         }
+                        std::string rssi_str = std::to_string((int)rssi_val);
+                        if (!id(wifi_switch).state) {
+                          ssid_val = "(已关闭)";
+                          rssi_str = "-∞";
+                        }
 
                         
-
-                        std::string rssi_str = std::to_string((int)rssi_val);
                         if (ssid_val == "") {
                           ssid_val = "(未连接)";
                           rssi_str = "-∞";
@@ -153,24 +157,44 @@ script:
   - id: zsv_iot_update
     then:
       - http_request.get:
+          # url: http://iot.zsvstudio.top/cfg?id=94:A9:90:30:4C:A0
           url: !lambda |-
-            return "${zsv_iot_url}" + id(text_sensor_mac_address).state
+            std::string url, mac, acturl;
+            url = "${zsv_iot_url}cfg?id=";
+            mac = id(text_sensor_mac_address).state;
+            
+            // 检查MAC地址是否为空或无效
+            if (mac.empty() || mac == "" || mac.length() < 10) {
+              ESP_LOGE("main", "MAC address is invalid or empty: '%s'", mac.c_str());
+              return "${zsv_iot_url}cfg?id=000000000000";
+            }
+            
+            acturl = url + mac;
+            ESP_LOGD("main", " %s", acturl.c_str());
+            return acturl.c_str();
           capture_response: true
           on_response:
             then:
-              - lambda: |-
-                  json::parse_json(body, [](JsonObject root) -> bool {
-                      if (root["producetime"]) {
-                          id(zsv_iot_produce_time).publish_state(root["producetime"]);
-                          // 更新时间显示
-                          auto t = id(ntp_time).now();
-                          char buf[9];
-                          snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.hour, t.minute, t.second);
-                          id(zsv_iot_last_success) = "成功." + std::string(buf);
-                          return true;
-                      }
-                      else {
-                        ESP_LOGD(TAG,"No 'producetime' key in this json!");
-                        return false;
-                      }
-                  });
+              - lambda: |- 
+                  ESP_LOGI("main", "BODY: '%s'", body.c_str());
+              - if:
+                  condition:
+                      lambda: return response->status_code == 200;
+                  then:
+                      - lambda: |-
+                          json::parse_json(body, [](JsonObject root) -> bool {
+                              if (root["producetime"]) {
+                                  id(zsv_iot_last_status) =(root["producetime"]).as<std::string>();
+                                  return true;
+                              }
+                              else {
+                                return false;
+                              }
+                          });
+                      - logger.log:
+                          format: "Response status: %d, message %s"
+                          args: [ 'response->status_code', 'body.c_str()' ]
+                  else:
+                      - logger.log:
+                          format: "Error: Response status: %d, message %s"
+                          args: [ 'response->status_code', 'body.c_str()' ]
