@@ -146,6 +146,7 @@ mqtt:
   idf_send_async: true
   discovery: false
   discover_ip: false
+  keepalive: 60s
 
 time:
   - id: ntp_time
