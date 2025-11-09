@@ -1039,7 +1039,7 @@ lvgl:
             y: 90
             recolor: true
             text_align: CENTER
-            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要几十秒。请勿关闭设备。#"
+            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"
         - label:
             align: CENTER
             id: lbl_ota_fail_prompt
