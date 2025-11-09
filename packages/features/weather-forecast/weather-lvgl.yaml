@@ -1,5 +1,12 @@
 
   pages:
+    - id: !extend page_main
+      widgets:
+        - label:
+            id: lbl_current_weather_text
+            align: CENTER_MID
+            text_font: chinese_font18
+
     - id: page_weather_forecast
       on_load:
         - lvgl.widget.show: tabview_weather
@@ -31,15 +38,23 @@
                   - image:
                       id: img_current_weather_icon
                       src: c999_2x_black
-                      x: 25
+                      x: 20
+                      y: -10
                       align: LEFT_MID
                   - label:
                       id: lbl_current_weather_text
-                      x: -20
-                      y: -10
+                      x: -15
+                      y: -35
                       align: RIGHT_MID
                       text_font: chinese_font36
-
+                      text: "N/A" 
+                  - label:
+                      id: lbl_current_weather_max_min_temp
+                      x: -15
+                      y: -10
+                      align: RIGHT_MID
+                      text_font: chinese_font14
+                      text: "N/A"
 
               - name: 7日预报
                 state:

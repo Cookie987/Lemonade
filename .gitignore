@@ -3,3 +3,5 @@ secrets.yaml
 .vscode/
 __pycache__/
 secret.py
+*.pem
+custom_yaml/
