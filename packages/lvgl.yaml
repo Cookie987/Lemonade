@@ -145,10 +145,10 @@ lvgl:
                 text_font: cookielogo
                 recolor: true
                 text: "#ffffff \uF564#"
-                y: -20
+                y: -40
             - spinner:
                 align: CENTER
-                y: 75
+                y: 55
                 height: 50
                 width: 50
                 spin_time: 1s
@@ -235,6 +235,11 @@ lvgl:
             text_font: chinese_font14
             state:
               disabled: true
+        - image:
+            id: background_image1
+            src: defaultbg_overlay
+            state:  
+              disabled: true
     
     - id: page_timer
       on_load:
@@ -302,7 +307,7 @@ lvgl:
                           
                   - button:
                       id: btn_reset_stopwatch
-                      x: 175
+                      x: 172
                       y: 105
                       width: 70
                       height: 30
@@ -469,7 +474,7 @@ lvgl:
                               }
                   - button:
                       id: btn_countdown_reset
-                      x: 165
+                      x: 168
                       y: 115
                       width: 70
                       height: 30
@@ -851,7 +856,7 @@ lvgl:
       skip: true
       on_load:
         - lvgl.widget.show: [btn_back_setting]
-        - lvgl.widget.enable: [switch_wifi, btn_get_zsv_iot_now]
+        - lvgl.widget.enable: [switch_wifi, btn_get_zsv_iot_now, btn_clear_network]
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: switch_wifi
         - script.execute: refresh_info_page
@@ -860,7 +865,7 @@ lvgl:
             text: "Wi-Fi、蓝牙与 ZSV IoT"
       on_unload:
         - lvgl.widget.hide: [btn_back_setting]
-        - lvgl.widget.disable: [switch_wifi, btn_get_zsv_iot_now]
+        - lvgl.widget.disable: [switch_wifi, btn_get_zsv_iot_now, btn_clear_network]
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_page_prev
       widgets:
@@ -900,22 +905,53 @@ lvgl:
             text_font: chinese_font14
             state:
               disabled: true
+        - label:
+            id: lbl_zsv_iot_info
+            align: CENTER
+            width: 95%
+            y: 20
+            text: "自上次开机以来，未获取 ZSV IoT 配置。"
+            text_font: chinese_font14
+            state:
+              disabled: true
         - button:
             id: btn_get_zsv_iot_now
             align: CENTER
             y: 70
-            width: 260
+            x: -80
+            width: 130
             height: 32
             state:
               disabled: true
             widgets:
               - label:
                   align: CENTER
-                  text: "立即获取 ZSV IoT 配置"
+                  text: "获取 ZSV IoT 配置"
             on_click:
               then:
                 - script.execute: zsv_iot_update
-
+        - button:
+            id: btn_clear_network
+            align: CENTER
+            y: 70
+            x: 80
+            width: 130
+            height: 32
+            state:
+              disabled: true
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "恢复默认网络配置"
+            on_click:
+              then:
+                - lambda: |- 
+                    auto wifi = wifi::global_wifi_component;
+                    if (wifi == nullptr) return;
+                    wifi->clear_sta();
+                    ESP_LOGI("zsv_iot", "Cleared user saved WiFi STA");
+                    wifi->save_wifi_sta("SEEWO", "SEEWOSEEWO");
+                    wifi->save_wifi_sta("9872.4G", "Weiyuqi0000");
 
     - id: system_setting_system_page
       skip: true
@@ -970,6 +1006,7 @@ lvgl:
       on_load:
         - lvgl.widget.hide: [obj_bottom_bar, btn_page_prev, ani_battery_charging, lbl_wifi_status, lbl_battery_status, btn_page_next, btn_back_setting, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
         - lvgl.widget.hide: lbl_ota_fail_prompt
+        - lvgl.widget.show: lbl_ota_prompt
         - lvgl.canvas.fill:
             id: ota_canvas
             color: !lambda return lv_color_hex(0x000000);

@@ -3,9 +3,9 @@ substitutions:
   lemonade_board: "um_pros3"
   lemonade_device_name: "lemonade-wsy"
   lemonade_device_friendly_name: "LemonadeWSY"
-  lemonade_version: "0.6.0-rc3_wsy"
+  lemonade_version: "0.6.0-rc3_wsy Dev"
   lemonade_ota_password: !secret ota_password
-  lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
+  lemonade_ibeacon_uuid: "c2c77f58-9876-4b2b-a43d-dcb5ab317fae"
   lemonade_ibeacon_major: "987"
   lemonade_ibeacon_minor: "115"
   lemonade_ibeacon_measured_power: "-59"
@@ -29,4 +29,4 @@ packages:
   # 游戏
   - !include packages/games/game_core.yaml
   # 其他组件
-  - !include packages/features/weather-forecast.yaml
+  # - !include packages/features/weather-forecast.yaml

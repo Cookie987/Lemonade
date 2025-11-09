@@ -1,0 +1,56 @@
+
+  pages:
+    - id: page_weather_forecast
+      on_load:
+        - lvgl.widget.show: tabview_weather
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "天气"
+      on_unload:
+        - delay: 250ms
+        - lvgl.widget.hide: tabview_weather
+      widgets:
+        - tabview:
+            id: tabview_weather
+            anim_time: 0.5s
+            x: 0
+            y: 18
+            width: 320
+            height: 198
+            hidden: true
+            size: 15%
+            state:
+              disabled: true
+            tabs:
+              # 当前天气标签页
+              - name: 当前天气
+                state:
+                  disabled: true
+                text_font: chinese_font14
+                widgets:
+                  - image:
+                      id: img_current_weather_icon
+                      src: c999_2x_black
+                      x: 25
+                      align: LEFT_MID
+                  - label:
+                      id: lbl_current_weather_text
+                      x: -20
+                      y: -10
+                      align: RIGHT_MID
+                      text_font: chinese_font36
+
+
+              - name: 7日预报
+                state:
+                  disabled: true
+                text_font: chinese_font14
+                widgets:
+                  # 168小时预报容器
+                  - obj:
+                      id: forecast_container
+                      width: 300
+                      height: 180
+                      align: TOP_MID
+                      y: 20
+                      scrollbar_mode: "OFF"

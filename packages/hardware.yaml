@@ -11,9 +11,6 @@ display:
     invert_colors: false
     auto_clear_enabled: false
     update_interval: never
-    # pages:
-    #   - id: page_game_breakout
-    #     lambda: !include "features/breakout.cpp"
 
 spi:
   clk_pin: GPIO18
@@ -40,12 +37,6 @@ switch:
     id: bluetooth_switch
     widget: switch_bluetooth
     restore_mode: ALWAYS_ON
-    on_turn_on: 
-      then:
-        - wifi.enable
-    on_turn_off:
-      then:
-        - wifi.disable
 
 output:
   - platform: ledc

@@ -1,8 +1,11 @@
-# ESP32S3 无触摸
-
 esphome:
   name: "${lemonade_device_name}"
   friendly_name: ${lemonade_device_friendly_name}
+  platformio_options:
+    build_flags:
+      -DCONFIG_PM_ENABLE=1
+      -DCONFIG_FREERTOS_USE_TICKLESS_IDLE=1
+      -DCONFIG_FREERTOS_IDLE_TIME_BEFORE_SLEEP=3
   on_boot:
     then:
       - light.turn_on:
@@ -22,6 +25,9 @@ esp32:
     type: esp-idf
     advanced:
       execute_from_psram: true
+    sdkconfig_options:
+      CONFIG_PM_ENABLE: y
+      CONFIG_PM_DFS_INIT_AUTO: y
 
 psram:
   mode: octal
@@ -112,9 +118,14 @@ wifi:
     ssid: "Lemonade"
     password: "Lemonade"
     ap_timeout: 30s
-  power_save_mode: LIGHT
+  power_save_mode: HIGH
+  on_connect:
+    then:
+      - mqtt.enable:
+
   on_disconnect:
     then:
+      - mqtt.disable:
       - if:
           condition: 
             lambda: 'return id(wifi_switch).state;'
@@ -124,10 +135,21 @@ wifi:
             - delay: 5s
             - wifi.enable
 
+improv_serial:
+
+mqtt:
+  id: mqtt_client
+  broker: ${c987_mqtt_server}
+  reboot_timeout: 0s
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  idf_send_async: true
+  discovery: false
+  discover_ip: false
 
 time:
-  - platform: sntp
-    id: ntp_time
+  - id: ntp_time
+    platform: sntp
     timezone: "Asia/Shanghai"   # 可改为你所在时区
     servers:
       - 39.101.78.82
@@ -207,7 +229,7 @@ sensor:
               auto captive_portal = captive_portal::global_captive_portal;
               bool in_ap_mode = captive_portal->is_active();
               if (!id(wifi_switch).state) {
-                return "\U000F092E -∞dBm";
+                return "\U000F092E OFF";
               }
               if (in_ap_mode) {
                 return "\U000F0003 AP";
@@ -262,6 +284,7 @@ esp32_ble_beacon:
   major: ${lemonade_ibeacon_major}
   minor: ${lemonade_ibeacon_minor}
   measured_power: ${lemonade_ibeacon_measured_power}
+  tx_power: 0dBm
 
 light:
   - platform: monochromatic
@@ -283,6 +306,7 @@ light:
 
 http_request:
   useragent: "Lemonade/${lemonade_version} (https://cookie987.top)"
+  watchdog_timeout: 10s
 # online_image:
 #   - url: "***REMOVED***img/1.png"
 #     format: png

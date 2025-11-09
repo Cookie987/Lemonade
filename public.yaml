@@ -1,27 +1,24 @@
-# ESP32S3 无触摸
-
 esphome:
   project:
     name: "cookie987.lemonade"
-    version: "0.7.0"
-  name_add_mac_suffix: false
+    version: "0.6.1"
+  name_add_mac_suffix: true
 
 substitutions:
   # 基本信息
   lemonade_board: "um_pros3"
   lemonade_device_name: "lemonade"
   lemonade_device_friendly_name: "Lemonade"
-  lemonade_version: "0.7.0-rc5 Canary"
+  lemonade_version: "0.6.1 Stable"
   lemonade_ota_password: !secret ota_password
-  lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
-  lemonade_ibeacon_major: "987"
-  lemonade_ibeacon_minor: "114"
-  lemonade_ibeacon_measured_power: "-59"
-  lemonade_ota_md5_url: ***REMOVED***lemonade/ota/lemonade.md5
-  lemonade_ota_url: ***REMOVED***lemonade/ota/firmware.ota.bin
 
-***REMOVED***  zsv_iot_url: ***REMOVED***zsv/
+  lemonade_ota_md5_url: ***REMOVED***lemonade/ota/public/lemonade.md5
+  lemonade_ota_url: ***REMOVED***lemonade/ota/public/firmware.ota.bin
+
+  zsv_iot_url: ***REMOVED***zsv/
   c987_iot_url: ***REMOVED***api/
+
+esp32_ble_beacon: !remove
 
 external_components:
   - source: github://cookie987/esphome-custom-components
@@ -38,5 +35,5 @@ packages:
   # 游戏
   - !include packages/games/game_core.yaml
   # 其他组件
-  - !include packages/features/weather-forecast/weather.yaml
+  # - !include packages/features/weather-forecast/core.yaml
 
