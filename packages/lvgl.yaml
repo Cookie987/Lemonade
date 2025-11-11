@@ -995,7 +995,8 @@ lvgl:
         - label:
             id: lbl_sysinfo
             align: CENTER
-            width: 95%
+            text_align: CENTER
+            width: 100%
             y: -25
             text: "加载中..."
             text_font: chinese_font14

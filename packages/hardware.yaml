@@ -79,7 +79,6 @@ binary_sensor:
     id: o
     filters:
       - settle: 20ms
-        
     on_multi_click:
     - timing:
         - ON for at most 0.8s

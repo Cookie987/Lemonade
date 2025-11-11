@@ -1,11 +1,15 @@
 script:
   - id: wakeup_button
     then:
-      - light.turn_on:
-          id: backlight
-          transition_length: 0.5s
-      - lambda: id(is_sleeping)=false;
-      - lvgl.animimg.start: ani_battery_charging
+      - if:
+          condition:
+            lambda: 'return id(is_sleeping);'
+          then:
+            - light.turn_on:
+                id: backlight
+                transition_length: 0.5s
+            - lambda: id(is_sleeping)=false;
+            - lvgl.animimg.start: ani_battery_charging
   
   - id: sleep_button
     then:
