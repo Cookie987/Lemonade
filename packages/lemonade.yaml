@@ -33,6 +33,18 @@ psram:
   mode: octal
   speed: 80MHz
 
+# Set tickless_idle if you want auto light sleep
+# Do not use tickless_idle if adding a deep_sleep component
+power_management:
+  id: pm_id
+  initial_lock_duration: 61sec
+  tickless_idle: true
+  # Safe power down, do not set to true if device has PSRAM.
+  power_down_flash: false
+  # For disabled peripherals, automatically save and restore peripheral states, which allows the peripherals to be powered down.
+  power_down_peripherals: true
+  profiling: true
+
 captive_portal:
 
 debug:
@@ -86,17 +98,30 @@ globals:
 
 # Enable logging
 logger:
+  level: DEBUG
+  on_message:
+    level: INFO
+    then:
+      - mqtt.publish:
+          topic: !lambda |-
+            return "logs/" + id(text_sensor_mac_address).state;
+          payload: !lambda |-
+            return message;
 
-# Enable Home Assistant API
-api:
-  reboot_timeout: 0s
-  encryption:
-    key: "GZV94t0Ynjcna4aoilVTHjhliknuxp8cK9elyuShrKs="
+
+# # Enable Home Assistant API
+# api:
+#   reboot_timeout: 0s
+#   encryption:
+#     key: "GZV94t0Ynjcna4aoilVTHjhliknuxp8cK9elyuShrKs="
 
 ota:
   - platform: esphome
     password: ${lemonade_ota_password}
     on_begin:
+      - logger.log: "Turn On Lock"
+      - power_management.acquire_lock:
+      - logger.log: "Begin OTA Flash"
       - lvgl.page.show: page_ota
       - output.set_level:
           id: backlight_pin
@@ -146,7 +171,10 @@ mqtt:
   idf_send_async: true
   discovery: false
   discover_ip: false
-  keepalive: 60s
+  keepalive: 200s
+  topic_prefix: null
+  log_topic:
+    topic: null
 
 time:
   - id: ntp_time

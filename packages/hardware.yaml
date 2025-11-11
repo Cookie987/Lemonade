@@ -136,8 +136,10 @@ sensor:
                 lambda: 'return id(usb_input_voltage).state > 4.5;'
               then:
                 - lvgl.widget.show: ani_battery_charging
+                - lvgl.animimg.start: ani_battery_charging
               else:
                 - lvgl.widget.hide: ani_battery_charging
+                - lvgl.animimg.stop: ani_battery_charging
           - if:
               condition:
                 lvgl.page.is_showing: system_setting_power_page

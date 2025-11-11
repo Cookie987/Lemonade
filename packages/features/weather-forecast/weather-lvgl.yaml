@@ -3,9 +3,12 @@
     - id: !extend page_main
       widgets:
         - label:
-            id: lbl_current_weather_text
-            align: CENTER_MID
+            id: lbl_current_weather_text_main
+            align: CENTER
+            y: 35
             text_font: chinese_font18
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "N/A"
 
     - id: page_weather_forecast
       on_load:
@@ -38,21 +41,39 @@
                   - image:
                       id: img_current_weather_icon
                       src: c999_2x_black
-                      x: 20
-                      y: -10
+                      x: 10
+                      y: -20
                       align: LEFT_MID
                   - label:
                       id: lbl_current_weather_text
-                      x: -15
-                      y: -35
+                      x: -5
+                      y: -45
                       align: RIGHT_MID
                       text_font: chinese_font36
                       text: "N/A" 
                   - label:
                       id: lbl_current_weather_max_min_temp
-                      x: -15
+                      x: -5
                       y: -10
                       align: RIGHT_MID
+                      text_font: chinese_font18
+                      text: "N/A"
+                  - label:
+                      id: lbl_current_weather_wind
+                      x: -5
+                      y: 15
+                      align: RIGHT_MID
+                      text_font: chinese_font18
+                      text: "N/A"
+                  - label:
+                      id: lbl_current_weather_rain_summary
+                      align: BOTTOM_MID
+                      text_align: CENTER
+                      y: -10
+                      x: 0
+                      width: 250
+                      recolor: true
+                      long_mode: SCROLL_CIRCULAR
                       text_font: chinese_font14
                       text: "N/A"
 

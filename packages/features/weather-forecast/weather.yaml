@@ -117,18 +117,47 @@ script:
               ESP_LOGD("weather", "update weather");
               std::string mac = id(text_sensor_mac_address).state;
               id(mqtt_client).subscribe_json("weather/response/" + mac, [=](const std::string &topic, JsonObject root) {
+                if (root["error"]){
+                  int icon = 999;
+                  std::string text = "N/A";
+                  lv_img_set_src(id(img_current_weather_icon), id(weather_icon_2x)[icon]);
+                  lv_label_set_text(id(lbl_current_weather_max_min_temp), text.c_str());
+                  lv_label_set_text(id(lbl_current_weather_wind), text.c_str());
+                }
                 if (root["now"]) {
                   std::string text = root["now"]["text"].as<std::string>();
                   text += " " + root["now"]["temp"].as<std::string>() + "℃";
                   int icon = root["now"]["icon"].as<int>();
                   lv_img_set_src(id(img_current_weather_icon), id(weather_icon_2x)[icon]);
                   lv_label_set_text(id(lbl_current_weather_text), text.c_str());
+                  lv_label_set_text(id(lbl_current_weather_text_main), text.c_str());
+                  std::string windDir = root["now"]["windDir"].as<std::string>();
+                  
+                  // 转换成m/s，保留1位小数
+                  char windSpeed_text[10];
+                  float windSpeed = root["now"]["windSpeed"].as<float>();
+                  sprintf(windSpeed_text, "%.1f", windSpeed);
+                  std::string wind_text = windDir + " " + windSpeed_text + "m/s";
+                  lv_label_set_text(id(lbl_current_weather_wind), wind_text.c_str());
                 }
                 if (root["forecast"]) {
                   std::string tempMax = root["forecast"]["daily"][0]["tempMax"].as<std::string>();
-                  std::string tempMin = root["forecast"]["daily"][0]["tempMin"].as<std::string>();
+                  std::string tempMin = root["forecast"]["daily"][0]["tempMin"].as<std::string>();      
                   std::string temp_text = tempMax + "℃/" + tempMin + "℃";
+
                   lv_label_set_text(id(lbl_current_weather_max_min_temp), temp_text.c_str());
+                  
+                }
+                std::string alert_text;
+                if (root["alert"]) { 
+                  if(!root["alert"]["zeroResult"]){
+                    alert_text = "  " + root["alert"]["headline"].as<std::string>();
+                  }
+                }
+
+                if (root["minutely"]) { 
+                  std::string rain_summary = root["minutely"]["summary"].as<std::string>() + alert_text;
+                  lv_label_set_text(id(lbl_current_weather_rain_summary), rain_summary.c_str());
                 }
               });
               return;

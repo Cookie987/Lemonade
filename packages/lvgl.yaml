@@ -7,7 +7,7 @@ lvgl:
     sensor:
       left_button: a
       right_button: b
-
+  buffer_size: 100%
   top_layer:
     widgets:
       - label:
@@ -60,6 +60,7 @@ lvgl:
           y: -3
           x: -50
           hidden: true
+          auto_start: false
           id: ani_battery_charging
           src: [
             batt_empty,
@@ -202,7 +203,7 @@ lvgl:
             then:
               - lvgl.page.show: page_ota
 
-  default_font: chinese_font14      
+  default_font: chinese_font14
   pages:
     - id: page_main
       on_load:
@@ -228,18 +229,18 @@ lvgl:
               disabled: true
         - label:
             id: date_label
-            align: BOTTOM_MID
-            y: -30
+            align: CENTER
+            y: -50
             text: "1970-01-01 星期四"
             text_color: !lambda return lv_color_hex(0xffffff);
-            text_font: chinese_font14
+            text_font: chinese_font18
             state:
               disabled: true
-        - image:
-            id: background_image1
-            src: defaultbg_overlay
-            state:  
-              disabled: true
+        # - image:
+        #     id: background_image1
+        #     src: defaultbg_overlay
+        #     state:  
+        #       disabled: true
     
     - id: page_timer
       on_load:
@@ -1015,6 +1016,8 @@ lvgl:
         - ota.http_request.flash:
             md5_url: ${lemonade_ota_md5_url}
             url: ${lemonade_ota_url}
+        - logger.log: "Turn Off Lock"
+        - power_management.release_lock:
         - lvgl.widget.hide: lbl_ota_prompt
         - lvgl.widget.show: lbl_ota_fail_prompt
       on_unload:

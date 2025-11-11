@@ -49,11 +49,6 @@ image:
     - file: "imgs/bocchi.png"
       id: defaultbg
       resize: 320x240
-
-    - file: "imgs/bocchi_hand.png"
-      id: defaultbg_overlay
-      resize: 320x240
-      transparency: alpha_channel
     
     - file: imgs/ota.png
       id: otaimg
@@ -81,6 +76,12 @@ font:
     size: 36
     bpp: 4
     glyphs: [ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz ℃/雨雾冰雪多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知度]
+
+  - file: "fonts/MiSans-Medium.ttf"
+    id: "chinese_font18"
+    size: 18
+    bpp: 4
+    glyphs: [星期一二三四五六日东南西北风雨雾冰雪多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知度 ℃N.km/shA-|0123456789]
 
   - file: "fonts/JetBrainsMono-Bold-7.ttf"
     id: "clock24"
