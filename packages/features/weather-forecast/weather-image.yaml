@@ -8,22 +8,22 @@
       transparency: alpha_channel
 
     # 多云/少云/晴间多云/阴
-    - file: "imgs/weather/black1x/4@1x.png"
+    - file: "imgs/weather/black1x/7@1x.png"
       id: c101_1x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black1x/4@1x.png"
+    - file: "imgs/weather/black1x/8@1x.png"
       id: c151_1x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black1x/4@1x.png"
+    - file: "imgs/weather/black1x/7@1x.png"
       id: c102_1x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black1x/4@1x.png"
+    - file: "imgs/weather/black1x/8@1x.png"
       id: c152_1x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black1x/5@1x.png"
+    - file: "imgs/weather/black1x/7@1x.png"
       id: c103_1x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black1x/5@1x.png"
+    - file: "imgs/weather/black1x/8@1x.png"
       id: c153_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/9@1x.png"
@@ -213,22 +213,22 @@
       transparency: alpha_channel
 
     # 多云/少云/晴间多云/阴
-    - file: "imgs/weather/black2x/4@2x.png"
+    - file: "imgs/weather/black2x/7@2x.png"
       id: c101_2x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black2x/4@2x.png"
+    - file: "imgs/weather/black2x/8@2x.png"
       id: c151_2x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black2x/4@2x.png"
+    - file: "imgs/weather/black2x/7@2x.png"
       id: c102_2x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black2x/4@2x.png"
+    - file: "imgs/weather/black2x/8@2x.png"
       id: c152_2x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black2x/5@2x.png"
+    - file: "imgs/weather/black2x/7@2x.png"
       id: c103_2x_black
       transparency: alpha_channel
-    - file: "imgs/weather/black2x/5@2x.png"
+    - file: "imgs/weather/black2x/8@2x.png"
       id: c153_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/9@2x.png"
