@@ -79,6 +79,8 @@
                   - label:
                       id: lbl_update_time
                       align: BOTTOM_LEFT
+                      x: -5
+                      y: 6
                       text: "N/A"
 
               - name: 3日预报
