@@ -142,7 +142,7 @@ wifi:
   ap:
     ssid: "Lemonade"
     password: "Lemonade"
-    ap_timeout: 30s
+    ap_timeout: 0s
   power_save_mode: HIGH
   on_connect:
     then:
