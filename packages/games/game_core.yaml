@@ -186,7 +186,7 @@ binary_sensor:
               - lvgl_game_runner.start:
                   id: game_runner_breakout
     - timing:
-        - ON at least 1.5s
+        - ON for at least 1.5s
       then:
         - if:
             condition:
