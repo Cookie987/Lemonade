@@ -50,7 +50,6 @@ binary_sensor:
   - platform: gpio
     pin: GPIO11
     id: a
-    interrupt_type: RISING
     filters:
       - settle: 20ms
     on_press: 
@@ -60,7 +59,6 @@ binary_sensor:
   - platform: gpio
     pin: GPIO12
     id: b
-    interrupt_type: RISING
     filters:
       - settle: 20ms
     on_press: 
@@ -70,7 +68,6 @@ binary_sensor:
   - platform: gpio
     pin: GPIO38
     id: x
-    interrupt_type: RISING
     filters:
       - settle: 20ms
     on_press: 
@@ -80,7 +77,6 @@ binary_sensor:
   - platform: gpio
     pin: GPIO47
     id: o
-    interrupt_type: RISING
     filters:
       - settle: 20ms
     on_multi_click:
