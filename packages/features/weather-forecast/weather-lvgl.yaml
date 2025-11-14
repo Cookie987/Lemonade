@@ -37,6 +37,7 @@
                 state:
                   disabled: true
                 text_font: chinese_font14
+                scrollbar_mode: "OFF"
                 widgets:
                   - image:
                       id: img_current_weather_icon
@@ -79,9 +80,15 @@
                   - label:
                       id: lbl_update_time
                       align: BOTTOM_LEFT
-                      x: -5
-                      y: 6
+                      x: -8
+                      y: 10
                       text: "N/A"
+                  - label:
+                      id: lbl_data_source
+                      align: BOTTOM_RIGHT
+                      x: 8
+                      y: 10
+                      text: "来自和风天气"
 
               - name: 3日预报
                 state:
@@ -90,19 +97,19 @@
                 widgets:
                   - image:
                       id: img_forecast_day1_weather_icon
-                      x: -100
+                      x: -120
                       y: -50
                       align: CENTER
                       src: c999_1x_black
                   - image:
                       id: img_forecast_day2_weather_icon
-                      x: -100
+                      x: -120
                       y: 0
                       align: CENTER
                       src: c999_1x_black
                   - image:
                       id: img_forecast_day3_weather_icon
-                      x: -100
+                      x: -120
                       y: 50
                       align: CENTER
                       src: c999_1x_black
@@ -110,23 +117,26 @@
                       id: lbl_forecast_day1_weather
                       x: 35
                       y: -50
+                      width: 220
                       align: CENTER
                       text_align: LEFT
                       text_font: chinese_font18
-                      text: "N/A℃~N/A℃  N/A转N/A"
+                      text: "N/A℃~N/A℃  N/A"
                   - label:
                       id: lbl_forecast_day2_weather
                       x: 35
                       y: 0
+                      width: 220
                       align: CENTER
                       text_align: LEFT
                       text_font: chinese_font18
-                      text: "N/A℃~N/A℃  N/A转N/A"
+                      text: "N/A℃~N/A℃  N/"
                   - label:
                       id: lbl_forecast_day3_weather
                       x: 35
                       y: 50
+                      width: 220
                       align: CENTER
                       text_align: LEFT
                       text_font: chinese_font18
-                      text: "N/A℃~N/A℃  N/A转N/A"
+                      text: "N/A℃~N/A℃  N/A"

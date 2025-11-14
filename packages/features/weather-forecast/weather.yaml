@@ -226,7 +226,9 @@ script:
                   std::string wind_text = windDir + " " + windSpeed_text + "m/s";
 
                   std::string obs_time = root["now"]["obsTime"].as<std::string>();
-                  std::string update_text = "更新时间：" + obs_time;
+                  // 把2025-11-13T23:00+08:00转换成11.13 23:00
+                  obs_time = "更新于 " + obs_time.substr(5, 5) + " " + obs_time.substr(11, 5);
+                  std::string update_text = obs_time;
                   lv_label_set_text(id(lbl_update_time), update_text.c_str());
                   lv_label_set_text(id(lbl_current_weather_wind), wind_text.c_str());
                 }
@@ -245,7 +247,10 @@ script:
 
                   std::string tempMax1 = root["forecast"]["daily"][1]["tempMax"].as<std::string>();
                   std::string tempMin1 = root["forecast"]["daily"][1]["tempMin"].as<std::string>(); 
-                  std::string day1_text = tempMax1 + "℃/" + tempMin1 + "℃ " + root["forecast"]["daily"][1]["textDay"].as<std::string>();
+                  std::string fxDate1 = root["forecast"]["daily"][1]["fxDate"].as<std::string>();
+                  // 把2025-11-13转换成11.13
+                  fxDate1 = fxDate1.substr(5, 5);
+                  std::string day1_text = fxDate1 + " | " + tempMax1 + "℃/" + tempMin1 + "℃ " + root["forecast"]["daily"][1]["textDay"].as<std::string>();
                   if (root["forecast"]["daily"][1]["textDay"].as<std::string>() != root["forecast"]["daily"][1]["textNight"].as<std::string>())
                   {
                     day1_text += "转" + root["forecast"]["daily"][1]["textNight"].as<std::string>();
@@ -253,8 +258,10 @@ script:
                   lv_label_set_text(id(lbl_forecast_day1_weather), day1_text.c_str());
 
                   std::string tempMax2 = root["forecast"]["daily"][2]["tempMax"].as<std::string>();
-                  std::string tempMin2 = root["forecast"]["daily"][2]["tempMin"].as<std::string>(); 
-                  std::string day2_text = tempMax2 + "℃/" + tempMin2 + "℃ " + root["forecast"]["daily"][2]["textDay"].as<std::string>();
+                  std::string tempMin2 = root["forecast"]["daily"][2]["tempMin"].as<std::string>();
+                  std::string fxDate2 = root["forecast"]["daily"][2]["fxDate"].as<std::string>();
+                  fxDate2 = fxDate2.substr(5, 5);
+                  std::string day2_text = fxDate2 + " | " + tempMax2 + "℃/" + tempMin2 + "℃ " + root["forecast"]["daily"][2]["textDay"].as<std::string>();
                   if (root["forecast"]["daily"][2]["textDay"].as<std::string>() != root["forecast"]["daily"][2]["textNight"].as<std::string>())
                   {
                     day2_text += "转" + root["forecast"]["daily"][2]["textNight"].as<std::string>();
@@ -262,7 +269,9 @@ script:
                   lv_label_set_text(id(lbl_forecast_day2_weather), day2_text.c_str());
                   std::string tempMax3 = root["forecast"]["daily"][3]["tempMax"].as<std::string>();
                   std::string tempMin3 = root["forecast"]["daily"][3]["tempMin"].as<std::string>();
-                  std::string day3_text = tempMax3 + "℃/" + tempMin3 + "℃ " + root["forecast"]["daily"][3]["textDay"].as<std::string>();
+                  std::string fxDate3 = root["forecast"]["daily"][3]["fxDate"].as<std::string>();
+                  fxDate3 = fxDate3.substr(5, 5);
+                  std::string day3_text = fxDate3 + " | " + tempMax3 + "℃/" + tempMin3 + "℃ " + root["forecast"]["daily"][3]["textDay"].as<std::string>();
                   if (root["forecast"]["daily"][3]["textDay"].as<std::string>() != root["forecast"]["daily"][3]["textNight"].as<std::string>())
                   {
                     day3_text += "转" + root["forecast"]["daily"][3]["textNight"].as<std::string>();

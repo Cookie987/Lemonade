@@ -81,7 +81,7 @@ font:
     id: "chinese_font18"
     size: 18
     bpp: 4
-    glyphs: [星期一二三四五六日东南西北风雨雾冰雪多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知度 ℃N.km/shA-|0123456789]
+    glyphs: [星期一二三四五六日东南西北风雨雾冰雪转多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知度 ~℃N%.km/shA-|0123456789]
 
   - file: "fonts/JetBrainsMono-Bold-7.ttf"
     id: "clock24"

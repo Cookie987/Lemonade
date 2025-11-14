@@ -30,6 +30,148 @@ script:
                 lvgl_id: lvgl_1
             - lvgl.animimg.stop: ani_battery_charging
 
+  - id: littlefs_init
+    mode: single
+    then:
+      - lambda: |-
+          esp_vfs_littlefs_conf_t conf = {
+            .base_path = "/littlefs",
+            .partition_label = "littlefs",
+            .format_if_mount_failed = true,
+            .dont_mount = false,
+          };
+          esp_err_t ret = esp_vfs_littlefs_register(&conf);
+          if (ret != ESP_OK)
+          {
+            if (ret == ESP_FAIL){
+              ESP_LOGE("LittleFS", "Failed to mount or format filesystem");
+            }
+            else if (ret == ESP_ERR_NOT_FOUND){
+              ESP_LOGE("LittleFS", "Failed to find LittleFS partition");
+            }
+            else{
+              ESP_LOGE("LittleFS", "Failed to initialize LittleFS (%s)", esp_err_to_name(ret));
+            }
+            return;
+          }
+
+          size_t total = 0, used = 0;
+          ret = esp_littlefs_info(conf.partition_label, &total, &used);
+          if (ret != ESP_OK){
+            ESP_LOGE("LittleFS", "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
+          }
+          else{
+            ESP_LOGI("LittleFS", "Mounted LittleFS. Partition size: total: %d, used: %d", total, used);
+          }
+
+  - id: set_background_img
+    mode: single
+    then:
+      - lambda: |-
+          ESP_LOGI("987IoT", "Selected ZSV IoT background image.");
+          struct stat st;
+          if (stat("/littlefs/bg.jpg", &st) == 0)
+          {
+            const char *LVGL_FILE_PATH = "A:/littlefs/bg.jpg";
+            ESP_LOGI("987IoT", "Have custom background image.");
+            if (id(background_image) == nullptr) {
+                ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
+                return; 
+            }
+            lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+            ESP_LOGI("987IoT", "Background image source updated form LittleFS.");
+          }
+          else{
+            ESP_LOGI("987IoT", "No custom background image. Using default background image.");
+          }
+      
+
+
+  - id: get_background_img
+    mode: single
+    then:
+      - mqtt.publish_json:
+          topic: !lambda |-
+            return "background/request";
+          payload: |-
+            root["mac"] = id(text_sensor_mac_address).state;
+      - lambda: |-
+          // 下载图片
+          auto mac = id(text_sensor_mac_address).state;
+
+          id(mqtt_client).subscribe_json("background/response/" + mac, [=](const std::string &topic, JsonObject root) {
+
+            // 删掉已有图片
+            struct stat st;
+            if (stat("/littlefs/bg.jpg", &st) == 0)
+            {
+              unlink("/littlefs/bg.jpg");
+              ESP_LOGI("987IoT", "Deleted existing background image.");
+            }
+            if (stat("/littlefs/bg.png", &st) == 0)
+            {
+              unlink("/littlefs/bg.png");
+              ESP_LOGI("987IoT", "Deleted old background image.");
+            }
+            // --- 1. 获取 Base64 字符串 ---
+            // 假设 JSON 路径 "image_base64" 存在且为字符串
+            const char *base64_str = root["image_base64"].as<const char *>();
+            
+            if (base64_str == nullptr) {
+                ESP_LOGW("987IoT", "'image_base64' field is missing or not a string.");
+                return;
+            }
+            
+            size_t base64_len = strlen(base64_str);
+            if (base64_len == 0) {
+                ESP_LOGW("987IoT", "Received empty Base64 string.");
+                return;
+            }
+            std::string start_of_str(base64_str, std::min((size_t)20, base64_len));
+            ESP_LOGI("987IoT", "Base64 string starts with: %s", start_of_str.c_str());
+            // --- 2. Base64 解码 ---
+            size_t decoded_max_len = base64_len / 4 * 3 + 4;
+            // 使用 std::vector 存储解码后的二进制数据
+            std::vector<uint8_t> decoded_data(decoded_max_len);
+            size_t decoded_len = 0;
+            
+            // 使用 mbedtls Base64 解码
+            int ret = mbedtls_base64_decode(
+                decoded_data.data(),
+                decoded_max_len,
+                &decoded_len,
+                (const unsigned char *)base64_str,
+                base64_len
+            );
+
+            if (ret != 0) {
+                ESP_LOGE("987IoT", "Base64 decode failed with code %d!", ret);
+                return;
+            }
+            
+            ESP_LOGI("987IoT", "Decoded image size: %zu bytes.", decoded_len);
+            
+            // --- 3. 写入 littlefs ---
+            const char *LOCAL_FILE_PATH = "/littlefs/bg.jpg";
+            // 使用 "wb" (write binary) 模式
+            FILE *file = fopen(LOCAL_FILE_PATH, "wb");
+            
+            if (!file) {
+                ESP_LOGE("987IoT", "Failed to open file %s for writing!", LOCAL_FILE_PATH);
+                return;
+            }
+
+            // 只写入实际解码的数据长度
+            size_t bytes_written = fwrite(decoded_data.data(), 1, decoded_len, file);
+            fclose(file);
+
+            if (bytes_written != decoded_len) {
+                ESP_LOGE("987IoT", "File write failed. Wrote %zu of %zu bytes.", bytes_written, decoded_len);
+                return;
+            }
+          });
+          
+
   - id: update_date
     then:
       - if:

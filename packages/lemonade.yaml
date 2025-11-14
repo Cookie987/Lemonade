@@ -6,25 +6,36 @@ esphome:
       -DCONFIG_PM_ENABLE=1
       -DCONFIG_FREERTOS_USE_TICKLESS_IDLE=1
       -DCONFIG_FREERTOS_IDLE_TIME_BEFORE_SLEEP=3
+
+  includes:
+    - <esp_littlefs.h>
+    - <mbedtls/base64.h>
+
   on_boot:
     then:
       - light.turn_on:
           id: backlight
           transition_length: 1s
+      - script.execute: littlefs_init
       - lambda: |-
           float b = id(backlight).current_values.get_brightness();
           lv_slider_set_value(id(backlight_slider), b * 50.0, LV_ANIM_ON);
-      - delay: 5s
+      - delay: 4s
+      - script.execute: set_background_img
       - lvgl.widget.hide: boot_screen
-          
+
 esp32:
   board: ${lemonade_board}
   cpu_frequency: 240MHz
   flash_size: 16MB
+  partitions: partitions_16M.csv
   framework:
     type: esp-idf
+    components:
+      - name: joltwallet/littlefs
+        source: https://github.com/joltwallet/esp_littlefs.git
     advanced:
-      execute_from_psram: true
+      execute_from_psram: false
     sdkconfig_options:
       CONFIG_PM_ENABLE: y
       CONFIG_PM_DFS_INIT_AUTO: y
@@ -172,7 +183,7 @@ mqtt:
   discovery: false
   discover_ip: false
   keepalive: 200s
-  topic_prefix: null
+  topic_prefix: lemonade
   log_topic:
     topic: null
 
@@ -336,21 +347,6 @@ light:
 http_request:
   useragent: "Lemonade/${lemonade_version} (https://cookie987.top)"
   watchdog_timeout: 10s
-# online_image:
-#   - url: "***REMOVED***img/1.png"
-#     format: png
-#     id: online_image1
-#     type: RGB565
-
-#   - url: "***REMOVED***img/2.png"
-#     format: png
-#     id: online_image2
-#     type: RGB565
-
-#   - url: "***REMOVED***img/3.png"
-#     format: png
-#     id: online_image3
-#     type: RGB565
 
 
 text_sensor:
