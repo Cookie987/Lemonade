@@ -202,7 +202,19 @@ lvgl:
           on_click:
             then:
               - lvgl.page.show: page_ota
-
+  on_boot:
+    - if:
+        condition:
+          lambda: 'return id(roller_image).get_selected_text() == "系统默认";'
+        then:
+          - lvgl.image.update:
+              id: background_image
+              src: defaultbg
+    - if:
+        condition:
+          lambda: 'return id(roller_image).get_selected_text() == "ZSV IoT";'
+        then:
+          - script.execute: set_background_img
   default_font: chinese_font14
   pages:
     - id: page_main

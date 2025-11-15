@@ -21,7 +21,6 @@ esphome:
           float b = id(backlight).current_values.get_brightness();
           lv_slider_set_value(id(backlight_slider), b * 50.0, LV_ANIM_ON);
       - delay: 4s
-      - script.execute: set_background_img
       - lvgl.widget.hide: boot_screen
 
 esp32:
@@ -35,7 +34,7 @@ esp32:
       - name: joltwallet/littlefs
         source: https://github.com/joltwallet/esp_littlefs.git
     advanced:
-      execute_from_psram: false
+      execute_from_psram: yes
     sdkconfig_options:
       CONFIG_PM_ENABLE: y
       CONFIG_PM_DFS_INIT_AUTO: y

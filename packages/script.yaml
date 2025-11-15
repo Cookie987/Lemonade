@@ -70,20 +70,14 @@ script:
       - lambda: |-
           ESP_LOGI("987IoT", "Selected ZSV IoT background image.");
           struct stat st;
-          if (stat("/littlefs/bg.jpg", &st) == 0)
-          {
-            const char *LVGL_FILE_PATH = "A:/littlefs/bg.jpg";
-            ESP_LOGI("987IoT", "Have custom background image.");
-            if (id(background_image) == nullptr) {
-                ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
-                return; 
-            }
-            lv_img_set_src(id(background_image), LVGL_FILE_PATH);
-            ESP_LOGI("987IoT", "Background image source updated form LittleFS.");
+          const char *LVGL_FILE_PATH = "A:/littlefs/bg.jpg";
+          ESP_LOGI("987IoT", "Have custom background image.");
+          if (id(background_image) == nullptr) {
+              ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
+              return; 
           }
-          else{
-            ESP_LOGI("987IoT", "No custom background image. Using default background image.");
-          }
+          lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+          ESP_LOGI("987IoT", "Background image source updated form LittleFS.");
       
 
 
@@ -169,6 +163,14 @@ script:
                 ESP_LOGE("987IoT", "File write failed. Wrote %zu of %zu bytes.", bytes_written, decoded_len);
                 return;
             }
+            ESP_LOGI("987IoT", "Image successfully saved to littlefs.");
+            const char *LVGL_FILE_PATH = "A:/littlefs/bg.jpg";
+            if (id(background_image) == nullptr) {
+                ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
+                return; 
+            }
+            lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+            ESP_LOGI("987IoT", "Image source updated.");
           });
           
 
@@ -282,10 +284,10 @@ script:
                         // 拼接文字
                         char buf[256];
                         snprintf(buf, sizeof(buf),
-                                "运行时间: %s  "
-                                "CPU: %s  "
+                                "运行时间: %s "
+                                "CPU: Max %s"
                                 "%s \n"
-                                "MAC: %s\n\nLemonade OS ${lemonade_version}"
+                                "型号：${lemonade_device_model} MAC: %s\n\nLemonade OS ${lemonade_version}"
                                 " %s\n"
                                 "ESPHome %s\nOS by Cookie987, HW by ZSVStudio.\n©2025 RedCookieStudios.",
                                 id(uptime_text).state.c_str(),

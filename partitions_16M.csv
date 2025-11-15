@@ -1,6 +1,9 @@
-otadata, data, ota,    , 0x2000,
-phy_init, data, phy,    , 0x1000,
-app0,     app,  ota_0,  , 0x640000,
-app1,     app,  ota_1,  , 0x640000,
-littlefs, data, littlefs, , 0x300000,
-nvs,      data, nvs,    , 0x6D000,
+otadata, data, ota,    , 0x2000
+phy_init, data, phy,   , 0x1000
+# OTA APP 0x6EE000
+app0,     app,  ota_0, , 0x6EE000
+app1,     app,  ota_1, , 0x6EE000
+# LittleFS 2MB
+littlefs, data, littlefs, , 0x200000
+# NVS 64KB
+nvs,      data, nvs,    , 0x10000
