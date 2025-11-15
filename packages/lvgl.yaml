@@ -179,7 +179,7 @@ lvgl:
 
     - id: msgbox_update_message
       close_button: false
-      title: Info
+      title: 系统更新
       text_font: chinese_font14
       state:
         disabled: true
@@ -875,6 +875,9 @@ lvgl:
                   text: "获取 ZSV IoT 背景图片"
             on_click:
               then:
+                - lvgl.roller.update:
+                    id: roller_image
+                    selected_index: 1
                 - script.execute: get_background_img
 
     - id: system_setting_network_page

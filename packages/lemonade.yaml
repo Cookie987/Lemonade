@@ -55,8 +55,6 @@ power_management:
   power_down_peripherals: true
   profiling: true
 
-captive_portal:
-
 debug:
   update_interval: 5s
 
@@ -265,14 +263,14 @@ sensor:
             text: !lambda |-
               // 检查是否处于AP模式
               // Check if ESP32 WiFi access point is enabled
-              auto captive_portal = captive_portal::global_captive_portal;
-              bool in_ap_mode = captive_portal->is_active();
+              // auto captive_portal = captive_portal::global_captive_portal;
+              // bool in_ap_mode = captive_portal->is_active();
               if (!id(wifi_switch).state) {
                 return "\U000F092E OFF";
               }
-              if (in_ap_mode) {
-                return "\U000F0003 AP";
-              }
+              // if (in_ap_mode) {
+              //   return "\U000F0003 AP";
+              // }
               char buf[10];
               if (x <= -100) {
                 sprintf(buf, "--dBm");

@@ -112,7 +112,7 @@
                 bg_color: !lambda return lv_color_hex(0xffffff);
                 widgets:
                   - obj:
-                      id: obj_current_weather_bg
+                      id: obj_forecast_bg
                       align: CENTER
                       width: 320
                       height: 240

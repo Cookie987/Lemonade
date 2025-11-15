@@ -264,12 +264,12 @@ script:
                         auto esphome_ver = id(esphome_version).state;
                         auto ssid_val = id(ssid).state;
                         auto rssi_val = id(rssi).state;
-                        auto captive_portal = captive_portal::global_captive_portal;
-                        bool in_ap_mode = captive_portal->is_active();
-                        if (in_ap_mode) {
-                          ssid_val = "(AP模式)";
-                          rssi_val = 0;
-                        }
+                        // auto captive_portal = captive_portal::global_captive_portal;
+                        // bool in_ap_mode = captive_portal->is_active();
+                        // if (in_ap_mode) {
+                        //   ssid_val = "(AP模式)";
+                        //   rssi_val = 0;
+                        // }
                         std::string rssi_str = std::to_string((int)rssi_val);
                         if (!id(wifi_switch).state) {
                           ssid_val = "(已关闭)";

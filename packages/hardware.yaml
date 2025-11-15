@@ -88,6 +88,9 @@ binary_sensor:
     - timing:
         - ON for at least 1s
       then:
+        - lvgl.widget.focus:
+            id: btn_page_prev
+            freeze: false
         - lvgl.page.show: 
             id: page_main
             animation: FADE_IN
