@@ -1,0 +1,33 @@
+lvgl:
+  pages:
+    - id: page_calendar
+      on_load:
+        - lvgl.widget.show: tabview_calendar
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "日历"
+      on_unload:
+        - delay: 250ms
+        - lvgl.widget.hide: tabview_calendar
+      widgets:
+        - tabview:
+            id: tabview_calendar
+            anim_time: 0.5s
+            x: 0
+            y: 18
+            width: 320
+            height: 198
+            hidden: true
+            size: 15%
+            state:
+              disabled: true
+            tab_style:
+              bg_color: !lambda return lv_color_hex(0xf6f6f6);
+            content_style:
+              bg_color: !lambda return lv_color_hex(0xffffff);
+            tabs:
+              - name: 日历
+                widgets:
+                  - obj:
+                      id: obj_calendar_bg
+

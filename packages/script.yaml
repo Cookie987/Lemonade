@@ -285,7 +285,7 @@ script:
                         char buf[256];
                         snprintf(buf, sizeof(buf),
                                 "运行时间: %s "
-                                "CPU: 80~%s "
+                                "CPU: 40~%s "
                                 "%s \n"
                                 "型号：${lemonade_device_model} MAC: %s\n\nLemonade OS ${lemonade_version}"
                                 " %s\n"

@@ -15,7 +15,7 @@ lvgl_game_runner:
   - id: game_runner_breakout
     game: snake   # References the registered game name
     canvas: game_canvas
-    fps: 30
+    fps: 60
     start_paused: true
 
 lvgl:
