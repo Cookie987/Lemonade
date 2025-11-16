@@ -1,33 +1,159 @@
 lvgl:
+  on_boot:
+    - lambda: |-
+        // lv_obj_t * calendar = lv_calendar_create(page_calendar->obj);
+        // lv_calendar_header_arrow_create(calendar);
+        // // lv_calendar_header_dropdown_create(calendar);
+        // lv_obj_set_size(calendar, 320, 185);
+        // lv_obj_set_style_x(calendar, 0, LV_PART_MAIN);
+        // lv_obj_set_style_y(calendar, 3, LV_PART_MAIN);
+        // lv_obj_set_style_align(calendar, LV_ALIGN_CENTER, LV_PART_MAIN);
+        // lv_obj_add_state(calendar, LV_STATE_DISABLED);
+        std::string schedule_json;
+        std::ifstream file("/data/user/schedule.json");
+
+        if (!file.is_open()) {
+            ESP_LOGE("987IoT", "Schedule file not found.");
+            return;
+        }
+
+        std::string line;
+        while (std::getline(file, line)) {
+            schedule_json += line + "\n";   // 保留换行
+        }
+
+        file.close();
+        
+
   pages:
-    - id: page_calendar
+    - id: page_calendar_menu
       on_load:
-        - lvgl.widget.show: tabview_calendar
+        - lvgl.widget.enable: [tile_view_calendar,  btn_schedule]
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "日历"
       on_unload:
         - delay: 250ms
-        - lvgl.widget.hide: tabview_calendar
       widgets:
-        - tabview:
-            id: tabview_calendar
-            anim_time: 0.5s
-            x: 0
-            y: 18
-            width: 320
-            height: 198
+        # 占位用，不然没有LV_USE_……
+        - dropdown:
+            x: 10
+            y: 10
+            id: dropdown_placeholder
+            options:
+              - "选项1"
             hidden: true
-            size: 15%
             state:
               disabled: true
-            tab_style:
-              bg_color: !lambda return lv_color_hex(0xf6f6f6);
-            content_style:
-              bg_color: !lambda return lv_color_hex(0xffffff);
-            tabs:
-              - name: 日历
+        - tileview:
+            id: tile_view_calendar
+            x: 0
+            y: 0
+            width: 320
+            height: 185
+            align: CENTER
+            state:
+              disabled: true
+            tiles: 
+              - id: tile_calendar
+                x: 0
+                row: 0
+                column: 0
+                y: 0
                 widgets:
-                  - obj:
-                      id: obj_calendar_bg
+                  - button:
+                      id: btn_calendar
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "日历"
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_calendar
+                              animation: MOVE_LEFT
+                              time: 200ms
+              - id: tile_schedule
+                x: 0
+                row: 1
+                column: 0
+                y: 48
+                widgets:
+                  - button:
+                      id: btn_schedule
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "日程表"
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_schedule
+                              animation: MOVE_LEFT
+                              time: 200ms
 
+    - id: page_calendar
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "日历"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+        - lvgl.widget.show: [btn_page_prev, btn_page_next]
+        - lvgl.widget.focus: btn_page_prev
+    - id: page_schedule
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "日程表"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+        - lvgl.widget.show: [btn_page_prev, btn_page_next]
+        - lvgl.widget.focus: btn_page_prev
+      widgets:
+        - button:
+            id: btn_update_schedule
+            align: CENTER
+            y: 70
+            width: 260
+            height: 32
+            state:
+              disabled: true
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text: "执行系统更新"
+            on_click:
+              then:
+                
+        - label:
+            id: lbl_schedule
+            align: CENTER
+            text_align: CENTER
+            width: 100%
+            y: -25
+            text: "（暂无日程表）"
+            text_font: chinese_font14
+            state:
+              disabled: true

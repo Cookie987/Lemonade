@@ -43,4 +43,5 @@ packages:
   - !include packages/games/game_core.yaml
   # 其他组件
   - !include packages/features/weather-forecast/weather.yaml
+  - !include packages/features/calendar/calendar.yaml
 

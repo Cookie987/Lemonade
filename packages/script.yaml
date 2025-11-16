@@ -35,7 +35,7 @@ script:
     then:
       - lambda: |-
           esp_vfs_littlefs_conf_t conf = {
-            .base_path = "/littlefs",
+            .base_path = "/data",
             .partition_label = "littlefs",
             .format_if_mount_failed = true,
             .dont_mount = false,
@@ -70,7 +70,7 @@ script:
       - lambda: |-
           ESP_LOGI("987IoT", "Selected ZSV IoT background image.");
           struct stat st;
-          const char *LVGL_FILE_PATH = "A:/littlefs/bg.jpg";
+          const char *LVGL_FILE_PATH = "A:/data/user/custom_bg.jpg";
           ESP_LOGI("987IoT", "Have custom background image.");
           if (id(background_image) == nullptr) {
               ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
@@ -97,15 +97,10 @@ script:
 
             // 删掉已有图片
             struct stat st;
-            if (stat("/littlefs/bg.jpg", &st) == 0)
+            if (stat("/data/user/custom_bg.jpg", &st) == 0)
             {
-              unlink("/littlefs/bg.jpg");
+              unlink("/data/user/custom_bg.jpg");
               ESP_LOGI("987IoT", "Deleted existing background image.");
-            }
-            if (stat("/littlefs/bg.png", &st) == 0)
-            {
-              unlink("/littlefs/bg.png");
-              ESP_LOGI("987IoT", "Deleted old background image.");
             }
             // --- 1. 获取 Base64 字符串 ---
             // 假设 JSON 路径 "image_base64" 存在且为字符串
@@ -146,7 +141,7 @@ script:
             ESP_LOGI("987IoT", "Decoded image size: %zu bytes.", decoded_len);
             
             // --- 3. 写入 littlefs ---
-            const char *LOCAL_FILE_PATH = "/littlefs/bg.jpg";
+            const char *LOCAL_FILE_PATH = "/data/user/custom_bg.jpg";
             // 使用 "wb" (write binary) 模式
             FILE *file = fopen(LOCAL_FILE_PATH, "wb");
             
@@ -164,7 +159,7 @@ script:
                 return;
             }
             ESP_LOGI("987IoT", "Image successfully saved to littlefs.");
-            const char *LVGL_FILE_PATH = "A:/littlefs/bg.jpg";
+            const char *LVGL_FILE_PATH = "A:/data/user/custom_bg.jpg";
             if (id(background_image) == nullptr) {
                 ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
                 return; 
@@ -316,7 +311,6 @@ script:
     mode: single
     then:
       - http_request.get:
-          # url: http://iot.zsvstudio.top/cfg?id=94:A9:90:30:4C:A0
           url: !lambda |-
             std::string url, mac, acturl;
             url = "${zsv_iot_url}cfg?id=";

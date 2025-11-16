@@ -108,8 +108,7 @@ lvgl:
           hidden: true
           on_release:
             then:
-              - lvgl.page.show:
-                  id: page_setting_menu
+              - lvgl.page.previous:
                   animation: MOVE_RIGHT
                   time: 200ms
       # 下一页按钮
@@ -202,6 +201,10 @@ lvgl:
           on_click:
             then:
               - lvgl.page.show: page_ota
+              - delay: 200ms
+              - ota.http_request.flash:
+                  md5_url: ${lemonade_ota_md5_url}
+                  url: ${lemonade_ota_url}
   on_boot:
     - if:
         condition:
@@ -271,7 +274,8 @@ lvgl:
             tab_style:
               scrollbar_mode: "OFF"
             tabs: 
-              - name: 秒表
+              - id: tab_stopwatch
+                name: 秒表
                 state:
                   disabled: true
                 text_font: chinese_font14
@@ -332,7 +336,8 @@ lvgl:
                               id(stopwatch_start_time) = millis();
                               id(stopwatch_paused_time) = 0;
               
-              - name: 倒计时
+              - id: tab_countdown
+                name: 倒计时
                 state:
                   disabled: true
                 text_font: chinese_font14
@@ -544,7 +549,7 @@ lvgl:
                         - label:
                             align: CENTER
                             text_font: chinese_font14
-                            text: "\uF0AC Wi-Fi、蓝牙与 ZSV IoT"
+                            text: "\uF0AC Wi-Fi与蓝牙"
                       on_click:
                         then:
                           - lvgl.page.show:
@@ -890,7 +895,7 @@ lvgl:
         - script.execute: refresh_info_page
         - lvgl.label.update:
             id: lbl_topbar_title
-            text: "Wi-Fi、蓝牙与 ZSV IoT"
+            text: "Wi-Fi与蓝牙"
       on_unload:
         - lvgl.widget.hide: [btn_back_setting]
         - lvgl.widget.disable: [switch_wifi, btn_get_zsv_iot_now, btn_clear_network]
@@ -1033,7 +1038,6 @@ lvgl:
     - id: system_setting_littlefs_page
       skip: true
       on_load:
-        # - lvgl.widget.enable: [btn_update_system]
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_update_system
         - lvgl.widget.show: btn_back_setting
@@ -1076,24 +1080,19 @@ lvgl:
             text_font: chinese_font14
             state:
               disabled: true
+    
     - id: page_ota
       skip: true
       on_load:
         - lvgl.widget.hide: [obj_bottom_bar, btn_page_prev, ani_battery_charging, lbl_wifi_status, lbl_battery_status, btn_page_next, btn_back_setting, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
-        - lvgl.widget.hide: lbl_ota_fail_prompt
         - lvgl.widget.show: lbl_ota_prompt
         - lvgl.canvas.fill:
             id: ota_canvas
             color: !lambda return lv_color_hex(0x000000);
         - lvgl.widget.hide: msgbox_update_message
-        - delay: 500ms
-        - ota.http_request.flash:
-            md5_url: ${lemonade_ota_md5_url}
-            url: ${lemonade_ota_url}
-        - logger.log: "Turn Off Lock"
-        - power_management.release_lock:
-        - lvgl.widget.hide: lbl_ota_prompt
-        - lvgl.widget.show: lbl_ota_fail_prompt
+        - lvgl.label.update:
+            id: lbl_ota_prompt
+            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"
       on_unload:
         - lvgl.widget.show: [obj_bottom_bar, btn_page_prev, btn_page_next, ani_battery_charging, lbl_wifi_status, lbl_battery_status, lbl_topbar_date, lbl_topbar_time]
         - lvgl.widget.enable: btn_back_setting
@@ -1105,23 +1104,21 @@ lvgl:
             align: CENTER
             width: 320
             height: 240
-        - image:
-            src: otaimg
+        - label:
             align: CENTER
-            width: 320
-            height: 240
+            text_font: cookielogo
+            recolor: true
+            text: "#ffffff \uF564#"
+            y: -40
+        - bar:
+            id: bar_ota_progress
+            align: CENTER
+            width: 240
+            y: 30
         - label:
             align: CENTER
             id: lbl_ota_prompt
-            y: 90
+            y: 80
             recolor: true
             text_align: CENTER
             text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"
-        - label:
-            align: CENTER
-            id: lbl_ota_fail_prompt
-            y: 90
-            recolor: true
-            hidden: true
-            text_align: CENTER
-            text: "#ff0000 更新失败，请长按 O 键返回主页。#"

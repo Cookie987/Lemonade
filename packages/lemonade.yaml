@@ -10,6 +10,7 @@ esphome:
   includes:
     - <esp_littlefs.h>
     - <mbedtls/base64.h>
+    - <fstream>
 
   on_boot:
     then:
@@ -128,19 +129,57 @@ ota:
     password: ${lemonade_ota_password}
     on_begin:
       - logger.log: "Turn On Lock"
-      - power_management.acquire_lock:
+      - switch.turn_on: switch_powermanage_lock
       - logger.log: "Begin OTA Flash"
       - lvgl.page.show: page_ota
+      - lambda: "id(lvgl_1).loop();"
       - output.set_level:
           id: backlight_pin
           level: 100%
       - delay: 1s
+    on_progress:
+      then:
+        - lvgl.bar.update:
+            id: bar_ota_progress
+            value: !lambda "return (int)x;"
+        - lambda: "id(lvgl_1).loop();"
+    on_error: 
+      then:
+        - logger.log: "Turn Off Lock"
+        - lvgl.widget.hide: lbl_ota_prompt
+        - lvgl.label.update:
+            id: lbl_ota_prompt
+            text:
+              format: "#ff0000 更新失败：%d\n #ffffff 请长按 O 键返回主页#"
+              args: ["x"]
+        - switch.turn_off: switch_powermanage_lock
 
   - platform: http_request
     on_begin:
+      - logger.log: "Turn On Lock"
+      - switch.turn_on: switch_powermanage_lock
+      - logger.log: "Begin OTA Flash"
+      - lvgl.page.show: page_ota
+      - lambda: "id(lvgl_1).loop();"
       - output.set_level:
           id: backlight_pin
           level: 100%
+      - delay: 1s
+    on_progress:
+      then:
+        - lvgl.bar.update:
+            id: bar_ota_progress
+            value: !lambda "return (int)x;"
+        - lambda: "id(lvgl_1).loop();"
+    on_error: 
+      then:
+        - logger.log: "Turn Off Lock"
+        - lvgl.label.update:
+            id: lbl_ota_prompt
+            text:
+              format: "#ff0000 更新失败：%d\n #ffffff 请长按 O 键返回主页#"
+              args: ["x"]
+        - switch.turn_off: switch_powermanage_lock
 
 wifi:
   reboot_timeout: 0s
@@ -169,6 +208,31 @@ wifi:
             - wifi.enable
 
 improv_serial:
+
+switch:
+  - platform: template
+    id: switch_powermanage_lock
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      then:
+        - logger.log: "Turn On Lock"
+        - power_management.acquire_lock:
+    turn_off_action:
+      then:
+        - logger.log: "Turn Off Lock"
+        - power_management.release_lock:
+
+  - platform: lvgl
+    id: wifi_switch
+    widget: switch_wifi
+    restore_mode: ALWAYS_ON
+    on_turn_on: 
+      then:
+        - wifi.enable
+    on_turn_off:
+      then:
+        - wifi.disable
 
 mqtt:
   id: mqtt_client
