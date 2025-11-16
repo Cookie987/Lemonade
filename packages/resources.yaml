@@ -75,7 +75,7 @@ font:
     id: "chinese_font36"
     size: 36
     bpp: 4
-    glyphs: [0123456789C ℃/雨雾冰雪多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知度]
+    glyphs: [0123456789CNA ℃/雨雾冰雪多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知度]
 
   - file: "fonts/MiSans-Medium.ttf"
     id: "chinese_font18"

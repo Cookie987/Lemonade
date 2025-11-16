@@ -143,7 +143,7 @@ lvgl:
               - label:
                   align: CENTER
                   text_font: chinese_font14
-                  text: "执行系统更新"
+                  text: "从 ZSV IoT 获取日程表"
             on_click:
               then:
                 
