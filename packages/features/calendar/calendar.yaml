@@ -13,7 +13,7 @@ lvgl:
         std::ifstream file("/data/user/schedule.json");
 
         if (!file.is_open()) {
-            ESP_LOGE("987IoT", "Schedule file not found.");
+            ESP_LOGW("987IoT", "Schedule file not found.");
             return;
         }
 
