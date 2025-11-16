@@ -34,6 +34,7 @@ lvgl:
             text: "日历"
       on_unload:
         - delay: 250ms
+        - lvgl.widget.disable: [tile_view_calendar,  btn_schedule]
       widgets:
         # 占位用，不然没有LV_USE_……
         - dropdown:
