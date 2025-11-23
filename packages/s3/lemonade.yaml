@@ -48,8 +48,8 @@ psram:
 # Do not use tickless_idle if adding a deep_sleep component
 power_management:
   id: pm_id
-  initial_lock_duration: 61sec
-  tickless_idle: true
+  initial_lock_duration: 121sec
+  tickless_idle: false
   # Safe power down, do not set to true if device has PSRAM.
   power_down_flash: false
   # For disabled peripherals, automatically save and restore peripheral states, which allows the peripherals to be powered down.

@@ -1,0 +1,72 @@
+interval:
+  - interval: 5s
+    id: interval_infopage
+    then:
+      - script.execute: refresh_info_page
+
+  - interval: 10ms
+    then:
+        - if:
+            condition:
+              lambda: 'return !id(is_sleeping);'
+            then:
+              - if:
+                  condition:
+                    lvgl.page.is_showing: page_timer
+                  then:
+                  - lambda: |-
+                      // 秒表更新逻辑，精确到0.01秒
+                      if (id(is_timer_running)) {
+                        unsigned long elapsed = millis() - id(stopwatch_start_time);
+                        int hours = (elapsed / 1000) / 3600;
+                        int minutes = ((elapsed / 1000) / 60) % 60;
+                        int seconds = (elapsed / 1000) % 60;
+                        int hundredths = (elapsed % 1000) / 10;  // 精确到0.01秒
+                        char buf[16];
+                        sprintf(buf, "%02d:%02d:%02d.%02d", hours, minutes, seconds, hundredths);
+                        lv_label_set_text(id(lbl_stopwatch), buf);
+                      }
+  - interval: 1s
+    then:
+        - if:
+            condition:
+              lambda: 'return !id(is_sleeping);'
+            then:
+              - if:
+                  condition:
+                    lvgl.page.is_showing: page_timer
+                  then:
+                  - lambda: |-
+                      // 倒计时更新逻辑
+                      if (id(is_countdown_running)) {
+                        unsigned long current_time = millis();
+                        if (current_time < id(countdown_end_time)) {
+                          // 计算剩余时间
+                          unsigned long remaining = (id(countdown_end_time) - current_time) / 1000;
+                          
+                          // 计算小时、分钟、秒
+                          int hours = remaining / 3600;
+                          int minutes = (remaining % 3600) / 60;
+                          int seconds = remaining % 60;
+                          
+                          // 更新roller显示
+                          lv_roller_set_selected(id(roller_countdown_hours_tens).obj, hours / 10, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_hours_ones).obj, hours % 10, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_minutes_tens).obj, minutes / 10, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_minutes_ones).obj, minutes % 10, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_seconds_tens).obj, seconds / 10, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, seconds % 10, LV_ANIM_ON);
+                        } else {
+                          // 倒计时结束
+                          id(is_countdown_running) = false;
+                          id(countdown_end_time) = 0;
+                          lv_label_set_text(id(lbl_countdown_button), "开始");
+                          // 重置为00:00:00
+                          lv_roller_set_selected(id(roller_countdown_hours_tens).obj, 0, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_hours_ones).obj, 0, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_minutes_tens).obj, 0, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_minutes_ones).obj, 0, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_seconds_tens).obj, 0, LV_ANIM_ON);
+                          lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, 0, LV_ANIM_ON);
+                        }
+                      }

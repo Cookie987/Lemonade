@@ -1,0 +1,35 @@
+external_components:
+  - source: github://p1ngb4ck/esphome@dev
+    components: [binary_storage, picture_viewer, storage, nfs_client, http_file_browser, webdav_server, usb_host, usb_uart, usb_storage]
+
+binary_storage:
+  - type: flash_partition
+    id: littlefs
+    partition_label: littlefs
+    mount_path: /data
+
+storage:
+  id: storage_id
+  mounts:
+    - path: /data
+      platform: binary_storage
+      id: littlefs_storage
+
+
+# nfs_client:
+#   server: 192.168.1.25
+#   uid: 1000
+#   gid: 1000
+#   export: "/mnt/user/Main"
+#   mount_path: "/nfs"
+
+# http_file_browser:
+#   storage_id: storage_id
+#   url_prefix: "/files"
+#   root_path: "/"
+#   auth_enabled: true
+#   username: "admin"
+#   password: "123456"
+#   enable_upload: true
+#   enable_download: true
+#   enable_deletion: true

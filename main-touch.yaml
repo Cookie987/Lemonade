@@ -1,4 +1,4 @@
-# ESP32S3 无触摸
+# ESP32S3 触摸
 
 esphome:
   project:
@@ -9,9 +9,9 @@ esphome:
 substitutions:
   # 基本信息
   lemonade_board: "um_pros3"
-  lemonade_device_name: "lemonade"
+  lemonade_device_name: "lemonade-touch"
   lemonade_device_friendly_name: "Lemonade"
-  lemonade_device_model: "智能时钟_C"
+  lemonade_device_model: "智能时钟_T"
   lemonade_version: "1.0.0-rc1 Canary"
   lemonade_ota_password: !secret ota_password
   lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
@@ -33,17 +33,17 @@ esp32_ble_beacon: !remove
 
 packages:
   # 核心组件
-  - !include packages/s3/lemonade.yaml
-  - !include packages/s3/lvgl.yaml
-  - !include packages/s3/hardware.yaml
-  - !include packages/s3/script.yaml
-  - !include packages/s3/interval.yaml
+  - !include packages/s3_touch/lemonade.yaml
+  - !include packages/s3_touch/lvgl.yaml
+  - !include packages/s3_touch/hardware.yaml
+  - !include packages/s3_touch/script.yaml
+  - !include packages/s3_touch/interval.yaml
   - !include packages/resources.yaml
-  - !include packages/s3/networks.yaml
+  - !include packages/s3_touch/networks.yaml
   # - !include packages/storage.yaml
   # 游戏
-  - !include packages/s3/games/game_core.yaml
+  # - !include packages/games/game_core.yaml
   # 其他组件
-  - !include packages/s3/features/weather-forecast/weather.yaml
-  - !include packages/s3/features/calendar/calendar.yaml
+  - !include packages/s3_touch/features/weather-forecast/weather.yaml
+  - !include packages/s3_touch/features/calendar/calendar.yaml
 

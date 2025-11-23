@@ -200,7 +200,7 @@ script:
               payload: |-
                 root["mac"] = id(text_sensor_mac_address).state;
           - lambda: |-
-              ESP_LOGD("weather", "update weather");
+              ESP_LOGD("987IoT", "Started updating weather");
               std::string mac = id(text_sensor_mac_address).state;
               id(mqtt_client).subscribe_json("weather/response/" + mac, [=](const std::string &topic, JsonObject root) {
                 if (root["error"]){

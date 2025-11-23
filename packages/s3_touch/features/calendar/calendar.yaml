@@ -1,0 +1,227 @@
+lvgl:
+  on_boot:
+    # - script.execute: prase_schedule
+
+  pages:
+    - id: page_calendar_menu
+      on_load:
+        - lvgl.widget.enable: [tile_view_calendar,  btn_schedule]
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "日历"
+      on_unload:
+        - delay: 250ms
+        - lvgl.widget.disable: [tile_view_calendar,  btn_schedule]
+      widgets:
+        # 占位用，不然没有LV_USE_……
+        - dropdown:
+            x: 10
+            y: 10
+            id: dropdown_placeholder
+            options:
+              - "选项1"
+            hidden: true
+            state:
+              disabled: true
+        - tileview:
+            id: tile_view_calendar
+            x: 0
+            y: 0
+            width: 320
+            height: 185
+            align: CENTER
+            state:
+              disabled: true
+            tiles: 
+              - id: tile_calendar
+                x: 0
+                row: 0
+                column: 0
+                y: 0
+                widgets:
+                  - button:
+                      id: btn_calendar
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "日历"
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_calendar
+                              animation: MOVE_LEFT
+                              time: 200ms
+              - id: tile_schedule
+                x: 0
+                row: 1
+                column: 0
+                y: 48
+                widgets:
+                  - button:
+                      id: btn_schedule
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "日程表"
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_schedule
+                              animation: MOVE_LEFT
+                              time: 200ms
+
+    - id: page_calendar
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "日历"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+        - lvgl.widget.show: [btn_page_prev, btn_page_next]
+        - lvgl.widget.focus: btn_page_prev
+    - id: page_schedule
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.widget.enable: btn_update_schedule
+        - lvgl.widget.focus: btn_update_schedule
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "日程表"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+        - lvgl.widget.disable: btn_update_schedule
+        - lvgl.widget.show: [btn_page_prev, btn_page_next]
+        - lvgl.widget.focus: btn_page_prev
+      widgets:
+        - button:
+            id: btn_update_schedule
+            align: CENTER
+            y: 70
+            width: 260
+            height: 32
+            state:
+              disabled: true
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text: "从 ZSV IoT 获取日程表"
+            on_click:
+              then:
+                - mqtt.publish_json:
+                    topic: !lambda |-
+                      return "zsv/sche/request";
+                    payload: |-
+                      root["mac"] = id(text_sensor_mac_address).state;
+                - lambda: |-
+                    ESP_LOGD("987IoT", "Started updating schedule");
+                    std::string mac = id(text_sensor_mac_address).state;
+                    id(mqtt_client).subscribe("zsv/sche/response/" + mac, [=](const std::string &topic, const std::string &payload) {
+                        ESP_LOGD("987IoT", "Got raw schedule response");
+                        std::ofstream file("/data/schedule.json");
+                        file << "{ \"schedule\": " << payload << "}";
+                        file.close();
+                        ESP_LOGD("987IoT", "Schedule response saved.");
+                    });
+                - delay: 5000ms
+                - script.execute: prase_schedule
+        - label:
+            id: lbl_schedule
+            align: CENTER
+            text_align: CENTER
+            width: 100%
+            y: -25
+            text: "（暂无日程表）"
+            text_font: chinese_font14
+            state:
+              disabled: true
+
+script:
+  - id: prase_schedule
+    mode: single
+    then: 
+      - lambda: |-
+          std::string schedule_json;
+          // 读取文件
+          ESP_LOGD("987IoT", "Started parsing schedule.json");
+          std::ifstream file("/data/schedule.json");
+          if (!file.is_open()) {
+              ESP_LOGW("987IoT", "Schedule file not found.");
+              return;
+          }
+          std::string line;
+          while (std::getline(file, line)) {
+              schedule_json += line + "\n";
+          }
+          file.close();
+          // 建议：如果 JSON 很大，打印全部可能会截断或导致崩溃，视情况保留
+          // ESP_LOGD("987IoT", "Raw JSON: '%s'", schedule_json.c_str()); 
+
+          json::parse_json(schedule_json, [&](JsonVariant root) -> bool {
+            // --- 修改开始 ---
+            
+            // 1. 检查是否包含 "schedule" 键
+            if (!root.containsKey("schedule")) {
+                ESP_LOGE("987IoT", "JSON missing 'schedule' key!");
+                return false;
+            }
+
+            // 2. 获取 schedule 数组
+            JsonArray arr = root["schedule"];
+            
+            // 3. 检查获取到的是否为有效数组
+            if (arr.isNull()) {
+                ESP_LOGE("987IoT", "'schedule' is not an array!");
+                return false;
+            }
+            
+            // --- 修改结束 ---
+
+            std::string out;
+            for (JsonObject item : arr) {
+                // 注意：要确保 time 字段存在，否则可能崩
+                if (!item.containsKey("time")) continue;
+
+                JsonObject t = item["time"];
+                int y = t["y"];
+                int m = t["m"];
+                int d = t["d"];
+                int h = t["h"];
+                int i = t["i"];
+                
+                // 处理 text 可能为空的情况
+                const char* text_ptr = item["text"] | ""; 
+                
+                char buf[128]; // 稍微加大一点 buffer 以防溢出
+                snprintf(buf, sizeof(buf), "%04d-%02d-%02d %02d:%02d  %s",
+                    y, m, d, h, i, text_ptr);
+                out += std::string(buf) + "\n";
+            }
+            
+            // 如果列表为空，可能需要清空显示
+            if (out.empty()) {
+                lv_label_set_text(id(lbl_schedule), "No Schedule");
+            } else {
+                lv_label_set_text(id(lbl_schedule), out.c_str());
+            }
+            return true;
+          });

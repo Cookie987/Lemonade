@@ -1,0 +1,439 @@
+esphome:
+  name: "${lemonade_device_name}"
+  friendly_name: ${lemonade_device_friendly_name}
+  platformio_options:
+    build_flags:
+      -DCONFIG_PM_ENABLE=1
+      -DCONFIG_FREERTOS_USE_TICKLESS_IDLE=1
+      -DCONFIG_FREERTOS_IDLE_TIME_BEFORE_SLEEP=3
+
+  includes:
+    - <esp_littlefs.h>
+    - <mbedtls/base64.h>
+    - <fstream>
+
+  on_boot:
+    then:
+      - light.turn_on:
+          id: backlight
+          transition_length: 1s
+      - script.execute: littlefs_init
+      - lambda: |-
+          float b = id(backlight).current_values.get_brightness();
+          lv_slider_set_value(id(backlight_slider), b * 50.0, LV_ANIM_ON);
+      - delay: 4s
+      - lvgl.widget.hide: boot_screen
+
+esp32:
+  board: ${lemonade_board}
+  cpu_frequency: 240MHz
+  flash_size: 16MB
+  partitions: partitions_16M.csv
+  framework:
+    type: esp-idf
+    components:
+      - name: joltwallet/littlefs
+        source: https://github.com/joltwallet/esp_littlefs.git
+    advanced:
+      execute_from_psram: yes
+    sdkconfig_options:
+      CONFIG_PM_ENABLE: y
+      CONFIG_PM_DFS_INIT_AUTO: y
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+# Set tickless_idle if you want auto light sleep
+# Do not use tickless_idle if adding a deep_sleep component
+power_management:
+  id: pm_id
+  initial_lock_duration: 121sec
+  tickless_idle: false
+  # Safe power down, do not set to true if device has PSRAM.
+  power_down_flash: false
+  # For disabled peripherals, automatically save and restore peripheral states, which allows the peripherals to be powered down.
+  power_down_peripherals: true
+  profiling: true
+
+debug:
+  update_interval: 5s
+
+globals:
+  - id: is_sleeping
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: is_slider_changing
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: is_timer_running
+    type: bool
+    # restore_value: yes
+    initial_value: 'false'
+  - id: stopwatch_start_time
+    type: unsigned long
+    restore_value: yes
+    initial_value: '0'
+  - id: stopwatch_paused_time
+    type: unsigned long
+    restore_value: yes
+    initial_value: '0'
+  - id: is_countdown_running
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: countdown_end_time
+    type: unsigned long
+    restore_value: yes
+    initial_value: '0'
+  - id: countdown_hours
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: countdown_minutes
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: countdown_seconds
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: zsv_iot_last_status
+    type: std::string
+    restore_value: no
+    initial_value: '"失败"'
+
+# Enable logging
+logger:
+  level: DEBUG
+  on_message:
+    level: INFO
+    then:
+      - mqtt.publish:
+          topic: !lambda |-
+            return "logs/" + id(text_sensor_mac_address).state;
+          payload: !lambda |-
+            return message;
+
+
+# # Enable Home Assistant API
+# api:
+#   reboot_timeout: 0s
+#   encryption:
+#     key: "GZV94t0Ynjcna4aoilVTHjhliknuxp8cK9elyuShrKs="
+
+ota:
+  - platform: esphome
+    password: ${lemonade_ota_password}
+    on_begin:
+      - logger.log: "Turn On Lock"
+      - switch.turn_on: switch_powermanage_lock
+      - logger.log: "Begin OTA Flash"
+      - lvgl.page.show: page_ota
+      - lambda: "id(lvgl_1).loop();"
+      - output.set_level:
+          id: backlight_pin
+          level: 100%
+      - delay: 1s
+    on_progress:
+      then:
+        - lvgl.bar.update:
+            id: bar_ota_progress
+            value: !lambda "return (int)x;"
+        - lambda: "id(lvgl_1).loop();"
+    on_error: 
+      then:
+        - logger.log: "Turn Off Lock"
+        - lvgl.widget.hide: lbl_ota_prompt
+        - lvgl.label.update:
+            id: lbl_ota_prompt
+            text:
+              format: "#ff0000 更新失败：%d\n #ffffff 请长按 O 键返回主页#"
+              args: ["x"]
+        - switch.turn_off: switch_powermanage_lock
+
+  - platform: http_request
+    on_begin:
+      - logger.log: "Turn On Lock"
+      - switch.turn_on: switch_powermanage_lock
+      - logger.log: "Begin OTA Flash"
+      - lvgl.page.show: page_ota
+      - lambda: "id(lvgl_1).loop();"
+      - output.set_level:
+          id: backlight_pin
+          level: 100%
+      - delay: 1s
+    on_progress:
+      then:
+        - lvgl.bar.update:
+            id: bar_ota_progress
+            value: !lambda "return (int)x;"
+        - lambda: "id(lvgl_1).loop();"
+    on_error: 
+      then:
+        - logger.log: "Turn Off Lock"
+        - lvgl.label.update:
+            id: lbl_ota_prompt
+            text:
+              format: "#ff0000 更新失败：%d\n #ffffff 请长按 O 键返回主页#"
+              args: ["x"]
+        - switch.turn_off: switch_powermanage_lock
+
+wifi:
+  reboot_timeout: 0s
+  enable_btm: true
+  enable_rrm: true
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Lemonade"
+    password: "Lemonade"
+    ap_timeout: 0s
+  power_save_mode: HIGH
+  on_connect:
+    then:
+      - mqtt.enable:
+
+  on_disconnect:
+    then:
+      - mqtt.disable:
+      - if:
+          condition: 
+            lambda: 'return id(wifi_switch).state;'
+          then:
+            - logger.log: WiFi signal is too weak or not connected. Reconnecting...
+            - wifi.disable
+            - delay: 5s
+            - wifi.enable
+
+improv_serial:
+
+switch:
+  - platform: template
+    id: switch_powermanage_lock
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      then:
+        - logger.log: "Turn On Lock"
+        - power_management.acquire_lock:
+    turn_off_action:
+      then:
+        - logger.log: "Turn Off Lock"
+        - power_management.release_lock:
+
+  - platform: lvgl
+    id: wifi_switch
+    widget: switch_wifi
+    restore_mode: ALWAYS_ON
+    on_turn_on: 
+      then:
+        - wifi.enable
+    on_turn_off:
+      then:
+        - wifi.disable
+
+mqtt:
+  id: mqtt_client
+  broker: ${c987_mqtt_server}
+  reboot_timeout: 0s
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  idf_send_async: true
+  discovery: false
+  discover_ip: false
+  keepalive: 200s
+  topic_prefix: lemonade
+  log_topic:
+    topic: null
+
+time:
+  - id: ntp_time
+    platform: sntp
+    timezone: "Asia/Shanghai"   # 可改为你所在时区
+    servers:
+      - 39.101.78.82
+      - cn.pool.ntp.org
+    on_time_sync: 
+      then:
+        - script.execute: update_date
+        - script.execute: update_time
+        - lambda: |-
+            // 初始化秒表状态（仅在没有保存的状态时）
+            static bool initialized = false;
+            if (!initialized) {
+              initialized = true;
+              // 如果没有有效的保存状态，则初始化为默认值
+              if (id(stopwatch_start_time) == 0 && id(stopwatch_paused_time) == 0) {
+                id(stopwatch_start_time) = millis();
+                id(stopwatch_paused_time) = 0;
+              }
+              unsigned long elapsed = millis() - id(stopwatch_start_time);
+              int hours = (elapsed / 1000) / 3600;
+              int minutes = ((elapsed / 1000) / 60) % 60;
+              int seconds = (elapsed / 1000) % 60;
+              int hundredths = (elapsed % 1000) / 10;  // 精确到0.01秒
+              char buf[16];
+              sprintf(buf, "%02d:%02d:%02d.%02d", hours, minutes, seconds, hundredths);
+              // lv_label_set_text(id(stopwatch_label), buf);
+              // 初始化倒计时状态
+              if (id(countdown_end_time) > 0 && id(is_countdown_running)) {
+                // 如果倒计时正在运行且未结束，则继续倒计时
+                unsigned long current_time = millis();
+                lv_label_set_text(id(lbl_countdown_button), "暂停");
+                if (current_time >= id(countdown_end_time)) {
+                  // 如果倒计时已经结束，重置状态
+                  id(is_countdown_running) = false;
+                  id(countdown_end_time) = 0;
+                }
+              }
+              unsigned long current_time = millis();
+              if (current_time < id(countdown_end_time)) {
+                // 计算剩余时间
+                unsigned long remaining = (id(countdown_end_time) - current_time) / 1000;
+                
+                // 计算小时、分钟、秒
+                int hours = remaining / 3600;
+                int minutes = (remaining % 3600) / 60;
+                int seconds = remaining % 60;
+                
+                // 更新roller显示
+                lv_roller_set_selected(id(roller_countdown_hours_tens).obj, hours / 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_hours_ones).obj, hours % 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_minutes_tens).obj, minutes / 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_minutes_ones).obj, minutes % 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_seconds_tens).obj, seconds / 10, LV_ANIM_ON);
+                lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, seconds % 10, LV_ANIM_ON);
+                
+              }
+            }
+    on_time: 
+      - seconds: '*'
+        then:
+          - script.execute: update_time
+      - minutes: '*'
+        then:
+          - script.execute: update_date
+
+sensor: 
+  - platform: wifi_signal
+    id: rssi
+    update_interval: 2s
+    on_value: 
+      then:
+        - lvgl.label.update:
+            id: lbl_wifi_status
+            text: !lambda |-
+              // 检查是否处于AP模式
+              // Check if ESP32 WiFi access point is enabled
+              // auto captive_portal = captive_portal::global_captive_portal;
+              // bool in_ap_mode = captive_portal->is_active();
+              if (!id(wifi_switch).state) {
+                return "\U000F092E OFF";
+              }
+              // if (in_ap_mode) {
+              //   return "\U000F0003 AP";
+              // }
+              char buf[10];
+              if (x <= -100) {
+                sprintf(buf, "--dBm");
+              } else {
+                sprintf(buf, "%ddBm", (int)x);
+              }
+              const char* icon;
+              if (x == 0){
+                return "\U000F092E -∞dBm"; // mdi-wifi-strength-off-outline
+              }
+              if (x >= -50) {
+                icon = "\U000F0928"; // mdi-wifi-strength-4
+              } else if (x >= -65) {
+                icon = "\U000F0925"; // mdi-wifi-strength-3
+              } else if (x >= -80) {
+                icon = "\U000F0922"; // mdi-wifi-strength-2
+              } else if (x >= -95) {
+                icon = "\U000F091F"; // mdi-wifi-strength-1
+              } else {
+                icon = "\U000F092E"; // mdi-wifi-strength-off-outline
+              }
+              return std::string(icon) + " " + std::string(buf);
+
+  - platform: internal_temperature
+    id: internal_temp
+    update_interval: 2s
+    
+  - platform: debug
+    free:
+      id: heap_free
+    block:
+      id: heap_block
+    loop_time:
+      id: loop_time
+    psram:
+      id: psram_free
+    cpu_frequency:
+      id: cpu_freq
+
+rtttl:
+  output: rttl_pin
+  id: rtttl_player
+  gain: 60%
+
+esp32_ble_beacon:
+  type: iBeacon
+  uuid: ${lemonade_ibeacon_uuid}
+  major: ${lemonade_ibeacon_major}
+  minor: ${lemonade_ibeacon_minor}
+  measured_power: ${lemonade_ibeacon_measured_power}
+  tx_power: 0dBm
+
+light:
+  - platform: monochromatic
+    output: backlight_pin
+    name: "Screen Brightness"
+    id: backlight
+    restore_mode: RESTORE_DEFAULT_ON
+    default_transition_length: 0.1s
+    on_state:
+      then:
+        if: 
+          condition:
+            lambda: 'return !id(is_slider_changing);'
+          then:
+            - lvgl.slider.update:
+                id: backlight_slider
+                value: !lambda 'return id(backlight).current_values.get_brightness() * 50.0;'
+                animated: true
+
+http_request:
+  useragent: "Lemonade/${lemonade_version} (https://cookie987.top)"
+  watchdog_timeout: 10s
+
+
+text_sensor:
+  - platform: wifi_info
+    mac_address:
+      id: text_sensor_mac_address
+    ssid:
+      id: ssid
+  - platform: debug
+    device:
+      id: device_info
+    reset_reason:
+      id: reset_reason
+  - platform: version
+    id: esphome_version
+  - platform: git_commit_sha
+    id: lemonade_git_commit_sha
+  - platform: uptime
+    id: uptime_text
+    update_interval: 30s
+    format:
+      separator: " "
+      expand: true
+
+select:
+  - platform: lvgl
+    widget: roller_image
+    name: Background Select
+    restore_value: True

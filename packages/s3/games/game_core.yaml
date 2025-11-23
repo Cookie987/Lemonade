@@ -7,16 +7,17 @@ game_snake:
 
 game_pong:
   id: pong
+  num_human_players: 0
 
 game_breakout:
   id: breakout
 
 lvgl_game_runner:
-  - id: game_runner_breakout
-    game: snake   # References the registered game name
-    canvas: game_canvas
-    fps: 60
-    start_paused: true
+  id: game_runner1
+  initial_game: pong
+  canvas: game_canvas
+  fps: 60
+  start_paused: true
 
 lvgl:
   id: lvgl_1
@@ -62,7 +63,7 @@ lvgl:
                       on_click:
                         then:
                           - lvgl_game_runner.set_game:
-                              id: game_runner_breakout
+                              id: game_runner1
                               game: snake
                           - lvgl.page.show:
                               id: snake_game_page
@@ -90,13 +91,12 @@ lvgl:
                       on_click:
                         then:
                           - lvgl_game_runner.set_game:
-                              id: game_runner_breakout
+                              id: game_runner1
                               game: pong
                           - lvgl.page.show:
                               id: snake_game_page
                               animation: MOVE_LEFT
                               time: 200ms
-
               - id: tile_breakout
                 x: 0
                 row: 1
@@ -119,7 +119,7 @@ lvgl:
                       on_click:
                         then:
                           - lvgl_game_runner.set_game:
-                              id: game_runner_breakout
+                              id: game_runner1
                               game: breakout
                           - lvgl.page.show:
                               id: snake_game_page
@@ -128,14 +128,13 @@ lvgl:
     - id: snake_game_page
       skip: true
       on_load:
-
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "游戏"
       on_unload:
         - lvgl_game_runner.pause:
-            id: game_runner_breakout
+            id: game_runner1
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
         - lvgl.widget.focus: btn_page_prev
       widgets:
@@ -159,7 +158,8 @@ binary_sensor:
             lvgl.page.is_showing: snake_game_page
           then:
             - lvgl_game_runner.send_input:
-                id: game_runner_breakout
+                id: game_runner1
+                pressed: true
                 input: "ROTATE_CCW"
   - id: !extend b
     on_press:
@@ -168,7 +168,8 @@ binary_sensor:
             lvgl.page.is_showing: snake_game_page
           then:
             - lvgl_game_runner.send_input:
-                id: game_runner_breakout
+                id: game_runner1
+                pressed: true
                 input: "ROTATE_CW"
   - id: !extend x
     on_multi_click:
@@ -183,7 +184,7 @@ binary_sensor:
             then:
               - logger.log: "Double Clicked"
               - lvgl_game_runner.start:
-                  id: game_runner_breakout
+                  id: game_runner1
     - timing:
         - ON for 1s to 5s
         - OFF for at least 0.1s
@@ -207,7 +208,7 @@ binary_sensor:
             then:
               - logger.log: "Single Short Clicked"
               - lvgl_game_runner.toggle:
-                    id: game_runner_breakout
+                    id: game_runner1
 
 script:
   - id: !extend sleep_button
@@ -217,4 +218,4 @@ script:
             lambda: 'return id(is_sleeping);'
           then:
             - lvgl_game_runner.pause:
-                id: game_runner_breakout
+                id: game_runner1

@@ -1,0 +1,374 @@
+script:
+  - id: wakeup_button
+    then:
+      - if:
+          condition:
+            lambda: 'return id(is_sleeping);'
+          then:
+            - light.turn_on:
+                id: backlight
+                transition_length: 0.5s
+            - lambda: id(is_sleeping)=false;
+            - lvgl.animimg.start: ani_battery_charging
+  
+  - id: sleep_button
+    then:
+      - light.toggle:
+          id: backlight
+          transition_length: 0.5s
+      - delay: 100ms
+      - lambda: id(is_sleeping)=!id(is_sleeping);
+      - lvgl.resume: 
+          lvgl_id: lvgl_1
+      - lvgl.animimg.start: ani_battery_charging
+      - if:
+          condition:
+            lambda: 'return id(is_sleeping);'
+          then:
+            - lvgl.pause:
+                show_snow: false
+                lvgl_id: lvgl_1
+            - lvgl.animimg.stop: ani_battery_charging
+
+  - id: littlefs_init
+    mode: single
+    then:
+      - lambda: |-
+          esp_vfs_littlefs_conf_t conf = {
+            .base_path = "/data",
+            .partition_label = "littlefs",
+            .format_if_mount_failed = true,
+            .dont_mount = false,
+          };
+          esp_err_t ret = esp_vfs_littlefs_register(&conf);
+          if (ret != ESP_OK)
+          {
+            if (ret == ESP_FAIL){
+              ESP_LOGE("LittleFS", "Failed to mount or format filesystem");
+            }
+            else if (ret == ESP_ERR_NOT_FOUND){
+              ESP_LOGE("LittleFS", "Failed to find LittleFS partition");
+            }
+            else{
+              ESP_LOGE("LittleFS", "Failed to initialize LittleFS (%s)", esp_err_to_name(ret));
+            }
+            return;
+          }
+
+          size_t total = 0, used = 0;
+          ret = esp_littlefs_info(conf.partition_label, &total, &used);
+          if (ret != ESP_OK){
+            ESP_LOGE("LittleFS", "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
+          }
+          else{
+            ESP_LOGI("LittleFS", "Mounted LittleFS. Partition size: total: %d, used: %d", total, used);
+          }
+
+  - id: set_background_img
+    mode: single
+    then:
+      - lambda: |-
+          ESP_LOGI("987IoT", "Selected ZSV IoT background image.");
+          struct stat st;
+          const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
+          ESP_LOGI("987IoT", "Have custom background image.");
+          if (id(background_image) == nullptr) {
+              ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
+              return; 
+          }
+          lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+          ESP_LOGI("987IoT", "Background image source updated form LittleFS.");
+      
+
+
+  - id: get_background_img
+    mode: single
+    then:
+      - mqtt.publish_json:
+          topic: !lambda |-
+            return "background/request";
+          payload: |-
+            root["mac"] = id(text_sensor_mac_address).state;
+      - lambda: |-
+          // 下载图片
+          auto mac = id(text_sensor_mac_address).state;
+
+          id(mqtt_client).subscribe_json("background/response/" + mac, [=](const std::string &topic, JsonObject root) {
+
+            // 删掉已有图片
+            struct stat st;
+            if (stat("/data/custom_bg.jpg", &st) == 0)
+            {
+              unlink("/data/custom_bg.jpg");
+              ESP_LOGI("987IoT", "Deleted existing background image.");
+            }
+            // --- 1. 获取 Base64 字符串 ---
+            // 假设 JSON 路径 "image_base64" 存在且为字符串
+            const char *base64_str = root["image_base64"].as<const char *>();
+            
+            if (base64_str == nullptr) {
+                ESP_LOGW("987IoT", "'image_base64' field is missing or not a string.");
+                return;
+            }
+            
+            size_t base64_len = strlen(base64_str);
+            if (base64_len == 0) {
+                ESP_LOGW("987IoT", "Received empty Base64 string.");
+                return;
+            }
+            std::string start_of_str(base64_str, std::min((size_t)20, base64_len));
+            ESP_LOGI("987IoT", "Base64 string starts with: %s", start_of_str.c_str());
+            // --- 2. Base64 解码 ---
+            size_t decoded_max_len = base64_len / 4 * 3 + 4;
+            // 使用 std::vector 存储解码后的二进制数据
+            std::vector<uint8_t> decoded_data(decoded_max_len);
+            size_t decoded_len = 0;
+            
+            // 使用 mbedtls Base64 解码
+            int ret = mbedtls_base64_decode(
+                decoded_data.data(),
+                decoded_max_len,
+                &decoded_len,
+                (const unsigned char *)base64_str,
+                base64_len
+            );
+
+            if (ret != 0) {
+                ESP_LOGE("987IoT", "Base64 decode failed with code %d!", ret);
+                return;
+            }
+            
+            ESP_LOGI("987IoT", "Decoded image size: %zu bytes.", decoded_len);
+            
+            // --- 3. 写入 littlefs ---
+            const char *LOCAL_FILE_PATH = "/data/custom_bg.jpg";
+            // 使用 "wb" (write binary) 模式
+            FILE *file = fopen(LOCAL_FILE_PATH, "wb");
+            
+            if (!file) {
+                ESP_LOGE("987IoT", "Failed to open file %s for writing!", LOCAL_FILE_PATH);
+                return;
+            }
+
+            // 只写入实际解码的数据长度
+            size_t bytes_written = fwrite(decoded_data.data(), 1, decoded_len, file);
+            fclose(file);
+
+            if (bytes_written != decoded_len) {
+                ESP_LOGE("987IoT", "File write failed. Wrote %zu of %zu bytes.", bytes_written, decoded_len);
+                return;
+            }
+            ESP_LOGI("987IoT", "Image successfully saved to littlefs.");
+            const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
+            if (id(background_image) == nullptr) {
+                ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
+                return; 
+            }
+            lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+            ESP_LOGI("987IoT", "Image source updated.");
+          });
+          
+
+  - id: update_date
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - lambda: |-
+                // 更新日期显示
+                auto t = id(ntp_time).now();
+                char date_buf[30];
+                char weekday_buf[10];
+                // ESPHome中day_of_week: 1=Sunday, 2=Monday, ..., 7=Saturday
+                switch(t.day_of_week) {
+                  case 1: strcpy(weekday_buf, "星期日"); break;
+                  case 2: strcpy(weekday_buf, "星期一"); break;
+                  case 3: strcpy(weekday_buf, "星期二"); break;
+                  case 4: strcpy(weekday_buf, "星期三"); break;
+                  case 5: strcpy(weekday_buf, "星期四"); break;
+                  case 6: strcpy(weekday_buf, "星期五"); break;
+                  case 7: strcpy(weekday_buf, "星期六"); break;
+                  default: strcpy(weekday_buf, "未知"); break;
+                }
+                snprintf(date_buf, sizeof(date_buf), "%04d-%02d-%02d %s",
+                        t.year, t.month, t.day_of_month, weekday_buf);
+                lv_label_set_text(id(date_label), date_buf);
+            - lvgl.label.update:
+                id: lbl_topbar_date
+                text: !lambda |-
+                  static const char * const day_names[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+                  auto t = id(ntp_time).now();
+                  char buf[20];
+                  auto a = day_names[id(ntp_time).now().day_of_week - 1]; // Adjust for 0-based index
+                  snprintf(buf, sizeof(buf), "%02d.%02d %s", t.month, t.day_of_month, a);
+                  return std::string(buf);
+
+  - id: update_time
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - lambda: |-
+                // 更新时间显示
+                auto t = id(ntp_time).now();
+                char buf[9];
+                // 00:00 格式
+                char buf1[6];
+                snprintf(buf1, sizeof(buf), "%02d:%02d", t.hour, t.minute);
+                snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.hour, t.minute, t.second);
+                lv_label_set_text(id(time_label), buf);
+                lv_label_set_text(id(lbl_topbar_time), buf1);
+  
+  - id: refresh_info_page
+    then:
+      - if:
+            condition:
+              lambda: 'return !id(is_sleeping);'
+            then:
+              - if:
+                  condition:
+                    or:
+                      - lvgl.page.is_showing: system_setting_network_page
+                      - lvgl.page.is_showing: system_setting_system_page
+                  then:
+                    - lambda: |-
+                        using namespace esphome;
+
+                        // 获取 WiFi 全局对象
+                        auto wifi = wifi::global_wifi_component;
+                        if (wifi == nullptr) return;
+            
+                        std::string ip = "N/A";
+                        auto ip_list = wifi->get_ip_addresses();
+                        if (!ip_list.empty()) {
+                          ip = ip_list[0].str();
+                        }
+
+                        std::string mac = "none";
+                        std::string commit = "fffffff";
+
+                        auto cpu_freq1 = id(cpu_freq).state / 1000000;
+                        std::string cpu_freq = std::to_string((int)cpu_freq1) + "MHz";  
+                        std::string cpu_temp = std::to_string((int)id(internal_temp).state) + "°C";
+
+                        mac = id(text_sensor_mac_address).state;
+                        commit = id(lemonade_git_commit_sha).state.substr(0, 7);
+                        
+                        auto esphome_ver = id(esphome_version).state;
+                        auto ssid_val = id(ssid).state;
+                        auto rssi_val = id(rssi).state;
+                        // auto captive_portal = captive_portal::global_captive_portal;
+                        // bool in_ap_mode = captive_portal->is_active();
+                        // if (in_ap_mode) {
+                        //   ssid_val = "(AP模式)";
+                        //   rssi_val = 0;
+                        // }
+                        std::string rssi_str = std::to_string((int)rssi_val);
+                        if (!id(wifi_switch).state) {
+                          ssid_val = "(已关闭)";
+                          rssi_str = "-∞";
+                        }
+
+                        
+                        if (ssid_val == "") {
+                          ssid_val = "(未连接)";
+                          rssi_str = "-∞";
+                        }
+                        // 拼接文字
+                        char buf[256];
+                        snprintf(buf, sizeof(buf),
+                                "运行时间: %s "
+                                "CPU: 40~%s "
+                                "%s \n"
+                                "型号：${lemonade_device_model} MAC: %s\n\nLemonade OS ${lemonade_version}"
+                                " %s\n"
+                                "ESPHome %s\nOS by Cookie987, HW by ZSVStudio.\n©2025 RedCookieStudios.",
+                                id(uptime_text).state.c_str(),
+                                cpu_freq.c_str(),
+                                cpu_temp.c_str(),
+                                mac.c_str(),
+                                commit.c_str(),
+                                esphome_ver.c_str()
+                                );
+
+                        char buf_wifi_info[256];
+                        snprintf(buf_wifi_info, sizeof(buf_wifi_info),
+                                "SSID: %s   "
+                                "RSSI: %s dBm\n"
+                                "IP: %s  "
+                                "MAC: %s\n",
+                                ssid_val.c_str(),
+                                rssi_str.c_str(),
+                                ip.c_str(),
+                                mac.c_str()
+                                );
+                        lv_label_set_text(id(lbl_wifi_info), buf_wifi_info);
+                        lv_label_set_text(id(lbl_sysinfo), buf);
+
+  - id: zsv_iot_update
+    mode: single
+    then:
+      - http_request.get:
+          url: !lambda |-
+            std::string url, mac, acturl;
+            url = "${zsv_iot_url}cfg?id=";
+            mac = id(text_sensor_mac_address).state;
+            
+            // 检查MAC地址是否为空或无效
+            if (mac.empty() || mac == "" || mac.length() < 10) {
+              ESP_LOGE("main", "MAC address is invalid or empty: '%s'", mac.c_str());
+              return "${zsv_iot_url}cfg?id=000000000000";
+            }
+            
+            acturl = url + mac;
+            ESP_LOGD("zsv_iot", " %s", acturl.c_str());
+            return acturl.c_str();
+          capture_response: true
+          on_response:
+            then:
+              - lambda: |- 
+                  ESP_LOGD("zsv_iot", "BODY: '%s'", body.c_str());
+              - if:
+                  condition:
+                      lambda: return response->status_code == 200;
+                  then:
+                      - lambda: |-
+                          json::parse_json(body, [](JsonObject root) -> bool {
+                              if (root["producetime"]) {
+                                id(zsv_iot_last_status) =(root["producetime"]).as<std::string>();
+                              }
+                              if (root["morewifi"]) {
+                                auto wifi = wifi::global_wifi_component;
+                                if (wifi == nullptr) return false;
+                                JsonArray morewifi = root["morewifi"];
+                                int i = 0;
+                                wifi->clear_saved_wifi_stas();
+                                ESP_LOGI("zsv_iot", "Cleared user saved WiFi STA");
+                                for (JsonObject item : morewifi) {
+                                  i++;
+                                  wifi->append_wifi_sta(item["ssid"].as<std::string>(), item["password"].as<std::string>());
+                                  ESP_LOGI("zsv_iot", "Saved WiFi STA: %s", item["ssid"].as<std::string>().c_str());
+                                }
+                              }
+                              if (root["desc"]) {
+                                ESP_LOGI("zsv_iot", "Got description: %s", root["desc"].as<std::string>());
+                              }
+                              auto t = id(ntp_time).now();
+                              std::string msg = "成功更新于 " + t.strftime("%H:%M:%S") + "重启WiFi以应用更改" + "\n" + root["desc"].as<std::string>();
+                              lv_label_set_text(id(lbl_zsv_iot_info), msg.c_str());
+                              return true;
+                          });
+                          return;
+                      - logger.log:
+                          format: "Response status: %d, message %s"
+                          args: [ 'response->status_code', 'body.c_str()' ]
+                  else:
+                      - logger.log:
+                          format: "Error: Response status: %d, message %s"
+                          args: [ 'response->status_code', 'body.c_str()' ]
+                      - lambda: |-
+                          auto t = id(ntp_time).now();
+                          std::string msg = std::to_string(response->status_code) + " 失败。 于" + t.strftime("%H:%M:%S");
+                          lv_label_set_text(id(lbl_zsv_iot_info), msg.c_str());

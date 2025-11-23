@@ -1,0 +1,221 @@
+external_components:
+  - source: github://stuartparmenter/games-esphome@main
+    components: [lvgl_game_runner, game_snake, game_breakout, game_pong]
+
+game_snake:
+  id: snake
+
+game_pong:
+  id: pong
+  num_human_players: 0
+
+game_breakout:
+  id: breakout
+
+lvgl_game_runner:
+  id: game_runner1
+  initial_game: pong
+  canvas: game_canvas
+  fps: 60
+  start_paused: true
+
+lvgl:
+  id: lvgl_1
+  pages:
+    - id: page_game_menu
+      on_load:
+        - lvgl.widget.enable: [tile_view_game_menu, btn_snake, btn_pong, btn_breakout]
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "例程"
+      on_unload:
+        - lvgl.widget.disable: [tile_view_game_menu, btn_snake, btn_pong, btn_breakout]
+      widgets: 
+        - tileview:
+            id: tile_view_game_menu
+            x: 0
+            y: 0
+            width: 320
+            height: 185
+            align: CENTER
+            state:
+              disabled: true
+            tiles: 
+              - id: tile_snake
+                x: 0
+                row: 0
+                column: 0
+                y: 0
+                widgets:
+                  - button:
+                      id: btn_snake
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "贪心算法的 Python 实现"
+                      on_click:
+                        then:
+                          - lvgl_game_runner.set_game:
+                              id: game_runner1
+                              game: snake
+                          - lvgl.page.show:
+                              id: snake_game_page
+                              animation: MOVE_LEFT
+                              time: 200ms
+              - id: tile_pong
+                x: 0
+                row: 1
+                column: 0
+                y: 48
+                widgets:
+                  - button:
+                      id: btn_pong
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "网络 Ping （自动）"
+                      on_click:
+                        then:
+                          - lvgl_game_runner.set_game:
+                              id: game_runner1
+                              game: pong
+                          - lvgl.page.show:
+                              id: snake_game_page
+                              animation: MOVE_LEFT
+                              time: 200ms
+              - id: tile_breakout
+                x: 0
+                row: 1
+                column: 0
+                y: 96
+                widgets:
+                  - button:
+                      id: btn_breakout
+                      x: 40
+                      y: 60
+                      width: 240
+                      height: 32
+                      state:
+                        disabled: true
+                      widgets:
+                        - label:
+                            align: CENTER
+                            text_font: chinese_font14
+                            text: "防火墙攻防实践"
+                      on_click:
+                        then:
+                          - lvgl_game_runner.set_game:
+                              id: game_runner1
+                              game: breakout
+                          - lvgl.page.show:
+                              id: snake_game_page
+                              animation: MOVE_LEFT
+                              time: 200ms         
+    - id: snake_game_page
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "游戏"
+      on_unload:
+        - lvgl_game_runner.pause:
+            id: game_runner1
+        - lvgl.widget.show: [btn_page_prev, btn_page_next]
+        - lvgl.widget.focus: btn_page_prev
+      widgets:
+        - canvas:
+            id: game_canvas
+            x: 0
+            y: -10
+            width: 240
+            height: 160
+            align: CENTER
+        - label:
+            align: CENTER
+            y: 80
+            text: "长按 X：返回   X：暂停   双击 X：重新开始"
+
+binary_sensor:
+  - id: !extend a
+    on_press:
+      - if:
+          condition:
+            lvgl.page.is_showing: snake_game_page
+          then:
+            - lvgl_game_runner.send_input:
+                id: game_runner1
+                pressed: true
+                input: "ROTATE_CCW"
+  - id: !extend b
+    on_press:
+      - if:
+          condition:
+            lvgl.page.is_showing: snake_game_page
+          then:
+            - lvgl_game_runner.send_input:
+                id: game_runner1
+                pressed: true
+                input: "ROTATE_CW"
+  - id: !extend x
+    on_multi_click:
+    - timing:
+        - ON for at most 0.5s
+        - OFF for at most 0.5s
+        - ON for at most 0.5s
+      then:
+        - if:
+            condition:
+              lvgl.page.is_showing: snake_game_page
+            then:
+              - logger.log: "Double Clicked"
+              - lvgl_game_runner.start:
+                  id: game_runner1
+    - timing:
+        - ON for 1s to 5s
+        - OFF for at least 0.1s
+      then:
+        - if:
+            condition:
+              lvgl.page.is_showing: snake_game_page
+            then:
+              - logger.log: "Single Long Clicked"
+              - lvgl.page.show: 
+                  id: page_game_menu
+                  animation: FADE_IN
+                  time: 200ms
+    - timing:
+        - ON for at most 1s
+        - OFF for at least 0.1s
+      then:        
+        - if:
+            condition:
+              lvgl.page.is_showing: snake_game_page
+            then:
+              - logger.log: "Single Short Clicked"
+              - lvgl_game_runner.toggle:
+                    id: game_runner1
+
+script:
+  - id: !extend sleep_button
+    then:
+      - if:
+          condition:
+            lambda: 'return id(is_sleeping);'
+          then:
+            - lvgl_game_runner.pause:
+                id: game_runner1

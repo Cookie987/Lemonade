@@ -1,0 +1,183 @@
+display:
+  - platform: mipi_spi
+    id: watchface
+    data_rate: 80MHz
+    model: ST7789V
+    cs_pin: GPIO6
+    reset_pin: GPIO7
+    dc_pin: GPIO15
+    show_test_card: false
+    color_order: bgr
+    invert_colors: false
+    auto_clear_enabled: false
+    update_interval: never
+
+touchscreen:
+  - id: touch_panel
+    platform: ft63x6
+    interrupt_pin: GPIO13
+    reset_pin: GPIO10
+
+i2c:
+  sda: GPIO11
+  scl: GPIO9
+  scan: true
+  id: bus_a
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO17
+
+switch:
+  - platform: gpio
+    pin: GPIO40
+    id: acc
+    restore_mode: ALWAYS_ON
+
+  - platform: lvgl
+    id: bluetooth_switch
+    widget: switch_bluetooth
+    restore_mode: ALWAYS_ON
+
+output:
+  - platform: ledc
+    pin: GPIO8
+    id: backlight_pin
+  - platform: ledc
+    pin: GPIO42
+    id: rttl_pin
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO39
+    id: home
+    filters:
+      - settle: 20ms
+    on_press: 
+      then:
+        - script.execute: wakeup_button
+        - lvgl.page.show: 
+            id: page_main
+            animation: FADE_IN
+            time: 500ms
+
+  - platform: gpio
+    pin: GPIO0
+    id: boot
+    filters:
+      - settle: 20ms
+    on_multi_click:
+    - timing:
+        - ON for at most 0.8s
+        - OFF for at least 0.1s
+      then:
+        - script.execute: sleep_button
+
+sensor:
+  - platform: adc
+    pin: GPIO1
+    id: usb_input_voltage
+    update_interval: 2s
+    attenuation: auto
+    filters:
+      - multiply: 5
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - if:
+                condition:
+                  lvgl.page.is_showing: system_setting_power_page
+                then:
+                  - lvgl.indicator.update:
+                      id: usb_voltage_indicator
+                      value: !lambda 'return id(usb_input_voltage).state * 10;'
+                  - lvgl.label.update:
+                      id: usb_voltage_text
+                      text:
+                        format: "%.2fV"
+                        args: [ 'x' ]
+          
+  - platform: adc
+    pin: GPIO2
+    id: battery_voltage
+    update_interval: 2s
+    attenuation: auto
+    filters:
+      - multiply: 5 
+    on_value:
+    - if:
+        condition:
+          lambda: 'return !id(is_sleeping);'
+        then:
+          - if:
+              condition:
+                lambda: 'return id(usb_input_voltage).state > 4.5;'
+              then:
+                - lvgl.widget.show: ani_battery_charging
+                - lvgl.animimg.start: ani_battery_charging
+              else:
+                - lvgl.widget.hide: ani_battery_charging
+                - lvgl.animimg.stop: ani_battery_charging
+          - if:
+              condition:
+                lvgl.page.is_showing: system_setting_power_page
+              then:
+                - lvgl.indicator.update:
+                    id: battery_voltage_indicator
+                    value: !lambda 'return id(battery_voltage).state * 10;'
+                - lvgl.label.update:
+                    id: battery_voltage_text
+                    text:
+                      format: "%.2fV"
+                      args: [ 'x' ]
+          - lvgl.label.update:
+              id: lbl_battery_status
+              text: !lambda |-
+                float v = id(battery_voltage).state;
+                // 保留两位小数（四舍五入）
+                float rounded = (int)(v * 100 + 0.5f) / 100.0f;
+                // 电压映射到百分比
+                // 4.15V = 100%，3.55V = 0%
+                float percent = (rounded - 3.55f) / (4.15f - 3.55f) * 100.0f;
+                if (percent > 100.0f) percent = 100.0f;
+                if (percent < 0.0f) percent = 0.0f;
+                // 根据电量百分比选择 MDI 图标
+                std::string icon;
+                if (percent == 100.0f)
+                    icon = "\U000F0079"; // mdi-battery (full)
+                else if (percent > 90)
+                    icon = "\U000F0082"; // mdi-battery-90
+                else if (percent > 80)
+                    icon = "\U000F0081"; // mdi-battery-80
+                else if (percent > 70)
+                    icon = "\U000F0080"; // mdi-battery-70
+                else if (percent > 60)
+                    icon = "\U000F007F"; // mdi-battery-60
+                else if (percent > 50)
+                    icon = "\U000F007E"; // mdi-battery-50
+                else if (percent > 40)
+                    icon = "\U000F007D"; // mdi-battery-40
+                else if (percent > 30)
+                    icon = "\U000F007C"; // mdi-battery-30
+                else if (percent > 20)
+                    icon = "\U000F007B"; // mdi-battery-20
+                else if (percent > 10)
+                    icon = "\U000F007A"; // mdi-battery-10
+                else if (percent >= 0)
+                    icon = "\U000F008E"; // mdi-battery-outline
+                else
+                    icon = "\U000F0091"; // mdi-battery-unknown
+                if (id(usb_input_voltage).state > 4.5) {
+                    // 充电中图标隐藏
+                    icon = " "; 
+                }
+                // 格式化电压字符串
+                char buf[8];
+                sprintf(buf, "%.2f", rounded);
+                // 低电量红色警告（<3.4V）
+                if (v < 3.55f or percent < 20.0f)
+                    return std::string("#FF0000 ") + icon + " " + buf + "V#";
+                else
+                    return icon + std::string(" ") + buf + "V";

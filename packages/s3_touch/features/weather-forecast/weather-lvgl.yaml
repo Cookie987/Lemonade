@@ -1,0 +1,164 @@
+
+  pages:
+    - id: !extend page_main
+      widgets:
+        - label:
+            id: lbl_current_weather_text_main
+            align: CENTER
+            y: 35
+            text_font: chinese_font18
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "N/A"
+
+    - id: page_weather_forecast
+      on_load:
+        - lvgl.widget.show: tabview_weather
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "天气"
+      on_unload:
+        - delay: 250ms
+        - lvgl.widget.hide: tabview_weather
+      widgets:
+        - tabview:
+            id: tabview_weather
+            anim_time: 0.5s
+            x: 0
+            y: 18
+            width: 320
+            height: 198
+            hidden: true
+            size: 15%
+            state:
+              disabled: true
+            tab_style:
+              bg_color: !lambda return lv_color_hex(0xf6f6f6);
+            content_style:
+              bg_color: !lambda return lv_color_hex(0xffffff);
+            tabs:
+              # 当前天气标签页
+              - name: 当前天气
+                state:
+                  disabled: true
+                text_font: chinese_font14
+                scrollbar_mode: "OFF"
+                widgets:
+                  - obj:
+                      id: obj_current_weather_bg
+                      align: CENTER
+                      width: 320
+                      height: 240
+                      bg_color: !lambda return lv_color_hex(0xffffff);
+                  - image:
+                      id: img_current_weather_icon
+                      src: c999_2x_black
+                      x: 10
+                      y: -20
+                      align: LEFT_MID
+                  - label:
+                      id: lbl_current_weather_text
+                      x: -5
+                      y: -45
+                      align: RIGHT_MID
+                      text_font: chinese_font36
+                      text: "N/A" 
+                  - label:
+                      id: lbl_current_weather_max_min_temp
+                      x: -5
+                      y: -10
+                      align: RIGHT_MID
+                      text_font: chinese_font18
+                      text: "N/A"
+                  - label:
+                      id: lbl_current_weather_wind
+                      x: -5
+                      y: 15
+                      align: RIGHT_MID
+                      text_font: chinese_font18
+                      text: "N/A"
+                  - label:
+                      id: lbl_current_weather_rain_summary
+                      align: BOTTOM_MID
+                      text_align: CENTER
+                      y: -10
+                      x: 0
+                      width: 250
+                      recolor: true
+                      long_mode: SCROLL_CIRCULAR
+                      text_font: chinese_font14
+                      text: "N/A"
+                  - label:
+                      id: lbl_update_time
+                      align: BOTTOM_LEFT
+                      #c4c4c4ff
+                      text_color: !lambda return lv_color_hex(0xc4c4c4);
+                      x: -8
+                      y: 10
+                      text: "N/A"
+                  - label:
+                      id: lbl_data_source
+                      align: BOTTOM_RIGHT
+                      #f6f6f6
+                      text_color: !lambda return lv_color_hex(0xc4c4c4);
+                      x: 8
+                      y: 10
+                      text: "来自和风天气"
+
+              - name: 3日预报
+                state:
+                  disabled: true
+                text_font: chinese_font14
+                scrollbar_mode: "OFF"
+                bg_color: !lambda return lv_color_hex(0xffffff);
+                widgets:
+                  - obj:
+                      id: obj_forecast_bg
+                      align: CENTER
+                      width: 320
+                      height: 240
+                      bg_color: !lambda return lv_color_hex(0xffffff);
+                  - image:
+                      id: img_forecast_day1_weather_icon
+                      x: -120
+                      y: -50
+                      align: CENTER
+                      src: c999_1x_black
+                  - image:
+                      id: img_forecast_day2_weather_icon
+                      x: -120
+                      y: 0
+                      align: CENTER
+                      src: c999_1x_black
+                  - image:
+                      id: img_forecast_day3_weather_icon
+                      x: -120
+                      y: 50
+                      align: CENTER
+                      src: c999_1x_black
+                  - label:
+                      id: lbl_forecast_day1_weather
+                      x: 35
+                      y: -50
+                      width: 220
+                      align: CENTER
+                      text_align: LEFT
+                      text_font: chinese_font18
+                      text: "N/A℃~N/A℃  N/A"
+                  - label:
+                      id: lbl_forecast_day2_weather
+                      x: 35
+                      y: 0
+                      width: 220
+                      align: CENTER
+                      text_align: LEFT
+                      text_font: chinese_font18
+                      text: "N/A℃~N/A℃  N/A"
+                  - label:
+                      id: lbl_forecast_day3_weather
+                      x: 35
+                      y: 50
+                      width: 220
+                      align: CENTER
+                      text_align: LEFT
+                      text_font: chinese_font18
+                      text: "N/A℃~N/A℃  N/A"
