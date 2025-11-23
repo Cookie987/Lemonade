@@ -12,13 +12,9 @@
 
     - id: page_weather_forecast
       on_load:
-        - lvgl.widget.show: tabview_weather
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "天气"
-      on_unload:
-        - delay: 250ms
-        - lvgl.widget.hide: tabview_weather
       widgets:
         - tabview:
             id: tabview_weather
@@ -27,10 +23,7 @@
             y: 18
             width: 320
             height: 198
-            hidden: true
             size: 15%
-            state:
-              disabled: true
             tab_style:
               bg_color: !lambda return lv_color_hex(0xf6f6f6);
             content_style:
@@ -38,8 +31,6 @@
             tabs:
               # 当前天气标签页
               - name: 当前天气
-                state:
-                  disabled: true
                 text_font: chinese_font14
                 scrollbar_mode: "OFF"
                 widgets:
@@ -105,8 +96,6 @@
                       text: "来自和风天气"
 
               - name: 3日预报
-                state:
-                  disabled: true
                 text_font: chinese_font14
                 scrollbar_mode: "OFF"
                 bg_color: !lambda return lv_color_hex(0xffffff);

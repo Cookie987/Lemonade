@@ -8,15 +8,26 @@ display:
     dc_pin: GPIO15
     show_test_card: false
     color_order: bgr
-    invert_colors: false
+    invert_colors: true
     auto_clear_enabled: false
     update_interval: never
-
+    transform:
+      swap_xy: true
+      mirror_x: false
+      mirror_y: true
+    dimensions:
+      width: 320
+      height: 240
 touchscreen:
   - id: touch_panel
+    display: watchface
     platform: ft63x6
     interrupt_pin: GPIO13
     reset_pin: GPIO10
+    transform:
+      swap_xy: true
+      mirror_x: true
+      mirror_y: false
 
 i2c:
   sda: GPIO11

@@ -5,13 +5,9 @@ lvgl:
   pages:
     - id: page_calendar_menu
       on_load:
-        - lvgl.widget.enable: [tile_view_calendar,  btn_schedule]
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "日历"
-      on_unload:
-        - delay: 250ms
-        - lvgl.widget.disable: [tile_view_calendar,  btn_schedule]
       widgets:
         # 占位用，不然没有LV_USE_……
         - dropdown:
@@ -30,8 +26,6 @@ lvgl:
             width: 320
             height: 185
             align: CENTER
-            state:
-              disabled: true
             tiles: 
               - id: tile_calendar
                 x: 0
@@ -45,8 +39,6 @@ lvgl:
                       y: 60
                       width: 240
                       height: 32
-                      state:
-                        disabled: true
                       widgets:
                         - label:
                             align: CENTER
@@ -70,8 +62,6 @@ lvgl:
                       y: 60
                       width: 240
                       height: 32
-                      state:
-                        disabled: true
                       widgets:
                         - label:
                             align: CENTER
@@ -118,8 +108,6 @@ lvgl:
             y: 70
             width: 260
             height: 32
-            state:
-              disabled: true
             widgets:
               - label:
                   align: CENTER

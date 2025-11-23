@@ -24,12 +24,9 @@ lvgl:
   pages:
     - id: page_game_menu
       on_load:
-        - lvgl.widget.enable: [tile_view_game_menu, btn_snake, btn_pong, btn_breakout]
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "例程"
-      on_unload:
-        - lvgl.widget.disable: [tile_view_game_menu, btn_snake, btn_pong, btn_breakout]
       widgets: 
         - tileview:
             id: tile_view_game_menu
@@ -38,8 +35,6 @@ lvgl:
             width: 320
             height: 185
             align: CENTER
-            state:
-              disabled: true
             tiles: 
               - id: tile_snake
                 x: 0
@@ -53,8 +48,6 @@ lvgl:
                       y: 60
                       width: 240
                       height: 32
-                      state:
-                        disabled: true
                       widgets:
                         - label:
                             align: CENTER

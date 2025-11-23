@@ -1,0 +1,20 @@
+esphome:
+  name: sdl
+
+host:
+  mac_address: "06:35:69:ab:f6:79"
+
+display:
+  - platform: sdl
+    show_test_card: false
+    dimensions:
+      width: 320
+      height: 240
+
+touchscreen:
+  platform: sdl
+  id: touch_panel
+
+packages:
+  - !include packages/host-test/lvgl.yaml
+  - !include packages/resources.yaml
