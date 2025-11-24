@@ -1,6 +1,16 @@
 lvgl:
   on_boot:
-    # - script.execute: prase_schedule
+    - lambda: |-
+        lv_obj_t * calendar = lv_calendar_create(page_calendar->obj);
+        // lv_calendar_header_arrow_create(calendar);
+        // lv_calendar_header_dropdown_create(calendar);
+
+        // lv_obj_set_size(calendar, 320, 185);
+        // lv_obj_set_style_x(calendar, 0, LV_PART_MAIN);
+        // lv_obj_set_style_y(calendar, 3, LV_PART_MAIN);
+        // lv_obj_set_style_align(calendar, LV_ALIGN_CENTER, LV_PART_MAIN);
+        // lv_obj_add_state(calendar, LV_STATE_DISABLED);
+    - script.execute: prase_schedule
 
   pages:
     - id: page_calendar_menu
@@ -17,62 +27,52 @@ lvgl:
             options:
               - "选项1"
             hidden: true
-            state:
-              disabled: true
-        - tileview:
-            id: tile_view_calendar
+        - obj:
             x: 0
             y: 0
+            align: CENTER
+            border_width: 0
             width: 320
             height: 185
-            align: CENTER
-            tiles: 
-              - id: tile_calendar
-                x: 0
-                row: 0
-                column: 0
-                y: 0
-                widgets:
-                  - button:
-                      id: btn_calendar
-                      x: 40
-                      y: 60
-                      width: 240
-                      height: 32
-                      widgets:
-                        - label:
-                            align: CENTER
-                            text_font: chinese_font14
-                            text: "日历"
-                      on_click:
-                        then:
-                          - lvgl.page.show:
-                              id: page_calendar
-                              animation: MOVE_LEFT
-                              time: 200ms
-              - id: tile_schedule
-                x: 0
-                row: 1
-                column: 0
-                y: 48
-                widgets:
-                  - button:
-                      id: btn_schedule
-                      x: 40
-                      y: 60
-                      width: 240
-                      height: 32
-                      widgets:
-                        - label:
-                            align: CENTER
-                            text_font: chinese_font14
-                            text: "日程表"
-                      on_click:
-                        then:
-                          - lvgl.page.show:
-                              id: page_schedule
-                              animation: MOVE_LEFT
-                              time: 200ms
+            widgets:
+              - button:
+                  id: btn_calendar
+                  x: 0
+                  y: 0
+                  align: CENTER
+                  width: 240
+                  height: 32
+                  state:
+                    disabled: true
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "日历"
+                  on_click:
+                    then:
+                      - lvgl.page.show:
+                          id: page_calendar
+                          animation: MOVE_LEFT
+                          time: 200ms
+              - button:
+                  id: btn_schedule
+                  x: 0
+                  y: 48
+                  align: CENTER
+                  width: 240
+                  height: 32
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "日程表"
+                  on_click:
+                    then:
+                      - lvgl.page.show:
+                          id: page_schedule
+                          animation: MOVE_LEFT
+                          time: 200ms
 
     - id: page_calendar
       skip: true
@@ -85,22 +85,17 @@ lvgl:
       on_unload:
         - lvgl.widget.hide: btn_back_setting
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
-        - lvgl.widget.focus: btn_page_prev
     - id: page_schedule
       skip: true
       on_load:
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.show: btn_back_setting
-        - lvgl.widget.enable: btn_update_schedule
-        - lvgl.widget.focus: btn_update_schedule
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "日程表"
       on_unload:
         - lvgl.widget.hide: btn_back_setting
-        - lvgl.widget.disable: btn_update_schedule
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
-        - lvgl.widget.focus: btn_page_prev
       widgets:
         - button:
             id: btn_update_schedule
@@ -140,8 +135,6 @@ lvgl:
             y: -25
             text: "（暂无日程表）"
             text_font: chinese_font14
-            state:
-              disabled: true
 
 script:
   - id: prase_schedule
@@ -161,8 +154,7 @@ script:
               schedule_json += line + "\n";
           }
           file.close();
-          // 建议：如果 JSON 很大，打印全部可能会截断或导致崩溃，视情况保留
-          // ESP_LOGD("987IoT", "Raw JSON: '%s'", schedule_json.c_str()); 
+          ESP_LOGD("987IoT", "Raw JSON: '%s'", schedule_json.c_str()); 
 
           json::parse_json(schedule_json, [&](JsonVariant root) -> bool {
             // --- 修改开始 ---
@@ -207,7 +199,7 @@ script:
             
             // 如果列表为空，可能需要清空显示
             if (out.empty()) {
-                lv_label_set_text(id(lbl_schedule), "No Schedule");
+                lv_label_set_text(id(lbl_schedule), "（暂无日程表）");
             } else {
                 lv_label_set_text(id(lbl_schedule), out.c_str());
             }

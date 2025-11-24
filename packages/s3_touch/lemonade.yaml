@@ -49,7 +49,7 @@ psram:
 power_management:
   id: pm_id
   initial_lock_duration: 121sec
-  tickless_idle: false
+  tickless_idle: true
   # Safe power down, do not set to true if device has PSRAM.
   power_down_flash: false
   # For disabled peripherals, automatically save and restore peripheral states, which allows the peripherals to be powered down.
@@ -150,7 +150,7 @@ ota:
         - lvgl.label.update:
             id: lbl_ota_prompt
             text:
-              format: "#ff0000 更新失败：%d\n #ffffff 请长按 O 键返回主页#"
+              format: "#ff0000 更新失败：%d\n #ffffff 请按 Home 键返回主页#"
               args: ["x"]
         - switch.turn_off: switch_powermanage_lock
 
@@ -177,7 +177,7 @@ ota:
         - lvgl.label.update:
             id: lbl_ota_prompt
             text:
-              format: "#ff0000 更新失败：%d\n #ffffff 请长按 O 键返回主页#"
+              format: "#ff0000 更新失败：%d\n #ffffff 请按 Home 键返回主页#"
               args: ["x"]
         - switch.turn_off: switch_powermanage_lock
 
@@ -434,6 +434,6 @@ text_sensor:
 
 select:
   - platform: lvgl
-    widget: roller_image
+    widget: dropdown_image
     name: Background Select
     restore_value: True

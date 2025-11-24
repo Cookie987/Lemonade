@@ -64,6 +64,18 @@ binary_sensor:
     id: home
     filters:
       - settle: 20ms
+    on_multi_click:
+    - timing:
+        - ON for at most 0.8s
+        - OFF for at least 0.1s
+      then:
+        - script.execute: sleep_button
+
+  - platform: gpio
+    pin: GPIO0
+    id: boot
+    filters:
+      - settle: 20ms
     on_press: 
       then:
         - script.execute: wakeup_button
@@ -71,18 +83,7 @@ binary_sensor:
             id: page_main
             animation: FADE_IN
             time: 500ms
-
-  - platform: gpio
-    pin: GPIO0
-    id: boot
-    filters:
-      - settle: 20ms
-    on_multi_click:
-    - timing:
-        - ON for at most 0.8s
-        - OFF for at least 0.1s
-      then:
-        - script.execute: sleep_button
+    
 
 sensor:
   - platform: adc

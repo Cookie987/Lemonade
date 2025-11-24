@@ -68,7 +68,8 @@ font:
                 "\uF240", # battery-full
                 "\uF53F", # pattle
                 "\uF05A", # info-circle
-                "\uF0AC" # globe
+                "\uF0AC", # globe
+                "\uF107", # angle-down
                 ]  # arrow-left, arrow-right, rotate-left
 
   - file: "fonts/MiSans-Medium.ttf"
@@ -101,10 +102,7 @@ font:
     bpp: 1
     glyphs: [\:0123456789.]
 
-  - file: 
-      type: gfonts
-      family: Roboto Condensed
-      weight: 400
+  - file: "fonts/Roboto-Condensed-3.ttf"
     id: roboto_icons_14
     size: 16
     bpp: 4

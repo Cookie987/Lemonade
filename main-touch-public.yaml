@@ -3,7 +3,7 @@
 esphome:
   project:
     name: "cookie987.lemonade"
-    version: "1.0.0"
+    version: "1.0.1"
   name_add_mac_suffix: true
 
 substitutions:

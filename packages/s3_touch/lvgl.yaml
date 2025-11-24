@@ -198,14 +198,14 @@ lvgl:
   on_boot:
     - if:
         condition:
-          lambda: 'return id(roller_image).get_selected_text() == "系统默认";'
+          lambda: 'return id(dropdown_image).get_selected_text() == "系统默认";'
         then:
           - lvgl.image.update:
               id: background_image
               src: defaultbg
     - if:
         condition:
-          lambda: 'return id(roller_image).get_selected_text() == "ZSV IoT";'
+          lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
         then:
           - script.execute: set_background_img
   default_font: chinese_font14
@@ -489,131 +489,86 @@ lvgl:
             id: lbl_topbar_title
             text: "系统设置"
       widgets: 
-        - tileview:
-            id: tile_view
+        - obj:
             x: 0
             y: 0
+            align: CENTER
+            border_width: 0
             width: 320
             height: 185
-            align: CENTER
-            tiles: 
-              - id: tile_network_setting
-                x: 0
-                row: 0
-                column: 0
-                y: 0
-                widgets:
-                  - button:
-                      id: btn_network_setting
-                      x: 40
-                      y: 60
-                      width: 240
-                      height: 32
-                      widgets:
-                        - label:
-                            align: CENTER
-                            text_font: chinese_font14
-                            text: "\uF0AC Wi-Fi与蓝牙"
-                      on_click:
-                        then:
-                          - lvgl.page.show:
-                              id: system_setting_network_page
-                              animation: MOVE_LEFT
-                              time: 200ms
-              - id: tile_display_settings
-                x: 0
-                row: 1
-                column: 0
-                y: 48
-                widgets:
-                  - button:
-                      id: btn_display_setting
-                      x: 40
-                      y: 60
-                      width: 240
-                      height: 32
-                      widgets:
-                        - label:
-                            align: CENTER
-                            text_font: chinese_font14
-                            text: "\uF53F 显示和个性化"
-                      on_click:
-                        then:
-                          - lvgl.page.show:
-                              id: system_setting_display_page
-                              animation: MOVE_LEFT
-                              time: 200ms
-              - id: tile_battery_setting
-                x: 0
-                row: 2
-                column: 0
-                y: 96
-                widgets:
-                  - button:
-                      id: btn_battery_setting
-                      x: 40
-                      y: 60
-                      width: 240
-                      height: 32
-                      widgets:
-                        - label:
-                            align: CENTER
-                            text_font: chinese_font14
-                            text: "\uF240 电源和电池"
-                      on_click:
-                        then:
-                          - lvgl.page.show:
-                              id: system_setting_power_page
-                              animation: MOVE_LEFT
-                              time: 200ms
-              - id: tile_system_setting
-                x: 0
-                row: 3
-                column: 0
-                y: 144
-                widgets:
-                  - button:
-                      id: btn_system_setting
-                      x: 40
-                      y: 60
-                      width: 240
-                      height: 32
-                      widgets:
-                        - label:
-                            align: CENTER
-                            text_font: chinese_font14
-                            text: "\uF05A 关于"
-                      on_click:
-                        then:
-                          - lvgl.page.show:
-                              id: system_setting_system_page
-                              animation: MOVE_LEFT
-                              time: 200ms
-              # - id: tile_littlefs_setting
-              #   x: 0
-              #   row: 4
-              #   column: 0
-              #   y: 192
-              #   widgets:
-              #     - button:
-              #         id: btn_littlefs_setting
-              #         x: 40
-              #         y: 60
-              #         width: 240
-              #         height: 32
-              #         state:
-              #           disabled: true
-              #         widgets:
-              #           - label:
-              #               align: CENTER
-              #               text_font: chinese_font14
-              #               text: "\uF05A LittleFS"
-              #         on_click:
-              #           then:
-              #             - lvgl.page.show:
-              #                 id: system_setting_littlefs_page
-              #                 animation: MOVE_LEFT
-              #                 time: 200ms
+            widgets:
+              - button:
+                  id: btn_network_setting
+                  x: 0
+                  align: CENTER
+                  y: 0
+                  width: 240
+                  height: 32
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "\uF0AC Wi-Fi与蓝牙"
+                  on_click:
+                    then:
+                      - lvgl.page.show:
+                          id: system_setting_network_page
+                          animation: MOVE_LEFT
+                          time: 200ms
+              - button:
+                  id: btn_display_setting
+                  x: 0
+                  align: CENTER
+                  y: 48
+                  width: 240
+                  height: 32
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "\uF53F 显示和个性化"
+                  on_click:
+                    then:
+                      - lvgl.page.show:
+                          id: system_setting_display_page
+                          animation: MOVE_LEFT
+                          time: 200ms
+              - button:
+                  id: btn_battery_setting
+                  x: 0
+                  align: CENTER
+                  y: 96
+                  width: 240
+                  height: 32
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "\uF240 电源和电池"
+                  on_click:
+                    then:
+                      - lvgl.page.show:
+                          id: system_setting_power_page
+                          animation: MOVE_LEFT
+                          time: 200ms
+              - button:
+                  id: btn_system_setting
+                  x: 0
+                  align: CENTER
+                  y: 144
+                  width: 240
+                  height: 32
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "\uF05A 关于"
+                  on_click:
+                    then:
+                      - lvgl.page.show:
+                          id: system_setting_system_page
+                          animation: MOVE_LEFT
+                          time: 200ms
 
     - id: system_setting_power_page
       skip: true
@@ -773,31 +728,30 @@ lvgl:
                 - delay: 100ms
                 - lambda: |-
                     id(is_slider_changing) = false;
-        - roller:
-            id: roller_image
+        - dropdown:
+            id: dropdown_image
             x: 130
             y: 93
             width: 163
-            height: 45
-            anim_time: 0.5s
-            mode: INFINITE
+            height: 38
+            symbol: "\uF107" # angle-down
             options:
               - 系统默认
               - ZSV IoT
             text_font: chinese_font14
-            on_value:
+            on_change:
               then:
                 - lvgl.widget.show: background_image
                 - if:
                     condition:
-                      lambda: 'return id(roller_image).get_selected_text() == "系统默认";'
+                      lambda: 'return id(dropdown_image).get_selected_text() == "系统默认";'
                     then:
                       - lvgl.image.update:
                           id: background_image
                           src: defaultbg
                 - if:
                     condition:
-                      lambda: 'return id(roller_image).get_selected_text() == "ZSV IoT";'
+                      lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
                     then:
                       - script.execute: set_background_img
 
@@ -820,8 +774,8 @@ lvgl:
                   text: "获取 ZSV IoT 背景图片"
             on_click:
               then:
-                - lvgl.roller.update:
-                    id: roller_image
+                - lvgl.dropdown.update:
+                    id: dropdown_image
                     selected_index: 1
                 - script.execute: get_background_img
 
@@ -829,18 +783,14 @@ lvgl:
       skip: true
       on_load:
         - lvgl.widget.show: [btn_back_setting]
-        - lvgl.widget.enable: [switch_wifi, btn_get_zsv_iot_now, btn_clear_network]
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
-        - lvgl.widget.focus: switch_wifi
         - script.execute: refresh_info_page
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "Wi-Fi与蓝牙"
       on_unload:
         - lvgl.widget.hide: [btn_back_setting]
-        - lvgl.widget.disable: [switch_wifi, btn_get_zsv_iot_now, btn_clear_network]
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
-        - lvgl.widget.focus: btn_page_prev
       widgets:
         - label:
             text: "Wi-Fi"
