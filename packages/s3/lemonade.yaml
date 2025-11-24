@@ -118,12 +118,6 @@ logger:
             return message;
 
 
-# # Enable Home Assistant API
-# api:
-#   reboot_timeout: 0s
-#   encryption:
-#     key: "GZV94t0Ynjcna4aoilVTHjhliknuxp8cK9elyuShrKs="
-
 ota:
   - platform: esphome
     password: ${lemonade_ota_password}

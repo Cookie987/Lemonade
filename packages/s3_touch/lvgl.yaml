@@ -526,7 +526,7 @@ lvgl:
                     - label:
                         align: CENTER
                         text_font: chinese_font14
-                        text: "\uF53F 显示和个性化"
+                        text: "\uF53F 显示、声音和个性化"
                   on_click:
                     then:
                       - lvgl.page.show:
@@ -700,84 +700,98 @@ lvgl:
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.label.update:
             id: lbl_topbar_title
-            text: "显示和个性化"
+            text: "显示、声音和个性化"
       on_unload:
         - lvgl.widget.hide: [btn_back_setting]
         - lvgl.widget.show: [btn_page_prev, btn_page_next]
       widgets:
-        - label:
-            text: "屏幕亮度"
-            text_font: chinese_font14
-            x: 19
-            y: 53
-        - slider:
-            id: backlight_slider
-            min_value: 1
-            max_value: 50
-            value: 50
-            width: 200
-            x: 93
-            y: 59
-            on_change:
-              then:
-                - lambda: |-
-                    id(is_slider_changing) = true;
-                - light.turn_on:
-                    id: backlight
-                    brightness: !lambda 'return lv_slider_get_value(id(backlight_slider)) / 50.0;'
-                - delay: 100ms
-                - lambda: |-
-                    id(is_slider_changing) = false;
-        - dropdown:
-            id: dropdown_image
-            x: 130
-            y: 93
-            width: 163
-            height: 38
-            symbol: "\uF107" # angle-down
-            options:
-              - 系统默认
-              - ZSV IoT
-            text_font: chinese_font14
-            on_change:
-              then:
-                - lvgl.widget.show: background_image
-                - if:
-                    condition:
-                      lambda: 'return id(dropdown_image).get_selected_text() == "系统默认";'
-                    then:
-                      - lvgl.image.update:
-                          id: background_image
-                          src: defaultbg
-                - if:
-                    condition:
-                      lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
-                    then:
-                      - script.execute: set_background_img
-
-        - label:
-            x: 19
-            y: 103
-            text: "背景图片"
-            text_font: chinese_font14
-
-        - button:
-            id: btn_get_background_img
-            align: CENTER
-            y: 60
-            width: 260
-            height: 32
-            widgets:
-              - label:
-                  align: CENTER
-                  text_font: chinese_font14
-                  text: "获取 ZSV IoT 背景图片"
-            on_click:
-              then:
-                - lvgl.dropdown.update:
-                    id: dropdown_image
-                    selected_index: 1
-                - script.execute: get_background_img
+      - obj:
+          x: 0
+          y: 0
+          align: CENTER
+          border_width: 0
+          width: 320
+          height: 185
+          widgets:
+            - label:
+                text: "屏幕亮度"
+                text_font: chinese_font14
+                x: 9
+                y: 53
+            - slider:
+                id: backlight_slider
+                min_value: 1
+                max_value: 50
+                value: 50
+                width: 190
+                x: 83
+                y: 58
+                on_change:
+                  then:
+                    - lambda: |-
+                        id(is_slider_changing) = true;
+                    - light.turn_on:
+                        id: backlight
+                        brightness: !lambda 'return lv_slider_get_value(id(backlight_slider)) / 50.0;'
+                    - delay: 100ms
+                    - lambda: |-
+                        id(is_slider_changing) = false;
+            - dropdown:
+                id: dropdown_image
+                x: 120
+                y: 93
+                width: 163
+                height: 38
+                symbol: "\uF107" # angle-down
+                options:
+                  - 系统默认
+                  - ZSV IoT
+                text_font: chinese_font14
+                on_change:
+                  then:
+                    - if:
+                        condition:
+                          lambda: 'return id(dropdown_image).get_selected_text() == "系统默认";'
+                        then:
+                          - lvgl.image.update:
+                              id: background_image
+                              src: defaultbg
+                    - if:
+                        condition:
+                          lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
+                        then:
+                          - script.execute: set_background_img
+            - label:
+                x: 9
+                y: 103
+                text: "背景图片"
+                text_font: chinese_font14
+            - button:
+                id: btn_get_background_img
+                align: CENTER
+                y: 90
+                width: 260
+                height: 32
+                widgets:
+                  - label:
+                      align: CENTER
+                      text_font: chinese_font14
+                      text: "获取 ZSV IoT 背景图片"
+                on_click:
+                  then:
+                    - lvgl.dropdown.update:
+                        id: dropdown_image
+                        selected_index: 1
+                    - script.execute: get_background_img
+            - label:
+                text: "蜂鸣器"
+                text_font: chinese_font14
+                x: 9
+                y: 213
+            - switch:
+                id: switch_buzzer
+                x: 235
+                y: 208
 
     - id: system_setting_network_page
       skip: true

@@ -2,6 +2,7 @@ esphome:
   name: "${lemonade_device_name}"
   friendly_name: ${lemonade_device_friendly_name}
   platformio_options:
+    upload_speed: 921600
     build_flags:
       -DCONFIG_PM_ENABLE=1
       -DCONFIG_FREERTOS_USE_TICKLESS_IDLE=1
@@ -18,6 +19,7 @@ esphome:
           id: backlight
           transition_length: 1s
       - script.execute: littlefs_init
+      - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
       - lambda: |-
           float b = id(backlight).current_values.get_brightness();
           lv_slider_set_value(id(backlight_slider), b * 50.0, LV_ANIM_ON);
@@ -116,13 +118,6 @@ logger:
             return "logs/" + id(text_sensor_mac_address).state;
           payload: !lambda |-
             return message;
-
-
-# # Enable Home Assistant API
-# api:
-#   reboot_timeout: 0s
-#   encryption:
-#     key: "GZV94t0Ynjcna4aoilVTHjhliknuxp8cK9elyuShrKs="
 
 ota:
   - platform: esphome
@@ -233,6 +228,11 @@ switch:
     on_turn_off:
       then:
         - wifi.disable
+
+  - platform: lvgl
+    id: buzzer_switch
+    widget: switch_buzzer
+    restore_mode: RESTORE_DEFAULT_OFF
 
 mqtt:
   id: mqtt_client
@@ -377,7 +377,7 @@ sensor:
 rtttl:
   output: rttl_pin
   id: rtttl_player
-  gain: 60%
+  gain: 10%
 
 esp32_ble_beacon:
   type: iBeacon

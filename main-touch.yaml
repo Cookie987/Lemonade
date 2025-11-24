@@ -12,7 +12,7 @@ substitutions:
   lemonade_device_name: "lemonade-touch"
   lemonade_device_friendly_name: "Lemonade"
   lemonade_device_model: "智能时钟_T"
-  lemonade_version: "1.0.1-rc1 Canary"
+  lemonade_version: "1.0.2-rc1 Canary"
   lemonade_ota_password: !secret ota_password
   lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
   lemonade_ibeacon_major: "987"

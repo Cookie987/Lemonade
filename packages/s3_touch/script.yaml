@@ -10,6 +10,8 @@ script:
                 transition_length: 0.5s
             - lambda: id(is_sleeping)=false;
             - lvgl.animimg.start: ani_battery_charging
+            - lvgl.resume:
+                lvgl_id: lvgl_1
   
   - id: sleep_button
     then:
