@@ -19,7 +19,11 @@ esphome:
           id: backlight
           transition_length: 1s
       - script.execute: littlefs_init
-      - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
+      - if:
+          condition:
+            lambda: 'return id(switch_buzzer).state;'
+          then:
+            - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
       - lambda: |-
           float b = id(backlight).current_values.get_brightness();
           lv_slider_set_value(id(backlight_slider), b * 50.0, LV_ANIM_ON);

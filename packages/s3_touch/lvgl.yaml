@@ -790,7 +790,7 @@ lvgl:
                 y: 213
             - switch:
                 id: switch_buzzer
-                x: 235
+                x: 230
                 y: 208
 
     - id: system_setting_network_page
