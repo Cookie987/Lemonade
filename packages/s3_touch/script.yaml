@@ -18,7 +18,6 @@ script:
       - light.toggle:
           id: backlight
           transition_length: 0.5s
-      - delay: 100ms
       - lambda: id(is_sleeping)=!id(is_sleeping);
       - lvgl.resume: 
           lvgl_id: lvgl_1

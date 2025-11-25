@@ -62,9 +62,12 @@ output:
   - platform: ledc
     pin: GPIO8
     id: backlight_pin
+    frequency: 3840
+    channel: 0
   - platform: ledc
     pin: GPIO42
     id: rttl_pin
+    channel: 2
 
 binary_sensor:
   - platform: gpio
