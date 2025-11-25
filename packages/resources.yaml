@@ -44,6 +44,10 @@ image:
       transparency: alpha_channel
       id: batt_empty
       resize: 18x18
+    - file: mdi:timer-sand
+      transparency: alpha_channel
+      id: timer_sand
+      resize: 18x18
 
   rgb565:
     - file: "imgs/bocchi.png"
@@ -102,7 +106,10 @@ font:
     bpp: 1
     glyphs: [\:0123456789.]
 
-  - file: "fonts/Roboto-Condensed-3.ttf"
+  - file: 
+      type: gfonts
+      family: Roboto Condensed
+      weight: 400
     id: roboto_icons_14
     size: 16
     bpp: 4

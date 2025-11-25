@@ -217,24 +217,63 @@ lvgl:
         - image:
             id: background_image
             src: defaultbg
-        - label:
-            id: time_label
-            align: CENTER
-            recolor: true
-            y: -10
-            text: "00:00:00"
-            #f4f4f4ff
-            text_color: !lambda return lv_color_hex(0xffffff);
-            text_font: clock24
-            
-        - label:
-            id: date_label
-            align: CENTER
-            y: -50
-            text: "1970-01-01 星期四"
-            text_color: !lambda return lv_color_hex(0xffffff);
-            text_font: chinese_font18
-            
+        - tileview:
+            id: tileview_main
+            x: 0
+            y: 0
+            width: 100%
+            height: 100%
+            tiles:
+              - id: tile_clock
+                column: 0
+                row: 0
+                widgets:
+                  - label:
+                      id: time_label
+                      align: CENTER
+                      recolor: true
+                      y: -10
+                      text: "00:00:00"
+                      #f4f4f4ff
+                      text_color: !lambda return lv_color_hex(0xffffff);
+                      text_font: clock24
+                  - label:
+                      id: date_label
+                      align: CENTER
+                      y: -50
+                      text: "1970-01-01 星期四"
+                      text_color: !lambda return lv_color_hex(0xffffff);
+                      text_font: chinese_font18
+              - id: tile_appcenter
+                column: 0
+                row: 1
+                widgets:
+                  # 手机主页样式
+                  - button:
+                      id: btn_timer_app
+                      align: CENTER
+                      width: 48
+                      height: 48
+                      x: -96
+                      y: -30
+                      widgets:
+                        - image:
+                            src: timer_sand
+                            id: img_timer_app
+                            width: 28
+                            height: 28
+                            align: CENTER
+                        - label:
+                            id: lbl_timer_app
+                            align: CENTER
+                            text: "时钟"
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_timer
+                              animation: MOVE_BOTTOM
+                              time: 200ms
+                      
     
     - id: page_timer
       on_load:
