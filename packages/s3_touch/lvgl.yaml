@@ -5,6 +5,7 @@ lvgl:
     touchscreen_id: touch_panel
   buffer_size: 100%
   color_depth: 16
+  resume_on_input: false
   top_layer:
     widgets:
       - label:

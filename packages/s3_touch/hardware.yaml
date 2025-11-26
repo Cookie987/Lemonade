@@ -18,6 +18,7 @@ display:
     dimensions:
       width: 320
       height: 240
+
 touchscreen:
   - id: touch_panel
     display: watchface
@@ -28,14 +29,6 @@ touchscreen:
       swap_xy: true
       mirror_x: true
       mirror_y: false
-    on_touch:
-      - if:
-          condition:
-            lambda: 'return id(is_sleeping);'
-          then:
-            - lvgl.pause:
-                show_snow: false
-                lvgl_id: lvgl_1
 
 i2c:
   sda: GPIO11
