@@ -42,6 +42,7 @@ i2c:
   scl: GPIO9
   scan: true
   id: bus_a
+  frequency: 20kHz
 
 spi:
   clk_pin: GPIO18

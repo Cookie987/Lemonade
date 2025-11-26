@@ -19,12 +19,12 @@ esphome:
         - script.execute: littlefs_init
     - priority: 300
       then:
-        - light.turn_on:
-            id: backlight
-            transition_length: 1s
         - lambda: |-
             float b = id(backlight).current_values.get_brightness();
             lv_slider_set_value(id(backlight_slider), b * 100.0, LV_ANIM_ON);
+        - light.turn_on:
+            id: backlight
+            transition_length: 1s
         - if:
             condition:
               lambda: 'return id(switch_buzzer).state;'
@@ -57,7 +57,7 @@ psram:
 # Do not use tickless_idle if adding a deep_sleep component
 power_management:
   id: pm_id
-  initial_lock_duration: 121sec
+  initial_lock_duration: 61sec
   tickless_idle: true
   # Safe power down, do not set to true if device has PSRAM.
   power_down_flash: false
