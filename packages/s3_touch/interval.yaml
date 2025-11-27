@@ -4,7 +4,7 @@ interval:
     then:
       - script.execute: refresh_info_page
 
-  - interval: 10ms
+  - interval: 50ms
     then:
         - if:
             condition:

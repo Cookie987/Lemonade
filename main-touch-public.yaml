@@ -9,7 +9,7 @@ esphome:
 substitutions:
   # 基本信息
   lemonade_board: "um_pros3"
-  lemonade_device_name: "lemonade-touch-public"
+  lemonade_device_name: "lemonade-t"
   lemonade_device_friendly_name: "Lemonade"
   lemonade_device_model: "智能时钟_T"
   lemonade_version: "1.0.2 Public"

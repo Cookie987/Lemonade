@@ -87,7 +87,7 @@ binary_sensor:
         - lvgl.page.show: 
             id: page_main
             animation: FADE_IN
-            time: 500ms
+            time: 200ms
     
 
 sensor:
