@@ -77,25 +77,21 @@ lvgl:
     - id: page_calendar
       skip: true
       on_load:
-        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.show: btn_back_setting
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "日历"
-      on_unload:
+      on_unload:  
         - lvgl.widget.hide: btn_back_setting
-        - lvgl.widget.show: [btn_page_prev, btn_page_next]
     - id: page_schedule
       skip: true
       on_load:
-        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.show: btn_back_setting
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "日程表"
       on_unload:
         - lvgl.widget.hide: btn_back_setting
-        - lvgl.widget.show: [btn_page_prev, btn_page_next]
       widgets:
         - button:
             id: btn_update_schedule
@@ -160,7 +156,7 @@ script:
             // --- 修改开始 ---
             
             // 1. 检查是否包含 "schedule" 键
-            if (!root.containsKey("schedule")) {
+            if (!root["schedule"]) {
                 ESP_LOGE("987IoT", "JSON missing 'schedule' key!");
                 return false;
             }
@@ -179,7 +175,7 @@ script:
             std::string out;
             for (JsonObject item : arr) {
                 // 注意：要确保 time 字段存在，否则可能崩
-                if (!item.containsKey("time")) continue;
+                if (!item["time"]) continue;
 
                 JsonObject t = item["time"];
                 int y = t["y"];

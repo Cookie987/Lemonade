@@ -28,69 +28,6 @@ lvgl:
           height: 14
           text: "00:00"
           text_font: chinese_font14
-      - obj:
-          align: BOTTOM_MID
-          id: obj_bottom_bar
-          width: 320
-          height: 25
-          scrollbar_mode: "OFF"
-          opa: 45%
-          state:
-            disabled: true
-      - label:
-          id: lbl_wifi_status
-          align: BOTTOM_LEFT
-          y: -2
-          x: 10
-          text_font: roboto_icons_14
-          recolor: true
-          text: "\U000F092E --dBm" # start with mdi-battery-unknown
-      - label:
-          id: lbl_battery_status
-          align: BOTTOM_RIGHT
-          y: -3
-          x: -10
-          text_font: roboto_icons_14
-          recolor: true
-          text: "\U000F0091 -.--V" # start with mdi-battery-unknown
-      - animimg:
-          align: BOTTOM_RIGHT
-          y: -3
-          x: -50
-          hidden: true
-          auto_start: false
-          id: ani_battery_charging
-          src: [
-            batt_empty,
-            batt_10,
-            batt_20,
-            batt_30,
-            batt_40,
-            batt_50,
-            batt_60,
-            batt_70,
-            batt_80,
-            batt_90,
-            batt_full
-            ]
-          duration: 2200ms
-      # 上一页按钮
-      - button:
-          id: btn_page_prev
-          align: bottom_left
-          x: 96
-          width: 48
-          height: 24
-          widgets:
-            - label:
-                align: CENTER
-                y: 2
-                text: "\uF104"   # angle-left
-          on_release:
-            then:
-              - lvgl.page.previous:
-                  animation: MOVE_RIGHT
-                  time: 200ms
 
       - button:
           id: btn_back_setting
@@ -109,23 +46,7 @@ lvgl:
               - lvgl.page.previous:
                   animation: MOVE_RIGHT
                   time: 200ms
-      # 下一页按钮
-      - button:
-          id: btn_page_next
-          align: bottom_right
-          x: -96
-          width: 48
-          height: 24
-          widgets:
-            - label:
-                align: CENTER
-                y: 2
-                text: "\uF105"   # angle-right
-          on_release:
-            then:
-              - lvgl.page.next:
-                  animation: MOVE_LEFT
-                  time: 200ms
+
       - obj:
           id: boot_screen
           x: 0
@@ -163,7 +84,7 @@ lvgl:
       title: 警告
       text_font: chinese_font14
       body:
-        text: "电池电量过低，请连接电源充电！"
+        text: "电池电量过低，请连接电源充电"
         text_font: chinese_font14
       buttons:
         - id: btn_battery_low_close
@@ -204,7 +125,7 @@ lvgl:
         then:
           - lvgl.image.update:
               id: background_image
-              src: defaultbg
+              src: default_bg
     - if:
         condition:
           lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
@@ -220,23 +141,112 @@ lvgl:
       widgets:
         - image:
             id: background_image
-            src: defaultbg
-        - label:
-            id: time_label
-            align: CENTER
-            recolor: true
-            y: -10
-            text: "00:00:00"
-            #f4f4f4ff
-            text_color: !lambda return lv_color_hex(0xffffff);
-            text_font: clock24
-        - label:
-            id: date_label
-            align: CENTER
-            y: -50
-            text: "1970-01-01 星期四"
-            text_color: !lambda return lv_color_hex(0xffffff);
-            text_font: chinese_font18
+            src: default_bg
+        - tileview:
+            id: tileview_main
+            x: 0
+            y: 0
+            width: 100%
+            height: 100%
+            scrollbar_mode: "OFF"
+            bg_opa: TRANSP
+            tiles:
+              - id: tile_clock
+                column: 0
+                row: 0
+                widgets:
+                  - obj:
+                      align: BOTTOM_MID
+                      id: obj_bottom_bar
+                      width: 320
+                      height: 25
+                      scrollbar_mode: "OFF"
+                      opa: 45%
+                  - label:
+                      id: time_label
+                      align: CENTER
+                      recolor: true
+                      y: -10
+                      text: "00:00:00"
+                      #f4f4f4ff
+                      text_color: !lambda return lv_color_hex(0xffffff);
+                      text_font: clock24
+                  - label:
+                      id: date_label
+                      align: CENTER
+                      y: -50
+                      text: "1970-01-01 星期四"
+                      text_color: !lambda return lv_color_hex(0xffffff);
+                      text_font: chinese_font18
+                  - label:
+                      id: lbl_battery_status
+                      align: BOTTOM_RIGHT
+                      y: -3
+                      x: -10
+                      text_font: roboto_icons_14
+                      recolor: true
+                      text: "\U000F0091 -.--V" # start with mdi-battery-unknown
+                  - animimg:
+                      align: BOTTOM_RIGHT
+                      y: -3
+                      x: -50
+                      hidden: true
+                      auto_start: false
+                      id: ani_battery_charging
+                      src: [
+                        batt_empty,
+                        batt_10,
+                        batt_20,
+                        batt_30,
+                        batt_40,
+                        batt_50,
+                        batt_60,
+                        batt_70,
+                        batt_80,
+                        batt_90,
+                        batt_full
+                        ]
+                      duration: 2200ms
+                  - label:
+                      id: lbl_wifi_status
+                      align: BOTTOM_LEFT
+                      y: -2
+                      x: 10
+                      text_font: roboto_icons_14
+                      recolor: true
+                      text: "\U000F092E --dBm" # start with mdi-battery-unknown
+              - id: tile_appcenter
+                column: 0
+                row: 1
+                widgets:
+                  - image:
+                      src: settings_icon
+                      id: img_settings_app
+                      width: 96
+                      height: 96
+                      x: -96
+                      y: -45
+                      align: CENTER
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_setting_menu
+                              animation: FADE_IN
+                              time: 200ms
+                  - image:
+                      src: timer_icon
+                      id: img_timer_app
+                      width: 96
+                      height: 96
+                      x: 0
+                      y: -45
+                      align: CENTER
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_timer
+                              animation: FADE_IN
+                              time: 200ms
     
     - id: page_timer
       on_load:
@@ -250,7 +260,7 @@ lvgl:
             x: 0
             y: 18
             width: 320
-            height: 198
+            height: 220
             size: 15%
             tab_style:
               scrollbar_mode: "OFF"
@@ -493,11 +503,10 @@ lvgl:
       widgets: 
         - obj:
             x: 0
-            y: 0
-            align: CENTER
+            y: 18
             border_width: 0
             width: 320
-            height: 185
+            height: 222
             widgets:
               - button:
                   id: btn_network_setting
@@ -575,16 +584,12 @@ lvgl:
     - id: system_setting_power_page
       skip: true
       on_load:
-        - lvgl.widget.show: [btn_back_setting]
-        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
-        - lvgl.widget.focus: btn_back_setting
+        - lvgl.widget.show: btn_back_setting
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "电源和电池"
       on_unload:
-        - lvgl.widget.hide: [btn_back_setting]
-        - lvgl.widget.show: [btn_page_prev, btn_page_next]
-        - lvgl.widget.focus: btn_page_prev
+        - lvgl.widget.hide: btn_back_setting
       widgets:
         - meter:
             id: usb_voltage_meter
@@ -698,14 +703,12 @@ lvgl:
     - id: system_setting_display_page
       skip: true
       on_load:
-        - lvgl.widget.show: [btn_back_setting]
-        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
+        - lvgl.widget.show: btn_back_setting
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "显示、声音和个性化"
       on_unload:
-        - lvgl.widget.hide: [btn_back_setting]
-        - lvgl.widget.show: [btn_page_prev, btn_page_next]
+        - lvgl.widget.hide: btn_back_setting
       widgets:
       - obj:
           x: 0
@@ -755,7 +758,7 @@ lvgl:
                         then:
                           - lvgl.image.update:
                               id: background_image
-                              src: defaultbg
+                              src: default_bg
                     - if:
                         condition:
                           lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
@@ -800,14 +803,12 @@ lvgl:
       skip: true
       on_load:
         - lvgl.widget.show: [btn_back_setting]
-        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - script.execute: refresh_info_page
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "Wi-Fi与蓝牙"
       on_unload:
         - lvgl.widget.hide: [btn_back_setting]
-        - lvgl.widget.show: [btn_page_prev, btn_page_next]
       widgets:
         - label:
             text: "Wi-Fi"
@@ -885,7 +886,6 @@ lvgl:
     - id: system_setting_system_page
       skip: true
       on_load:
-        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
         - lvgl.widget.show: btn_back_setting
         - lvgl.label.update:
             id: lbl_topbar_title
@@ -893,7 +893,6 @@ lvgl:
         - script.execute: refresh_info_page
       on_unload:
         - lvgl.widget.hide: btn_back_setting
-        - lvgl.widget.show: [btn_page_prev, btn_page_next]
       widgets:
         - button:
             id: btn_update_system
@@ -921,8 +920,6 @@ lvgl:
     - id: system_setting_littlefs_page
       skip: true
       on_load:
-        - lvgl.widget.hide: [btn_page_prev, btn_page_next]
-        - lvgl.widget.focus: btn_update_system
         - lvgl.widget.show: btn_back_setting
         - lvgl.label.update:
             id: lbl_topbar_title
@@ -948,10 +945,7 @@ lvgl:
               lv_label_set_text(id(lbl_littlefs_info), space.c_str());
             }
       on_unload:
-        # - lvgl.widget.disable: [btn_update_system]
         - lvgl.widget.hide: btn_back_setting
-        - lvgl.widget.show: [btn_page_prev, btn_page_next]
-        - lvgl.widget.focus: btn_page_prev
       widgets:
         - label:
             id: lbl_littlefs_info
@@ -961,13 +955,12 @@ lvgl:
             y: -25
             text: "加载中..."
             text_font: chinese_font14
-            state:
-              disabled: true
+
     
     - id: page_ota
       skip: true
       on_load:
-        - lvgl.widget.hide: [obj_bottom_bar, btn_page_prev, ani_battery_charging, lbl_wifi_status, lbl_battery_status, btn_page_next, btn_back_setting, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - lvgl.widget.hide: [ani_battery_charging, lbl_wifi_status, lbl_battery_status, btn_back_setting, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
         - lvgl.widget.show: lbl_ota_prompt
         - lvgl.canvas.fill:
             id: ota_canvas
@@ -977,10 +970,7 @@ lvgl:
             id: lbl_ota_prompt
             text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"
       on_unload:
-        - lvgl.widget.show: [obj_bottom_bar, btn_page_prev, btn_page_next, ani_battery_charging, lbl_wifi_status, lbl_battery_status, lbl_topbar_date, lbl_topbar_time]
-        - lvgl.widget.enable: btn_back_setting
-        - lvgl.widget.disable: btn_update_system
-        - lvgl.widget.focus: btn_page_prev
+        - lvgl.widget.show: [ani_battery_charging, lbl_wifi_status, lbl_battery_status, lbl_topbar_date, lbl_topbar_time]
       widgets:
         - canvas:
             id: ota_canvas

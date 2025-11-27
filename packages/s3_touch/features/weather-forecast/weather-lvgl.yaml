@@ -2,13 +2,34 @@
   pages:
     - id: !extend page_main
       widgets:
-        - label:
-            id: lbl_current_weather_text_main
-            align: CENTER
-            y: 35
-            text_font: chinese_font18
-            text_color: !lambda return lv_color_hex(0xffffff);
-            text: "N/A"
+        - tileview:
+            id: !extend tileview_main
+            tiles:
+              - id: !extend tile_clock
+                widgets:
+                  - label:
+                      id: lbl_current_weather_text_main
+                      align: CENTER
+                      y: 35
+                      text_font: chinese_font18
+                      text_color: !lambda return lv_color_hex(0xffffff);
+                      text: "N/A"
+              - id: !extend tile_appcenter
+                widgets:
+                  - image:
+                      src: weather_icon
+                      id: img_weather_app
+                      width: 96
+                      height: 96
+                      x: 96
+                      y: -45
+                      align: CENTER
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_weather_forecast
+                              animation: FADE_IN
+                              time: 200ms
 
     - id: page_weather_forecast
       on_load:
@@ -22,7 +43,7 @@
             x: 0
             y: 18
             width: 320
-            height: 198
+            height: 222
             size: 15%
             tab_style:
               bg_color: !lambda return lv_color_hex(0xf6f6f6);
