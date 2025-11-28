@@ -79,8 +79,6 @@ script:
           }
           lv_img_set_src(id(background_image), LVGL_FILE_PATH);
           ESP_LOGI("987IoT", "Background image source updated form LittleFS.");
-      
-
 
   - id: get_background_img
     mode: single
@@ -176,6 +174,71 @@ script:
           condition:
             lambda: 'return !id(is_sleeping);'
           then:
+            - lvgl.label.update:
+                id: lbl_topbar_time
+                text: !lambda |-
+                  int x = id(rssi).state;
+                  const char* icon;
+                  if (x >= -50) {
+                    icon = "\U000F0928"; // mdi-wifi-strength-4
+                  } else if (x >= -65) {
+                    icon = "\U000F0925"; // mdi-wifi-strength-3
+                  } else if (x >= -80) {
+                    icon = "\U000F0922"; // mdi-wifi-strength-2
+                  } else if (x >= -95) {
+                    icon = "\U000F091F"; // mdi-wifi-strength-1
+                  } else {
+                    icon = "\U000F092E"; // mdi-wifi-strength-off-outline
+                  }
+                  float v = id(battery_voltage).state;
+                  // 保留两位小数（四舍五入）
+                  float rounded = (int)(v * 100 + 0.5f) / 100.0f;
+                  // 电压映射到百分比
+                  // 4.15V = 100%，3.55V = 0%
+                  float percent = (rounded - 3.55f) / (4.15f - 3.55f) * 100.0f;
+                  if (percent > 100.0f) percent = 100.0f;
+                  if (percent < 0.0f) percent = 0.0f;
+                  // 根据电量百分比选择 MDI 图标
+                  std::string iconbat;
+                  if (percent == 100.0f)
+                      iconbat = "\U000F0079"; // mdi-battery (full)
+                  else if (percent > 90)
+                      iconbat = "\U000F0082"; // mdi-battery-90
+                  else if (percent > 80)
+                      iconbat = "\U000F0081"; // mdi-battery-80
+                  else if (percent > 70)
+                      iconbat = "\U000F0080"; // mdi-battery-70
+                  else if (percent > 60)
+                      iconbat = "\U000F007F"; // mdi-battery-60
+                  else if (percent > 50)
+                      iconbat = "\U000F007E"; // mdi-battery-50
+                  else if (percent > 40)
+                      iconbat = "\U000F007D"; // mdi-battery-40
+                  else if (percent > 30)
+                      iconbat = "\U000F007C"; // mdi-battery-30
+                  else if (percent > 20)
+                      iconbat = "\U000F007B"; // mdi-battery-20
+                  else if (percent > 10)
+                      iconbat = "\U000F007A"; // mdi-battery-10
+                  else if (percent >= 0)
+                      iconbat = "\U000F008E"; // mdi-battery-outline
+                  else
+                      iconbat = "\U000F0091"; // mdi-battery-unknown
+                  // if (id(usb_input_voltage).state > 4.5) {
+                  //     // 充电中图标隐藏
+                  //     iconbat = " "; 
+                  // }
+                  // 格式化电压字符串
+                  char bufbat[8];
+                  sprintf(bufbat, "%.2f", rounded);
+                  // 低电量红色警告（<3.4V）
+                  std::string batstr;
+                  if (v < 3.55f or percent < 20.0f)
+                      batstr = std::string("#FF0000 ") + iconbat + " " + bufbat + "V#";
+                  else
+                      batstr = iconbat + std::string(" ") + bufbat + "V";
+                  return std::string(icon) + " " + batstr;
+
             - lambda: |-
                 // 更新日期显示
                 auto t = id(ntp_time).now();
@@ -198,12 +261,15 @@ script:
             - lvgl.label.update:
                 id: lbl_topbar_date
                 text: !lambda |-
-                  static const char * const day_names[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+                  // 00:00 格式
                   auto t = id(ntp_time).now();
+                  char buf1[6];
+                  snprintf(buf1, sizeof(buf1), "%02d:%02d", t.hour, t.minute);
+                  static const char * const day_names[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
                   char buf[20];
                   auto a = day_names[id(ntp_time).now().day_of_week - 1]; // Adjust for 0-based index
                   snprintf(buf, sizeof(buf), "%02d.%02d %s", t.month, t.day_of_month, a);
-                  return std::string(buf);
+                  return std::string(buf1) + " " + std::string(buf);
 
   - id: update_time
     then:
@@ -215,98 +281,78 @@ script:
                 // 更新时间显示
                 auto t = id(ntp_time).now();
                 char buf[9];
-                // 00:00 格式
-                char buf1[6];
-                snprintf(buf1, sizeof(buf), "%02d:%02d", t.hour, t.minute);
                 snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.hour, t.minute, t.second);
                 lv_label_set_text(id(time_label), buf);
-                lv_label_set_text(id(lbl_topbar_time), buf1);
   
   - id: refresh_info_page
     then:
-      - if:
-            condition:
-              lambda: 'return !id(is_sleeping);'
-            then:
-              - if:
-                  condition:
-                    or:
-                      - lvgl.page.is_showing: system_setting_network_page
-                      - lvgl.page.is_showing: system_setting_system_page
-                  then:
-                    - lambda: |-
-                        using namespace esphome;
+      - lambda: |-
+          using namespace esphome;
 
-                        // 获取 WiFi 全局对象
-                        auto wifi = wifi::global_wifi_component;
-                        if (wifi == nullptr) return;
-            
-                        std::string ip = "N/A";
-                        auto ip_list = wifi->get_ip_addresses();
-                        if (!ip_list.empty()) {
-                          ip = ip_list[0].str();
-                        }
+          // 获取 WiFi 全局对象
+          auto wifi = wifi::global_wifi_component;
+          if (wifi == nullptr) return;
 
-                        std::string mac = "none";
-                        std::string commit = "fffffff";
+          std::string ip = "N/A";
+          auto ip_list = wifi->get_ip_addresses();
+          if (!ip_list.empty()) {
+            ip = ip_list[0].str();
+          }
 
-                        auto cpu_freq1 = id(cpu_freq).state / 1000000;
-                        std::string cpu_freq = std::to_string((int)cpu_freq1) + "MHz";  
-                        std::string cpu_temp = std::to_string((int)id(internal_temp).state) + "°C";
+          std::string mac = "none";
+          std::string commit = "fffffff";
 
-                        mac = id(text_sensor_mac_address).state;
-                        commit = id(lemonade_git_commit_sha).state.substr(0, 7);
-                        
-                        auto esphome_ver = id(esphome_version).state;
-                        auto ssid_val = id(ssid).state;
-                        auto rssi_val = id(rssi).state;
-                        // auto captive_portal = captive_portal::global_captive_portal;
-                        // bool in_ap_mode = captive_portal->is_active();
-                        // if (in_ap_mode) {
-                        //   ssid_val = "(AP模式)";
-                        //   rssi_val = 0;
-                        // }
-                        std::string rssi_str = std::to_string((int)rssi_val);
-                        if (!id(wifi_switch).state) {
-                          ssid_val = "(已关闭)";
-                          rssi_str = "-∞";
-                        }
+          auto cpu_freq1 = id(cpu_freq).state / 1000000;
+          std::string cpu_freq = std::to_string((int)cpu_freq1) + "MHz";  
+          std::string cpu_temp = std::to_string((int)id(internal_temp).state) + "°C";
 
-                        
-                        if (ssid_val == "") {
-                          ssid_val = "(未连接)";
-                          rssi_str = "-∞";
-                        }
-                        // 拼接文字
-                        char buf[256];
-                        snprintf(buf, sizeof(buf),
-                                "运行时间: %s "
-                                "CPU: 40~%s "
-                                "%s \n"
-                                "型号：${lemonade_device_model} MAC: %s\n\nLemonade OS ${lemonade_version}"
-                                " %s\n"
-                                "ESPHome %s\nOS by Cookie987, HW by ZSVStudio.\n©2025 RedCookieStudios.",
-                                id(uptime_text).state.c_str(),
-                                cpu_freq.c_str(),
-                                cpu_temp.c_str(),
-                                mac.c_str(),
-                                commit.c_str(),
-                                esphome_ver.c_str()
-                                );
+          mac = id(text_sensor_mac_address).state;
+          commit = id(lemonade_git_commit_sha).state.substr(0, 7);
+          
+          auto esphome_ver = id(esphome_version).state;
+          auto ssid_val = id(ssid).state;
+          auto rssi_val = id(rssi).state;
+          std::string rssi_str = std::to_string((int)rssi_val);
+          if (!id(wifi_switch).state) {
+            ssid_val = "(已关闭)";
+            rssi_str = "-∞";
+          }
 
-                        char buf_wifi_info[256];
-                        snprintf(buf_wifi_info, sizeof(buf_wifi_info),
-                                "SSID: %s   "
-                                "RSSI: %s dBm\n"
-                                "IP: %s  "
-                                "MAC: %s\n",
-                                ssid_val.c_str(),
-                                rssi_str.c_str(),
-                                ip.c_str(),
-                                mac.c_str()
-                                );
-                        lv_label_set_text(id(lbl_wifi_info), buf_wifi_info);
-                        lv_label_set_text(id(lbl_sysinfo), buf);
+          
+          if (ssid_val == "") {
+            ssid_val = "(未连接)";
+            rssi_str = "-∞";
+          }
+          // 拼接文字
+          char buf[256];
+          snprintf(buf, sizeof(buf),
+                  "运行时间: %s "
+                  "CPU: 40~%s "
+                  "%s \n"
+                  "型号：${lemonade_device_model} MAC: %s\n\nLemonade OS ${lemonade_version}"
+                  " %s\n"
+                  "ESPHome %s\nOS by Cookie987, HW by ZSVStudio.\n©2025 RedCookieStudios.",
+                  id(uptime_text).state.c_str(),
+                  cpu_freq.c_str(),
+                  cpu_temp.c_str(),
+                  mac.c_str(),
+                  commit.c_str(),
+                  esphome_ver.c_str()
+                  );
+
+          char buf_wifi_info[256];
+          snprintf(buf_wifi_info, sizeof(buf_wifi_info),
+                  "SSID: %s   "
+                  "RSSI: %s dBm\n"
+                  "IP: %s  "
+                  "MAC: %s\n",
+                  ssid_val.c_str(),
+                  rssi_str.c_str(),
+                  ip.c_str(),
+                  mac.c_str()
+                  );
+          lv_label_set_text(id(lbl_wifi_info), buf_wifi_info);
+          lv_label_set_text(id(lbl_sysinfo), buf);
 
   - id: zsv_iot_update
     mode: single

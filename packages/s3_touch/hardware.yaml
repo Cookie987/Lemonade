@@ -128,6 +128,7 @@ sensor:
         condition:
           lambda: 'return !id(is_sleeping);'
         then:
+          - script.execute: update_date
           - if:
               condition:
                 lambda: 'return id(usb_input_voltage).state > 4.5;'

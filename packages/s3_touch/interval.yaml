@@ -2,7 +2,17 @@ interval:
   - interval: 5s
     id: interval_infopage
     then:
-      - script.execute: refresh_info_page
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - if:
+                condition:
+                  or:
+                    - lvgl.page.is_showing: system_setting_network_page
+                    - lvgl.page.is_showing: system_setting_system_page
+                then:
+                  - script.execute: refresh_info_page
 
   - interval: 50ms
     then:

@@ -30,7 +30,7 @@ esphome:
               lambda: 'return id(switch_buzzer).state;'
             then:
               - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
-        - delay: 4s
+        # - delay: 1s
         - lvgl.widget.hide: boot_screen
 
 esp32:
@@ -326,9 +326,10 @@ time:
 sensor: 
   - platform: wifi_signal
     id: rssi
-    update_interval: 2s
+    update_interval: 4s
     on_value: 
       then:
+        - script.execute: update_date
         - lvgl.label.update:
             id: lbl_wifi_status
             text: !lambda |-
