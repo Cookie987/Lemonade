@@ -140,24 +140,23 @@ script:
             ESP_LOGI("987IoT", "Decoded image size: %zu bytes.", decoded_len);
             
             // --- 3. 写入 littlefs ---
-            const char *LOCAL_FILE_PATH = "/data/custom_bg.jpg";
-            // 使用 "wb" (write binary) 模式
-            FILE *file = fopen(LOCAL_FILE_PATH, "wb");
-            
-            if (!file) {
+            const char* LOCAL_FILE_PATH = "/data/custom_bg.jpg";
+            // 以二进制模式打开文件
+            std::ofstream file(LOCAL_FILE_PATH, std::ios::binary);
+            if (!file.is_open()) {
                 ESP_LOGE("987IoT", "Failed to open file %s for writing!", LOCAL_FILE_PATH);
                 return;
             }
-
-            // 只写入实际解码的数据长度
-            size_t bytes_written = fwrite(decoded_data.data(), 1, decoded_len, file);
-            fclose(file);
-
-            if (bytes_written != decoded_len) {
-                ESP_LOGE("987IoT", "File write failed. Wrote %zu of %zu bytes.", bytes_written, decoded_len);
+            // 写入实际解码的数据
+            file.write(reinterpret_cast<const char*>(decoded_data.data()), decoded_len);
+            // 检查写入是否成功
+            if (!file.good()) {
+                ESP_LOGE("987IoT", "File write failed. Expected %zu bytes.", decoded_len);
+                file.close();
                 return;
             }
-            ESP_LOGI("987IoT", "Image successfully saved to littlefs.");
+            file.close();
+            ESP_LOGI("987IoT", "File saved successfully: %s (%zu bytes)", LOCAL_FILE_PATH, decoded_len);
             const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
             if (id(background_image) == nullptr) {
                 ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
@@ -178,7 +177,7 @@ script:
                 id: lbl_topbar_time
                 text: !lambda |-
                   int x = id(rssi).state;
-                  const char* icon;
+                  std::string icon;
                   if (x >= -50) {
                     icon = "\U000F0928"; // mdi-wifi-strength-4
                   } else if (x >= -65) {
@@ -234,10 +233,10 @@ script:
                   // 低电量红色警告（<3.4V）
                   std::string batstr;
                   if (v < 3.55f or percent < 20.0f)
-                      batstr = std::string("#FF0000 ") + iconbat + " " + bufbat + "V#";
+                      batstr = "#FF0000 " + iconbat + " " + bufbat + "V#";
                   else
-                      batstr = iconbat + std::string(" ") + bufbat + "V";
-                  return std::string(icon) + " " + batstr;
+                      batstr = iconbat + " " + bufbat + "V";
+                  return icon + " " + batstr;
 
             - lambda: |-
                 // 更新日期显示

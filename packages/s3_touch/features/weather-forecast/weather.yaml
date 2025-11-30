@@ -1,5 +1,5 @@
 lvgl: !include weather-lvgl.yaml
-                                  
+
 # 天气图标资源定义
 image: !include weather-image.yaml
 

@@ -195,7 +195,7 @@ sensor:
                 char buf[8];
                 sprintf(buf, "%.2f", rounded);
                 // 低电量红色警告（<3.4V）
-                if (v < 3.55f or percent < 20.0f)
-                    return std::string("#FF0000 ") + icon + " " + buf + "V#";
+                if (v < 3.55f || percent < 20.0f)
+                    return "#FF0000 " + icon + " " + buf + "V#";
                 else
-                    return icon + std::string(" ") + buf + "V";
+                    return icon + " " + buf + "V";
