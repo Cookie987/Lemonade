@@ -13,6 +13,7 @@ lvgl:
           align: TOP_MID
           height: 14
           text: "系统设置"
+          recolor: true
           text_font: chinese_font14
       - label:
           id: lbl_topbar_date
@@ -20,6 +21,7 @@ lvgl:
           align: TOP_LEFT
           height: 14
           text: "01.01 Thu"
+          recolor: true
           text_font: chinese_font14
       - label:
           id: lbl_topbar_time
@@ -27,6 +29,7 @@ lvgl:
           x: -8
           height: 14
           text: "00:00"
+          recolor: true
           text_font: chinese_font14
 
       - button:
@@ -183,7 +186,6 @@ lvgl:
                       align: BOTTOM_RIGHT
                       y: -3
                       x: -10
-                      text_font: roboto_icons_14
                       recolor: true
                       text: "\U000F0091 -.--V" # start with mdi-battery-unknown
                   - animimg:
@@ -212,7 +214,6 @@ lvgl:
                       align: BOTTOM_LEFT
                       y: -2
                       x: 10
-                      text_font: roboto_icons_14
                       recolor: true
                       text: "\U000F092E --dBm" # start with mdi-battery-unknown
               - id: tile_appcenter
