@@ -1,4 +1,4 @@
-
+lvgl:
   pages:
     - id: !extend page_main
       widgets:
