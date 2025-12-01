@@ -121,7 +121,7 @@ lvgl:
         then:
           - lvgl.image.update:
               id: background_image
-              src: defaultbg
+              src: default_bg
   default_font: chinese_font14
   pages:
     - id: page_main
@@ -132,7 +132,7 @@ lvgl:
       widgets:
         - image:
             id: background_image
-            src: defaultbg
+            src: default_bg
         - tileview:
             id: tileview_main
             x: 0
@@ -174,7 +174,7 @@ lvgl:
                       align: BOTTOM_LEFT
                       y: -2
                       x: 10
-                      text_font: roboto_icons_14
+                      text_font: chinese_font14
                       recolor: true
                       text: "\U000F092E --dBm" # start with mdi-battery-unknown
                   - label:
@@ -182,7 +182,7 @@ lvgl:
                       align: BOTTOM_RIGHT
                       y: -3
                       x: -10
-                      text_font: roboto_icons_14
+                      text_font: chinese_font14
                       recolor: true
                       text: "\U000F0091 -.--V" # start with mdi-battery-unknown
                   - animimg:
@@ -424,6 +424,20 @@ lvgl:
             width: 320
             height: 185
             widgets:
+              - list:
+                  id: list_widget
+                  texts:
+                    - text: "连接"
+                    - text: "Item 2"
+                  buttons:
+                    - text: "\uF0AC Wi-Fi与蓝牙"
+                    - text: "Button 2"
+                    - text: "Button 3"
+                  # on_click:
+                  #   then:
+                  #     - logger.log:
+                  #         format: "Clicked: %s"
+                  #         args: ['x.c_str()']
               - button:
                   id: btn_network_setting
                   x: 0
@@ -693,7 +707,7 @@ lvgl:
                         then:
                           - lvgl.image.update:
                               id: background_image
-                              src: defaultbg
+                              src: default_bg
 
             - label:
                 x: 9

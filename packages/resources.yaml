@@ -46,21 +46,16 @@ image:
       resize: 18x18
 
   rgb565:
-    - file: "imgs/bocchi.png"
+    - file: "imgs/moon.jpg"
       id: default_bg
       resize: 320x240
-
-    - file: "imgs/icon/app/settings-256x.png"
+    - file: "imgs/icon/app/settings-96x.png"
       transparency: alpha_channel
       id: settings_icon
       resize: 96x96
-    - file: "imgs/icon/app/timer-256x.png"
+    - file: "imgs/icon/app/timer-96x.png"
       transparency: alpha_channel
       id: timer_icon
-      resize: 96x96
-    - file: "imgs/icon/app/weather-256x.png"
-      transparency: alpha_channel
-      id: weather_icon
       resize: 96x96
 
 

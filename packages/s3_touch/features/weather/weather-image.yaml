@@ -1,5 +1,9 @@
 image:
   rgb565:
+    - file: "imgs/icon/app/weather-96x.png"
+      transparency: alpha_channel
+      id: weather_icon
+      resize: 96x96
     # 晴天
     - file: "imgs/weather/black1x/0@1x.png"
       id: c100_1x_black
