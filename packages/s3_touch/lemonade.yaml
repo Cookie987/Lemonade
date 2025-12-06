@@ -117,8 +117,8 @@ globals:
     initial_value: '0'
   - id: zsv_iot_last_status
     type: std::string
-    restore_value: no
-    initial_value: '"失败"'
+    restore_value: yes
+    initial_value: '"未获取过"'
 
 # Enable logging
 logger:
