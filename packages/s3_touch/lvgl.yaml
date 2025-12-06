@@ -772,6 +772,41 @@ lvgl:
                   then:
                     - lambda: global_preferences->sync();
 
+    - id: system_setting_iot_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "IoT 平台"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+        - button:
+            id: btn_get_iot_cfg
+            align: CENTER
+            y: 70
+            x: 0
+            width: 260
+            height: 32
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "获取 IoT 配置"
+        - label:
+            id: lbl_iot_info
+            align: TOP_LEFT
+            x: 30
+            y: 35
+            text: "${lemonade_version}\nAPI版本：2\nWiFi数量：10\n设备描述：descrption111\n获取时间：2025-01-01 00:00:00"
+        - label:
+            id: lbl_uid
+            align: TOP_RIGHT
+            text_font: clock24
+            x: -25
+            y: 20
+            text: "0987"
+
     - id: system_setting_network_page
       skip: true
       on_load:
@@ -902,8 +937,8 @@ lvgl:
             esp_vfs_littlefs_conf_t conf = {
             .base_path = "/littlefs",
             .partition_label = "littlefs",
-            .format_if_mount_failed = true,
-            .dont_mount = false,
+            .format_if_mount_failed = false,
+            .dont_mount = true,
             };
             esp_err_t ret = esp_vfs_littlefs_register(&conf);
             ret = esp_littlefs_info(conf.partition_label, &total, &used);

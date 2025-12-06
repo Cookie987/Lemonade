@@ -11,6 +11,12 @@ display:
       width: 320
       height: 240
 
+substitutions:
+  lemonade_version: "1.0.2-rc1 Canary"
+
+logger:
+  level: DEBUG
+
 touchscreen:
   platform: sdl
   id: touch_panel

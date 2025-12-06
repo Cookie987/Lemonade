@@ -69,6 +69,10 @@ debug:
   update_interval: 5s
 
 globals:
+  - id: uid
+    type: std::string
+    restore_value: yes
+    initial_value: '"0000"'
   - id: is_sleeping
     type: bool
     restore_value: no
@@ -76,7 +80,7 @@ globals:
   - id: is_slider_changing
     type: bool
     restore_value: no
-    initial_value: "false"
+    initial_value: 'false'
   - id: is_timer_running
     type: bool
     # restore_value: yes
