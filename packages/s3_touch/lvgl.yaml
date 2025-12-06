@@ -808,14 +808,14 @@ lvgl:
             align: TOP_LEFT
             x: 30
             y: 35
-            text: "${lemonade_version}\nAPI版本：2\nWiFi数量：10\n设备描述：descrption111\n获取时间：2025-01-01 00:00:00"
+            text: "${lemonade_version}\nAPI版本：2\nWiFi数量：N/A\n设备描述：N/A\n获取时间：1970-01-01 00:00:00"
         - label:
             id: lbl_uid
             align: TOP_RIGHT
             text_font: clock24
             x: -25
             y: 20
-            text: "0987"
+            text: "0000"
 
     - id: system_setting_network_page
       skip: true
