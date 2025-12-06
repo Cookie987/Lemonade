@@ -295,6 +295,7 @@ script:
             return "uid/request";
           payload: |-
             root["mac"] = id(text_sensor_mac_address).state;
+      - delay: 2s
       - lambda: |-
           ESP_LOGD("987IoT", "Started updating config");
           std::string mac = id(text_sensor_mac_address).state;
@@ -312,6 +313,9 @@ script:
               file.close();
               ESP_LOGD("987IoT", "Special uid response saved.");
           });
+          // 获取时间日期
+          auto t = id(ntp_time).now();
+          id(zsv_iot_last_status) = t.strftime("%Y-%m-%d %H:%M:%S");
 
   - id: prase_iot_info
     then:
@@ -371,9 +375,6 @@ script:
               return true;
           });
           // 更新标签
-          // 获取时间
-          auto t = id(ntp_time).now();
-          id(zsv_iot_last_status) = t.strftime("%H:%M:%S");
           std::string info_text = "${lemonade_version}\n";
           info_text += "API版本：2\n";
           info_text += "WiFi数量：" + std::to_string(wifi_sum) + "\n";
