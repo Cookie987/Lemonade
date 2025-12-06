@@ -76,6 +76,7 @@ font:
           "\uF05A", # info-circle
           "\uF0AC", # globe
           "\uF107", # angle-down
+          "\uF0EE", # cloud-arrow-up
           ]  # arrow-left, arrow-right, rotate-left
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [

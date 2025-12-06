@@ -502,85 +502,57 @@ lvgl:
             id: lbl_topbar_title
             text: "系统设置"
       widgets: 
-        - obj:
+        - list:
+            id: list_widget
             x: 0
             y: 18
-            border_width: 0
             width: 320
             height: 222
-            widgets:
-              - button:
-                  id: btn_network_setting
-                  x: 0
-                  align: CENTER
-                  y: 0
-                  width: 240
-                  height: 32
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text_font: chinese_font14
-                        text: "\uF0AC Wi-Fi与蓝牙"
-                  on_click:
-                    then:
-                      - lvgl.page.show:
-                          id: system_setting_network_page
-                          animation: MOVE_LEFT
-                          time: 200ms
-              - button:
-                  id: btn_display_setting
-                  x: 0
-                  align: CENTER
-                  y: 48
-                  width: 240
-                  height: 32
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text_font: chinese_font14
-                        text: "\uF53F 显示与声音"
-                  on_click:
-                    then:
-                      - lvgl.page.show:
-                          id: system_setting_display_page
-                          animation: MOVE_LEFT
-                          time: 200ms
-              - button:
-                  id: btn_battery_setting
-                  x: 0
-                  align: CENTER
-                  y: 96
-                  width: 240
-                  height: 32
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text_font: chinese_font14
-                        text: "\uF240 电源和电池"
-                  on_click:
-                    then:
-                      - lvgl.page.show:
-                          id: system_setting_power_page
-                          animation: MOVE_LEFT
-                          time: 200ms
-              - button:
-                  id: btn_system_setting
-                  x: 0
-                  align: CENTER
-                  y: 144
-                  width: 240
-                  height: 32
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text_font: chinese_font14
-                        text: "\uF05A 关于"
-                  on_click:
-                    then:
-                      - lvgl.page.show:
-                          id: system_setting_system_page
-                          animation: MOVE_LEFT
-                          time: 200ms
+            items:
+              # 按钮类型项目
+              - text: "互联互通"
+                list_text: {}
+              - text: "\uF0AC Wi-Fi与蓝牙"
+                id: btn_network_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_network_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+              - text: "\uF0EE IoT 平台"
+                id: btn_iot_setting
+                list_button: {}
+              - text: "系统"
+                list_text: {}
+              - text: "\uF53F 显示与声音"
+                id: btn_display_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_display_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+              - text: "\uF240 电源和电池"
+                id: btn_power_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_power_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+              - text: "\uF05A 关于"
+                id: btn_about_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_system_page
+                        animation: MOVE_LEFT
+                        time: 200ms
 
     - id: system_setting_power_page
       skip: true
