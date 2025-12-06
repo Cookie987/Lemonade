@@ -1,0 +1,60 @@
+lvgl:
+  on_boot:
+    then:
+      - lambda: |-
+          // 好友列表
+  pages:
+    - id: !extend page_main
+      widgets:
+        - tileview:
+            id: !extend tileview_main
+            tiles:
+              - id: !extend tile_appcenter
+                widgets:
+                  - image:
+                      src: message_icon
+                      id: img_message_app
+                      width: 96
+                      height: 96
+                      x: -96
+                      y: 45
+                      align: CENTER
+                      on_click:
+                        then:
+                          - lvgl.page.show:
+                              id: page_message
+                              animation: FADE_IN
+                              time: 200ms
+    - id: page_message
+      on_load:
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "消息"
+      widgets:
+        - tabview:
+            id: tabview_message
+            anim_time: 0.5s
+            x: 0
+            y: 18
+            width: 320
+            height: 222
+            size: 15%
+            tabs:
+              - name: 好友
+                widgets:
+                  - label:
+                      id: lbl_message_placeholder
+                      align: CENTER
+                      text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"
+              - name: 私聊
+                widgets:
+                  - label:
+                      id: lbl_message_placeholder2
+                      align: CENTER
+                      text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"
+              - name: 频道
+                widgets:
+                  - label:
+                      id: lbl_message_placeholder3
+                      align: CENTER
+                      text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"

@@ -524,6 +524,12 @@ lvgl:
               - text: "\uF0EE IoT 平台"
                 id: btn_iot_setting
                 list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_iot_page
+                        animation: MOVE_LEFT
+                        time: 200ms
               - text: "系统"
                 list_text: {}
               - text: "\uF53F 显示与声音"
@@ -793,6 +799,10 @@ lvgl:
               - label:
                   align: CENTER
                   text: "获取 IoT 配置"
+            on_click:
+              then:
+                - script.execute: get_iot_info
+                - script.execute: prase_iot_info
         - label:
             id: lbl_iot_info
             align: TOP_LEFT

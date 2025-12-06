@@ -17,6 +17,9 @@ esphome:
     - priority: 800
       then:
         - script.execute: littlefs_init
+    - priority: 400
+      then:
+        - script.execute: prase_iot_info
     - priority: 300
       then:
         - lambda: |-
@@ -30,7 +33,6 @@ esphome:
               lambda: 'return id(switch_buzzer).state;'
             then:
               - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
-        # - delay: 1s
         - lvgl.widget.hide: boot_screen
 
 esp32:

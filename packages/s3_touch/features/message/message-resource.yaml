@@ -1,0 +1,6 @@
+image:
+  rgb565:
+    - file: "imgs/icon/app/message-96x.png"
+      id: message_icon
+      transparency: alpha_channel
+      resize: 96x96
