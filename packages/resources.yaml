@@ -103,7 +103,7 @@ font:
       - file: "fonts/Font Awesome 5 Free-Solid-900.otf"
         glyphs: [
           "\uF55A",
-          # "\uF8A2",
+          "\uF8A2",
           "\uF11C",
           "\uF053",
           "\uF054",

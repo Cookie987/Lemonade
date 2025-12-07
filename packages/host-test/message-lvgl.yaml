@@ -132,14 +132,14 @@ lvgl:
                   - textarea:
                       id: textarea_message_channel_input
                       x: 0
-                      y: 50
+                      y: 140
                       align: BOTTOM_MID
                       width: 280
                       height: 40
                       placeholder_text: "输入消息..."
                   - keyboard:
                       x: 0
-                      y: 190
+                      y: 240
                       align: BOTTOM_MID
                       id: keyboard_message_channel_input
                       textarea: textarea_message_channel_input
