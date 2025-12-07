@@ -100,6 +100,16 @@ font:
           "\U000F092E", # mdi-wifi-strength-off-outline
           "\U000F0003", # mdi-access-point
           ]
+      - file: "fonts/Font Awesome 5 Free-Solid-900.otf"
+        glyphs: [
+          "\uF55A",
+          # "\uF8A2",
+          "\uF11C",
+          "\uF053",
+          "\uF054",
+          "\uF00C",
+        ]
+
 
   - file: "fonts/MiSans-Medium.ttf"
     id: "chinese_font36"

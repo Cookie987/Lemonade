@@ -779,7 +779,7 @@ lvgl:
             y: -25
             text: "加载中..."
             text_font: chinese_font14
-            
+
     
     - id: system_setting_littlefs_page
       skip: true
@@ -799,7 +799,7 @@ lvgl:
             y: -25
             text: "加载中..."
             text_font: chinese_font14
-            
+
     
     - id: system_setting_iot_page
       skip: true
@@ -970,4 +970,4 @@ lvgl:
             y: -25
             text: "（暂无日程表）"
             text_font: chinese_font14
-            
+    
