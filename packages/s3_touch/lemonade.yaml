@@ -55,6 +55,7 @@ esp32:
 psram:
   mode: octal
   speed: 80MHz
+  ignore_not_found: false
 
 # Set tickless_idle if you want auto light sleep
 # Do not use tickless_idle if adding a deep_sleep component
