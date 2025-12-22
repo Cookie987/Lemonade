@@ -2,7 +2,14 @@ lvgl:
   on_boot:
     then:
       - lambda: |-
-          // 好友列表
+          // ime
+          // lv_obj_t * pinyin_ime = lv_ime_pinyin_create(tab_message_channel);
+          // lv_ime_pinyin_set_keyboard(pinyin_ime, id(keyboard_message_channel_input)->obj);
+          // lv_ime_pinyin_set_mode(pinyin_ime,
+          //                       LV_IME_PINYIN_MODE_K9);  // Set to 9-key input mode. Default: 26-key input(k26) mode.
+          // lv_obj_t * cand_panel = lv_ime_pinyin_get_cand_panel(pinyin_ime);
+          // lv_obj_set_size(cand_panel, LV_PCT(100), LV_PCT(10));
+          // lv_obj_align_to(cand_panel, id(keyboard_message_channel_input)->obj, LV_ALIGN_OUT_TOP_MID, 0, 0);
   pages:
     - id: !extend page_main
       widgets:
@@ -31,6 +38,7 @@ lvgl:
             id: lbl_topbar_title
             text: "消息"
         - lambda: |-
+            // 测试用
             lv_list_add_text(id(list_message_channel), "2023-01-01 12:00:00");
             lv_list_add_btn(list_message_channel, NULL, "aa：你好");
             lv_list_add_btn(list_message_channel, NULL, "bb：你好");
@@ -54,18 +62,21 @@ lvgl:
             size: 15%
             tabs:
               - name: 好友
+                id: tab_message_friend
                 widgets:
                   - label:
                       id: lbl_message_placeholder
                       align: CENTER
                       text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"
               - name: 私聊
+                id: tab_message_private
                 widgets:
                   - label:
                       id: lbl_message_placeholder2
                       align: CENTER
                       text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"
               - name: 频道
+                id: tab_message_channel
                 widgets:
                   - label:
                       id: lbl_message_channel_id_prompt
