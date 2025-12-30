@@ -896,10 +896,9 @@ lvgl:
                 - lambda: |- 
                     auto wifi = wifi::global_wifi_component;
                     if (wifi == nullptr) return;
-                    wifi->clear_sta();
+                    wifi->clear_saved_wifi_stas();
                     ESP_LOGI("zsv_iot", "Cleared user saved WiFi STA");
-                    wifi->save_wifi_sta("SEEWO", "SEEWOSEEWO");
-                    wifi->save_wifi_sta("9872.4G", "Weiyuqi0000");
+                    wifi->append_wifi_sta("SEEWO", "SEEWOSEEWO");
 
     - id: system_setting_system_page
       skip: true
