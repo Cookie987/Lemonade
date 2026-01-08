@@ -1,3 +1,17 @@
 packages:
   - !include message-lvgl.yaml
   - !include message-resource.yaml
+
+esphome:
+  on_boot:
+    - priority: 200
+      then:
+        - script.execute: message_personal_listen
+
+script:
+  - id: message_personal_listen
+    then:
+      - lambda: |-
+          id(mqtt_client).subscribe("chat/receive/" + id(uid), [=](const std::string &topic, const std::string &payload) {
+              ESP_LOGD("Chat", "Got raw chat message");
+          });
