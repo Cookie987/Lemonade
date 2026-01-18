@@ -54,13 +54,8 @@ lvgl:
               - name: 当前天气
                 text_font: chinese_font14
                 scrollbar_mode: "OFF"
+                scroll_dir: "VER"
                 widgets:
-                  - obj:
-                      id: obj_current_weather_bg
-                      align: CENTER
-                      width: 320
-                      height: 240
-                      bg_color: !lambda return lv_color_hex(0xffffff);
                   - image:
                       id: img_current_weather_icon
                       src: c999_2x_black
@@ -119,14 +114,9 @@ lvgl:
               - name: 3日预报
                 text_font: chinese_font14
                 scrollbar_mode: "OFF"
+                scroll_dir: "VER"
                 bg_color: !lambda return lv_color_hex(0xffffff);
                 widgets:
-                  - obj:
-                      id: obj_forecast_bg
-                      align: CENTER
-                      width: 320
-                      height: 240
-                      bg_color: !lambda return lv_color_hex(0xffffff);
                   - image:
                       id: img_forecast_day1_weather_icon
                       x: -120
