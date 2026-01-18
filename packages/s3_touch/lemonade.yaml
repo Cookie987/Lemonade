@@ -61,6 +61,11 @@ psram:
   speed: 80MHz
   ignore_not_found: false
 
+safe_mode:
+  disabled: false
+  boot_is_good_after: 10s
+  reboot_timeout: 1min
+
 # Set tickless_idle if you want auto light sleep
 # Do not use tickless_idle if adding a deep_sleep component
 power_management:

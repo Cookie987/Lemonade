@@ -1,0 +1,586 @@
+lvgl:
+  msgboxes:
+    - id: msgbox_halt_message
+      close_button: false
+      title: 关闭设备
+      text_font: chinese_font14
+      body:
+        text: "设备将关闭。"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_halt_close
+          text: "不"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_update_message
+        - id: btn_halt_ok
+          text: "好"
+          on_click:
+            then:
+              - script.execute: halt
+
+    - id: msgbox_update_message
+      close_button: false
+      title: 系统更新
+      text_font: chinese_font14
+      body:
+        text: "将更新至新系统，系统将暂时无响应(~60s)，请确保电量充足，网络连接稳定，请勿关机。系统将自动重启。"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_update_system_close
+          text: "不"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_update_message
+        - id: btn_update_system_ok
+          text: "好"
+          on_click:
+            then:
+              - lvgl.page.show: page_ota
+              - delay: 200ms
+              - ota.http_request.flash:
+                  md5_url: ${lemonade_ota_md5_url}
+                  url: ${lemonade_ota_url}
+  pages:
+    - id: page_setting_menu
+      on_load:
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "系统设置"
+      widgets: 
+        - list:
+            id: list_widget
+            x: 0
+            y: 18
+            width: 320
+            height: 222
+            items:
+              # 按钮类型项目
+              - text: "互联互通"
+                list_text: {}
+              - text: "\uF0AC Wi-Fi与蓝牙"
+                id: btn_network_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_network_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+              - text: "\uF0EE IoT 平台"
+                id: btn_iot_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_iot_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+              - text: "系统"
+                list_text: {}
+              - text: "\uF53F 显示与声音"
+                id: btn_display_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_display_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+              - text: "\uF240 电源和电池"
+                id: btn_power_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_power_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+              - text: "\uF05A 关于"
+                id: btn_about_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_system_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+
+    - id: system_setting_power_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "电源和电池"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+        - meter:
+            id: usb_voltage_meter
+            align: center
+            x: -70
+            y: 0
+            width: 140
+            height: 140
+            widgets:
+              - label:
+                  id: usb_voltage_text
+                  text: "-.--V"
+                  align: CENTER
+                  y: 25
+                  text_font: chinese_font14
+              - label:
+                  text: "USB电压"
+                  align: CENTER
+                  y: 45
+                  text_font: chinese_font14
+            scales:
+              - range_from: 0
+                range_to: 60
+                angle_range: 240
+                rotation: 150
+                ticks:
+                  count: 61
+                  length: 5
+                  width: 2
+                indicators:
+                  - line:
+                      id: usb_voltage_indicator
+                      width: 2
+                      color: 0xFF0000
+                      r_mod: -4
+                  - tick_style:
+                      start_value: 0
+                      end_value: 60
+                      color_start: 0xFF0000
+                      color_end: 0xff2aff
+              - range_from: 0 # scale for the value labels
+                range_to: 6
+                angle_range: 240
+                rotation: 150
+                ticks:
+                  width: 1
+                  count: 7
+                  length: 10
+                  color: 0x000000
+                  major:
+                    stride: 1
+                    width: 2
+                    length: 10
+                    color: 0x404040
+                    label_gap: 10
+        - meter:
+            id: battery_voltage_meter
+            align: center
+            x: 70
+            y: 0
+            width: 140
+            height: 140
+            widgets:
+              - label:
+                  id: battery_voltage_text
+                  text: "-.--V"
+                  align: CENTER
+                  y: 25
+                  text_font: chinese_font14
+              - label:
+                  text: "电池电压"
+                  align: CENTER
+                  y: 45
+                  text_font: chinese_font14
+            scales:
+              - range_from: 0
+                range_to: 50
+                angle_range: 240
+                rotation: 150
+                ticks:
+                  count: 51
+                  length: 5
+                  width: 2
+                indicators:
+                  - line:
+                      id: battery_voltage_indicator
+                      width: 2
+                      color: 0xFF0000
+                      r_mod: -4
+                  - tick_style:
+                      start_value: 0
+                      end_value: 50
+                      color_start: 0xFF0000
+                      color_end: 0xff2aff
+              - range_from: 0 # scale for the value labels
+                range_to: 5
+                angle_range: 240
+                rotation: 150
+                ticks:
+                  width: 1
+                  count: 6
+                  length: 10
+                  color: 0x000000
+                  major:
+                    stride: 1
+                    width: 2
+                    length: 10
+                    color: 0x404040
+                    label_gap: 10
+    
+    - id: system_setting_display_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "显示与声音"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+      - obj:
+          x: 0
+          y: 0
+          align: CENTER
+          border_width: 0
+          width: 320
+          height: 185
+          widgets:
+            - label:
+                text: "屏幕亮度"
+                text_font: chinese_font14
+                x: 9
+                y: 53
+            - slider:
+                id: backlight_slider
+                min_value: 10
+                max_value: 100
+                value: 100
+                width: 190
+                x: 83
+                y: 58
+                on_release:
+                  - lambda: global_preferences->sync();
+                on_change:
+                  then:
+                    - light.turn_on:
+                        id: backlight
+                        brightness: !lambda 'return lv_slider_get_value(id(backlight_slider)) / 100.0;'
+            - dropdown:
+                id: dropdown_image
+                x: 120
+                y: 93
+                width: 163
+                height: 38
+                symbol: "\uF107" # angle-down
+                options:
+                  - 系统默认
+                  - ZSV IoT
+                text_font: chinese_font14
+                on_change:
+                  then:
+                    - lambda: global_preferences->sync();
+                    - if:
+                        condition:
+                          lambda: 'return id(dropdown_image).get_selected_text() == "系统默认";'
+                        then:
+                          - lvgl.image.update:
+                              id: background_image
+                              src: default_bg
+                    - if:
+                        condition:
+                          lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
+                        then:
+                          - script.execute: set_background_img
+            - label:
+                x: 9
+                y: 103
+                text: "背景图片"
+                text_font: chinese_font14
+            - button:
+                id: btn_get_background_img
+                align: CENTER
+                y: 90
+                width: 260
+                height: 32
+                widgets:
+                  - label:
+                      align: CENTER
+                      text_font: chinese_font14
+                      text: "获取 ZSV IoT 背景图片"
+                on_click:
+                  then:
+                    - lvgl.dropdown.update:
+                        id: dropdown_image
+                        selected_index: 1
+                    - script.execute: get_background_img
+            - label:
+                text: "蜂鸣器"
+                text_font: chinese_font14
+                x: 9
+                y: 213
+            - switch:
+                id: switch_buzzer
+                x: 230
+                y: 208
+                on_change:
+                  then:
+                    - lambda: global_preferences->sync();
+
+    - id: system_setting_iot_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "IoT 平台"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+        - button:
+            id: btn_get_iot_cfg
+            align: CENTER
+            y: 70
+            x: 0
+            width: 260
+            height: 32
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "获取 IoT 配置"
+            on_click:
+              then:
+                - script.execute: get_iot_info
+                - script.execute: prase_iot_info
+        - label:
+            id: lbl_iot_info
+            align: TOP_LEFT
+            x: 30
+            y: 35
+            text: "${lemonade_version}\nAPI版本：2\nWiFi数量：N/A\n设备描述：N/A\n获取时间：1970-01-01 00:00:00"
+        - label:
+            id: lbl_uid
+            align: TOP_RIGHT
+            text_font: clock24
+            x: -25
+            y: 20
+            text: "0000"
+
+    - id: system_setting_network_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: [btn_back_setting]
+        - script.execute: refresh_info_page
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "Wi-Fi与蓝牙"
+      on_unload:
+        - lvgl.widget.hide: [btn_back_setting]
+      widgets:
+        - label:
+            text: "Wi-Fi"
+            text_font: chinese_font14
+            x: 19
+            y: 53
+        - switch:
+            id: switch_wifi
+            x: 80
+            y: 48
+            on_change:
+              then:
+                - lambda: global_preferences->sync();
+        - label:
+            text: "蓝牙"
+            text_font: chinese_font14
+            x: 179
+            y: 53
+        - switch:
+            id: switch_bluetooth
+            x: 250
+            y: 48
+            state:
+              checked: false
+              disabled: true
+        - label:
+            id: lbl_wifi_info
+            align: CENTER
+            width: 95%
+            y: -5
+            text: "加载中..."
+            text_font: chinese_font14
+        - label:
+            id: lbl_zsv_iot_info
+            align: CENTER
+            width: 95%
+            y: 20
+            text: "自上次开机以来，未获取 ZSV IoT 配置。"
+            text_font: chinese_font14
+        - button:
+            id: btn_wifi_config
+            align: CENTER
+            y: 70
+            x: -80
+            width: 130
+            height: 32
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "获取 ZSV IoT 配置"
+            on_click:
+              then:
+                - script.execute: zsv_iot_update
+        - button:
+            id: btn_clear_network
+            align: CENTER
+            y: 70
+            x: 80
+            width: 130
+            height: 32
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "恢复默认网络配置"
+            on_click:
+              then:
+                - lambda: |- 
+                    auto wifi = wifi::global_wifi_component;
+                    if (wifi == nullptr) return;
+                    wifi->clear_saved_wifi_stas();
+                    ESP_LOGI("zsv_iot", "Cleared user saved WiFi STA");
+                    wifi->append_wifi_sta("SEEWO", "SEEWOSEEWO");
+
+    - id: system_setting_system_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "关于"
+        - script.execute: refresh_info_page
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+        - button:
+            id: btn_update_system
+            align: CENTER
+            x: -60
+            y: 70
+            width: 180
+            height: 32
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text: "执行系统更新"
+            on_click:
+              then:
+                - lvgl.widget.show: msgbox_update_message
+        - button:
+            id: btn_halt
+            align: CENTER
+            x: 80
+            y: 70
+            width: 60
+            height: 32
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text: "关闭设备"
+            on_click:
+              then:
+                - lvgl.widget.show: msgbox_halt_message
+        - label:
+            id: lbl_sysinfo
+            align: CENTER
+            text_align: CENTER
+            width: 100%
+            y: -25
+            text: "加载中..."
+            text_font: chinese_font14
+    
+    - id: system_setting_littlefs_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "LittleFS 设置"
+        - lambda: |-
+            size_t total = 0, used = 0;
+            esp_vfs_littlefs_conf_t conf = {
+            .base_path = "/littlefs",
+            .partition_label = "littlefs",
+            .format_if_mount_failed = false,
+            .dont_mount = true,
+            };
+            esp_err_t ret = esp_vfs_littlefs_register(&conf);
+            ret = esp_littlefs_info(conf.partition_label, &total, &used);
+            if (ret != ESP_OK)
+            {
+              ESP_LOGE("LittleFS", "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
+            }
+            else
+            {
+              ESP_LOGI("LittleFS", "Partition size: total: %d, used: %d", total, used);
+              std::string space = std::string("总空间：") + std::to_string(total / 1024) + std::string("KB\n已用空间：") + std::to_string(used / 1024) + "KB";
+              lv_label_set_text(id(lbl_littlefs_info), space.c_str());
+            }
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+        - label:
+            id: lbl_littlefs_info
+            align: CENTER
+            text_align: CENTER
+            width: 100%
+            y: -25
+            text: "加载中..."
+            text_font: chinese_font14
+
+    - id: system_setting_network_wifi_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: [btn_back_setting]
+        - script.execute: refresh_info_page
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "Wi-Fi配置"
+      on_unload:
+        - lvgl.widget.hide: [btn_back_setting]
+
+    - id: page_ota
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [ani_battery_charging, lbl_wifi_status, lbl_battery_status, btn_back_setting, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - lvgl.widget.show: lbl_ota_prompt
+        - lvgl.canvas.fill:
+            id: ota_canvas
+            color: !lambda return lv_color_hex(0x000000);
+        - lvgl.widget.hide: msgbox_update_message
+        - lvgl.label.update:
+            id: lbl_ota_prompt
+            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"
+      on_unload:
+        - lvgl.widget.show: [ani_battery_charging, lbl_wifi_status, lbl_battery_status, lbl_topbar_date, lbl_topbar_time]
+      widgets:
+        - canvas:
+            id: ota_canvas
+            align: CENTER
+            width: 320
+            height: 240
+        - label:
+            align: CENTER
+            text_font: cookielogo
+            recolor: true
+            text: "#ffffff \uF564#"
+            y: -40
+        - bar:
+            id: bar_ota_progress
+            align: CENTER
+            width: 240
+            y: 30
+        - label:
+            align: CENTER
+            id: lbl_ota_prompt
+            y: 80
+            recolor: true
+            text_align: CENTER
+            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"

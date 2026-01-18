@@ -1,4 +1,10 @@
 script:
+  - id: halt
+    then:
+      - lvgl.widget.show: boot_screen
+      - lambda: global_preferences->sync();
+      - switch.turn_off: acc
+
   - id: wakeup_button
     then:
       - if:

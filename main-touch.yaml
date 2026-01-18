@@ -41,6 +41,8 @@ packages:
   - !include packages/resources.yaml
   - !include packages/s3_touch/networks.yaml
   # - !include packages/storage.yaml
+  # 设置
+  - !include packages/s3_touch/features/setting/setting.yaml
   # 游戏
   # - !include packages/games/game_core.yaml
   # 天气与日历
