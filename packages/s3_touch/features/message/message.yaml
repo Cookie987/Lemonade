@@ -12,6 +12,18 @@ script:
   - id: message_personal_listen
     then:
       - lambda: |-
-          id(mqtt_client).subscribe("chat/receive/" + id(uid), [=](const std::string &topic, const std::string &payload) {
-              ESP_LOGD("Chat", "Got raw chat message");
-          });
+          id(mqtt_client).subscribe_json("chat/receive/" + id(uid), [=](const std::string &topic, JsonObject root) {
+              ESP_LOGD("Chat", "Got raw chat message. Started parsing.");
+              if (root["sender_id"] && root["content"]){
+                // 获取当前时间
+                auto t = id(ntp_time).now();
+                std::string display_content = root["sender_id"].as<std::string>() + ": " + root["content"].as<std::string>();
+                lv_list_add_text(id(list_message_friend), t.strftime("%Y-%m-%d %H:%M:%S").c_str());
+                lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, display_content.c_str());
+                lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
+              }
+              else{
+                ESP_LOGW("Chat", "Invalid chat message. Skipping.");
+              }
+            }
+          );

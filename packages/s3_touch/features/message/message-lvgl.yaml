@@ -1,8 +1,4 @@
 lvgl:
-  on_boot:
-    then:
-      - lambda: |-
-          // 好友列表
   pages:
     - id: !extend page_main
       widgets:
@@ -30,19 +26,6 @@ lvgl:
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "消息"
-        - lambda: |-
-            lv_list_add_text(id(list_message_channel), "2023-01-01 12:00:00");
-            lv_list_add_btn(list_message_channel, NULL, "aa：你好");
-            lv_list_add_btn(list_message_channel, NULL, "bb：你好");
-            lv_list_add_btn(list_message_channel, NULL, "cc：你好");
-            lv_list_add_btn(list_message_channel, NULL, "dd：你好");
-            lv_list_add_btn(list_message_channel, NULL, "ee：你好");
-            lv_list_add_btn(list_message_channel, NULL, "ff：你好");
-            lv_list_add_btn(list_message_channel, NULL, "gg：你好");
-            lv_list_add_text(id(list_message_channel), "2023-01-01 12:05:00");
-            lv_list_add_btn(list_message_channel, NULL, "hh：你好");
-            lv_list_add_btn(list_message_channel, NULL, "ii：你好");
-            lv_list_add_btn(list_message_channel, NULL, "jj：extra long message to test line wrapping functionality");
       widgets:
         - tabview:
             id: tabview_message
@@ -53,36 +36,24 @@ lvgl:
             height: 222
             size: 15%
             tabs:
-              - name: 好友
-                widgets:
-                  - label:
-                      id: lbl_message_placeholder
-                      align: CENTER
-                      text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"
               - name: 私聊
                 widgets:
                   - label:
-                      id: lbl_message_placeholder2
-                      align: CENTER
-                      text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"
-              - name: 频道
-                widgets:
-                  - label:
-                      id: lbl_message_channel_id_prompt
+                      id: lbl_message_friend_id_prompt
                       x: -80
                       y: 5
                       align: TOP_MID
-                      text: "频道号："
+                      text: "对方UID："
                   - container:
-                      id: container_message_channel_input
+                      id: container_message_friend_input
                       x: 40
-                      y: -10
+                      y: -5
                       width: 160
                       height: 50
                       align: TOP_MID
                       widgets:
                         - button:
-                            id: btn_message_channel_increase
+                            id: btn_message_friend_increase
                             align: RIGHT_MID
                             width: 40
                             height: 40
@@ -92,9 +63,9 @@ lvgl:
                                   text: "+"
                             on_click:
                               then:
-                                - lvgl.spinbox.increment: spinbox_message_channel_number
+                                - lvgl.spinbox.increment: spinbox_message_friend_number
                         - button:
-                            id: btn_message_channel_decrease
+                            id: btn_message_friend_decrease
                             align: LEFT_MID
                             width: 40
                             height: 40
@@ -104,42 +75,48 @@ lvgl:
                                   text: "-"
                             on_click:
                               then:
-                                - lvgl.spinbox.decrement: spinbox_message_channel_number
+                                - lvgl.spinbox.decrement: spinbox_message_friend_number
                         - spinbox:
-                            id: spinbox_message_channel_number
+                            id: spinbox_message_friend_number
                             x: 0
                             y: 0
                             align: CENTER
                             width: 60
                             height: 40
                             digits: 4
-                            range_from: 10.00
-                            range_to: 99.99
-                            value: 10.00
-                            decimal_places: 2
+                            range_from: 100
+                            range_to: 9999
+                            value: 100
+                            decimal_places: 0
                   - list:
-                      id: list_message_channel
+                      id: list_message_friend
                       align: CENTER
-                      y: 70
+                      y: 50
                       width: 280
-                      height: 170
+                      height: 120
                       items:
                         # 按钮类型项目
-                        - text: "2023-01-01 12:00:00"
+                        - text: "系统消息"
                           list_text: {}
-                        - text: "[系统] 欢迎来到频道！" 
+                        - text: "[系统] 暂不支持聊天记录保存！" 
                           list_button: {}
                   - textarea:
-                      id: textarea_message_channel_input
+                      id: textarea_message_friend_input
                       x: 0
-                      y: 140
+                      y: 70
                       align: BOTTOM_MID
                       width: 280
                       height: 40
                       placeholder_text: "输入消息..."
                   - keyboard:
                       x: 0
-                      y: 240
+                      y: 170
                       align: BOTTOM_MID
-                      id: keyboard_message_channel_input
-                      textarea: textarea_message_channel_input
+                      id: keyboard_message_friend_input
+                      textarea: textarea_message_friend_input
+              - name: 频道
+                widgets:
+                  - label:
+                      id: lbl_message_placeholder
+                      align: CENTER
+                      text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"
