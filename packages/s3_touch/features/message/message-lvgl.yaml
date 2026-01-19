@@ -114,6 +114,10 @@ lvgl:
                       align: BOTTOM_MID
                       id: keyboard_message_friend_input
                       textarea: textarea_message_friend_input
+                      on_ready:
+                        then:
+                          - lambda: |-
+                            
               - name: 频道
                 widgets:
                   - label:

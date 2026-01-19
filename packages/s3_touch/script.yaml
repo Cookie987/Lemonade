@@ -433,7 +433,7 @@ script:
             rssi_str = "-∞";
           }
           // 拼接文字
-          char buf[256];
+          char buf[512];
           snprintf(buf, sizeof(buf),
                   "运行时间: %s "
                   "CPU: 40~%s "
