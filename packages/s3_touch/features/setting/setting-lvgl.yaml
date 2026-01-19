@@ -12,7 +12,7 @@ lvgl:
           text: "不"
           on_click:
             then:
-              - lvgl.widget.hide: msgbox_update_message
+              - lvgl.widget.hide: msgbox_halt_message
         - id: btn_halt_ok
           text: "好"
           on_click:
