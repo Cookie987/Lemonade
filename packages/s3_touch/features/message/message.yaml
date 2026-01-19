@@ -56,8 +56,17 @@ script:
               else{
                 ESP_LOGW("Chat", "Invalid chat message. Skipping.");
               }
-            }
-          );
+              // 只保留最近的100条
+              lv_obj_t * list_message_friend = id(list_message_friend);
+              uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
+              if (children_count > 100) {
+                for (uint32_t i = 0; i < children_count - 100; i++) {
+                  lv_obj_del(lv_obj_get_child(list_message_friend, 0));
+                }
+              }
+          });
+          
+
   - id: message_public_listen
     then:
       - lambda: |-
@@ -66,5 +75,15 @@ script:
               // 获取当前时间
               auto t = id(ntp_time).now();
               lv_list_add_text(id(list_message_public), t.strftime("%Y-%m-%d %H:%M:%S").c_str());
-              lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, payload.c_str());
+              lv_obj_t * list_btn = lv_list_add_btn(list_message_public, NULL, payload.c_str());
+              lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
+              // 只保留最近的100条
+              lv_obj_t * list_message_public = id(list_message_public);
+              uint32_t children_count = lv_obj_get_child_cnt(list_message_public);
+              if (children_count > 100) {
+                for (uint32_t i = 0; i < children_count - 100; i++) {
+                  lv_obj_del(lv_obj_get_child(list_message_public, 0));
+                }
+              }
           });
+          
