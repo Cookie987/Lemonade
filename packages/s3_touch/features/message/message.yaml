@@ -7,8 +7,39 @@ esphome:
     - priority: 200
       then:
         - script.execute: message_personal_listen
+        - script.execute: message_public_listen
 
 script:
+  - id: send_message_friend
+    then:
+      - lambda: |-
+          // 目标uid需要补足4位，所以要补0
+          std::string targetuid = std::to_string(lv_spinbox_get_value(spinbox_message_friend_number));
+          targetuid = std::string(4 - targetuid.length(), '0') + targetuid;
+          ESP_LOGD("Chat", "Target UID: %s", targetuid.c_str());
+          id(mqtt_client).publish_json((std::string("chat/receive/") +
+                                        std::string(targetuid.c_str())
+                                        ).c_str(),
+                                        [=](JsonObject root) {
+            root["sender_id"] = id(uid);
+            root["content"] = lv_textarea_get_text(textarea_message_friend_input);
+            root["platform"] = "Lemonade OS/${lemonade_version}";
+          });
+          lv_textarea_set_text(textarea_message_friend_input, "");
+          ESP_LOGD("Chat", "Sent message to %s", targetuid.c_str());
+
+  - id: send_message_public
+    then:
+      - lambda: |-
+          id(mqtt_client).publish("smck/glousr",
+                                  (id(uid) + std::string(": ") +
+                                  std::string(lv_textarea_get_text(textarea_message_public_input))
+                                  ).c_str()
+                                  );
+          lv_textarea_set_text(textarea_message_public_input, "");
+          ESP_LOGD("Chat", "Sent message to the topic");
+
+
   - id: message_personal_listen
     then:
       - lambda: |-
@@ -27,3 +58,13 @@ script:
               }
             }
           );
+  - id: message_public_listen
+    then:
+      - lambda: |-
+          id(mqtt_client).subscribe("smck/glousr", [=](const std::string &topic, const std::string &payload) {
+              ESP_LOGD("Chat", "Got raw public chat message.");
+              // 获取当前时间
+              auto t = id(ntp_time).now();
+              lv_list_add_text(id(list_message_public), t.strftime("%Y-%m-%d %H:%M:%S").c_str());
+              lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, payload.c_str());
+          });

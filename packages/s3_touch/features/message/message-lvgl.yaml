@@ -116,11 +116,36 @@ lvgl:
                       textarea: textarea_message_friend_input
                       on_ready:
                         then:
-                          - lambda: |-
-                            
-              - name: 频道
+                          - script.execute: send_message_friend
+
+              - name: 公聊
                 widgets:
-                  - label:
-                      id: lbl_message_placeholder
+                  - list:
+                      id: list_message_public
                       align: CENTER
-                      text: "还在做，不过已经有思路了\n¯\\_(ツ)_/¯"
+                      y: 0
+                      width: 280
+                      height: 120
+                      items:
+                        # 按钮类型项目
+                        - text: "系统消息"
+                          list_text: {}
+                        - text: "[系统] 暂不支持聊天记录保存！" 
+                          list_button: {}
+                  - textarea:
+                      id: textarea_message_public_input
+                      x: 0
+                      y: 20
+                      align: BOTTOM_MID
+                      width: 280
+                      height: 40
+                      placeholder_text: "输入消息..."
+                  - keyboard:
+                      x: 0
+                      y: 120
+                      align: BOTTOM_MID
+                      id: keyboard_message_public_input
+                      textarea: textarea_message_public_input
+                      on_ready:
+                        then:
+                          - script.execute: send_message_public
