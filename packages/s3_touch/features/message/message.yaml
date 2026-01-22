@@ -30,7 +30,6 @@ script:
                 root["content"] = lv_textarea_get_text(textarea_message_friend_input);
                 root["platform"] = "Lemonade OS/${lemonade_version}";
               });
-              lv_textarea_set_text(textarea_message_friend_input, "");
               ESP_LOGD("Chat", "Sent message to %s", targetuid.c_str());
               // 给自己也发一遍
               targetuid = id(uid);
