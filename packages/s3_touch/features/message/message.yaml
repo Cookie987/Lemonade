@@ -17,6 +17,43 @@ script:
           uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
           // 目标uid需要补足4位，所以要补0
           std::string targetuid = std::to_string(lv_spinbox_get_value(spinbox_message_friend_number));
+          // 要发送的消息内容
+          std::string message_content;
+          switch (tab_act) {
+            case 1:
+              message_content = lv_textarea_get_text(textarea_message_friend_input);
+              break;
+            case 2:
+              message_content = lv_textarea_get_text(textarea_message_public_input);
+              break;
+            default:
+              break;
+          }
+          
+          // 处理短代码
+          // eg /hd/ 将被替换为好的
+
+                    
+          std::string text = message_content;
+          size_t pos = 0;
+          while (pos < text.length()) {
+              size_t start = text.find('/', pos);
+              if (start == std::string::npos) break;
+              size_t end = text.find('/', start + 1);
+              if (end == std::string::npos) break;
+              // 提取 "/abc/"
+              std::string shortcode = text.substr(start, end - start + 1);
+              std::string value = id(message_shortcode)[shortcode];
+              if (!value.empty()) {
+                  text.replace(start, shortcode.length(), value);
+                  pos = start + value.length();
+              } else {
+                  // 不认识的 shortcode，跳过这个 '/'
+                  pos = start + 1;
+              }
+          }
+          message_content = text;
+
           switch (tab_act) {
             case 0:
               break;
@@ -28,7 +65,7 @@ script:
                                             ).c_str(),
                                             [=](JsonObject root) {
                 root["sender_id"] = id(uid);
-                root["content"] = lv_textarea_get_text(textarea_message_friend_input);
+                root["content"] = message_content;
                 root["platform"] = "Lemonade OS/${lemonade_version}";
               });
               ESP_LOGD("Chat", "Sent message to %s", targetuid.c_str());
@@ -40,7 +77,7 @@ script:
                                             ).c_str(),
                                             [=](JsonObject root) {
                 root["sender_id"] = id(uid);
-                root["content"] = lv_textarea_get_text(textarea_message_friend_input);
+                root["content"] = message_content;
                 root["platform"] = "Lemonade OS/${lemonade_version}";
               });
               lv_textarea_set_text(textarea_message_friend_input, "");
@@ -49,8 +86,8 @@ script:
             case 2:
               id(mqtt_client).publish("smck/glousr",(
                                         id(uid) +
-                                        std::string(": ") +
-                                        std::string(lv_textarea_get_text(textarea_message_public_input))
+                                        std::string(":") +
+                                        message_content
                                       ).c_str()
                         );
               lv_textarea_set_text(textarea_message_public_input, "");
@@ -69,8 +106,15 @@ script:
               if (root["sender_id"] && root["content"]){
                 // 获取当前时间
                 auto t = id(ntp_time).now();
-                std::string display_content = root["sender_id"].as<std::string>() + ": " + root["content"].as<std::string>();
-                lv_list_add_text(id(list_message_friend), t.strftime("%Y-%m-%d %H:%M:%S").c_str());
+                std::string display_content = root["content"].as<std::string>();
+                lv_list_add_text(id(list_message_friend),
+                                  (
+                                    std::string(t.strftime("%Y-%m-%d %H:%M:%S")) +
+                                    std::string(" · ") +
+                                    root["sender_id"].as<std::string>() +
+                                    std::string(": ")
+                                  ).c_str()
+                                );
                 lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, display_content.c_str());
                 // 只保留最近的100条
                 uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
@@ -92,10 +136,27 @@ script:
       - lambda: |-
           id(mqtt_client).subscribe("smck/glousr", [=](const std::string &topic, const std::string &payload) {
               ESP_LOGD("Chat", "Got raw public chat message.");
+              // 获取发送者
+              size_t pos = payload.find(':');
+              std::string sender, content;
+              if (pos != std::string::npos) {
+                  sender  = payload.substr(0, pos);
+                  content = payload.substr(pos + 1);
+              } else {
+                  sender  = payload;
+                  content = "";
+              }
               // 获取当前时间
               auto t = id(ntp_time).now();
-              lv_list_add_text(id(list_message_public), t.strftime("%Y-%m-%d %H:%M:%S").c_str());
-              lv_obj_t * list_btn = lv_list_add_btn(list_message_public, NULL, payload.c_str());
+              lv_list_add_text(id(list_message_public),
+                                (
+                                  std::string(t.strftime("%Y-%m-%d %H:%M:%S")) +
+                                  std::string(" · ") +
+                                  sender +
+                                  std::string(": ")
+                                ).c_str()
+                              );
+              lv_obj_t * list_btn = lv_list_add_btn(list_message_public, NULL, content.c_str());
               // 只保留最近的100条
               uint32_t children_count = lv_obj_get_child_cnt(list_message_public);
               if (children_count > 100) {
