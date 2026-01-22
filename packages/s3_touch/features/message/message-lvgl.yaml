@@ -1,6 +1,7 @@
 lvgl:
   pages:
     - id: !extend page_main
+      scrollable: false
       widgets:
         - tileview:
             id: !extend tileview_main
@@ -27,21 +28,6 @@ lvgl:
             id: lbl_topbar_title
             text: "消息"
       widgets:
-        - keyboard:
-            x: 0
-            y: 18
-            width: 320
-            height: 100
-            hidden: true
-            align: BOTTOM_MID
-            id: keyboard_message_input
-            on_cancel:
-              then:
-                - script.execute: keyboard_message_hide
-            on_ready:
-              then:
-                - script.execute: keyboard_message_hide
-                - script.execute: send_message
         - tabview:
             id: tabview_message
             anim_time: 0.5s
@@ -155,7 +141,21 @@ lvgl:
                       on_click:
                         then:
                           - script.execute: keyboard_message_show
-
+        - keyboard:
+            x: 0
+            y: 18
+            width: 320
+            height: 100
+            hidden: true
+            align: BOTTOM_MID
+            id: keyboard_message_input
+            on_cancel:
+              then:
+                - script.execute: keyboard_message_hide
+            on_ready:
+              then:
+                - script.execute: keyboard_message_hide
+                - script.execute: send_message
 script:
   - id: keyboard_message_show
     then:
