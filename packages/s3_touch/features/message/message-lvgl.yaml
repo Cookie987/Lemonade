@@ -27,6 +27,21 @@ lvgl:
             id: lbl_topbar_title
             text: "消息"
       widgets:
+        - keyboard:
+            x: 0
+            y: 18
+            width: 320
+            height: 100
+            hidden: true
+            align: BOTTOM_MID
+            id: keyboard_message_input
+            on_cancel:
+              then:
+                - script.execute: keyboard_message_hide
+            on_ready:
+              then:
+                - script.execute: keyboard_message_hide
+                - script.execute: send_message
         - tabview:
             id: tabview_message
             anim_time: 0.5s
@@ -36,14 +51,14 @@ lvgl:
             height: 222
             size: 15%
             tabs:
-              - name: 私聊
+              - name: 聊天设置
                 widgets:
                   - label:
                       id: lbl_message_friend_id_prompt
                       x: -80
                       y: 5
                       align: TOP_MID
-                      text: "对方UID："
+                      text: "私聊UID："
                   - container:
                       id: container_message_friend_input
                       x: 40
@@ -88,12 +103,15 @@ lvgl:
                             range_to: 9999
                             value: 100
                             decimal_places: 0
+              - name: 私聊
+                scrollable: false
+                widgets:
                   - list:
                       id: list_message_friend
-                      align: CENTER
-                      y: 50
-                      width: 280
-                      height: 120
+                      align: TOP_MID
+                      y: -15
+                      width: 320
+                      height: 155
                       items:
                         # 按钮类型项目
                         - text: "系统消息"
@@ -103,29 +121,23 @@ lvgl:
                   - textarea:
                       id: textarea_message_friend_input
                       x: 0
-                      y: 70
+                      y: 15
                       align: BOTTOM_MID
-                      width: 280
+                      width: 320
                       height: 40
                       placeholder_text: "输入消息..."
-                  - keyboard:
-                      x: 0
-                      y: 170
-                      align: BOTTOM_MID
-                      id: keyboard_message_friend_input
-                      textarea: textarea_message_friend_input
-                      on_ready:
+                      on_click:
                         then:
-                          - script.execute: send_message_friend
-
+                          - script.execute: keyboard_message_show
               - name: 公聊
+                scrollable: false
                 widgets:
                   - list:
                       id: list_message_public
-                      align: CENTER
-                      y: 0
-                      width: 280
-                      height: 120
+                      align: TOP_MID
+                      y: -15
+                      width: 320
+                      height: 155
                       items:
                         # 按钮类型项目
                         - text: "系统消息"
@@ -135,17 +147,30 @@ lvgl:
                   - textarea:
                       id: textarea_message_public_input
                       x: 0
-                      y: 20
+                      y: 15
                       align: BOTTOM_MID
-                      width: 280
+                      width: 320
                       height: 40
                       placeholder_text: "输入消息..."
-                  - keyboard:
-                      x: 0
-                      y: 120
-                      align: BOTTOM_MID
-                      id: keyboard_message_public_input
-                      textarea: textarea_message_public_input
-                      on_ready:
+                      on_click:
                         then:
-                          - script.execute: send_message_public
+                          - script.execute: keyboard_message_show
+
+script:
+  - id: keyboard_message_show
+    then:
+      - lvgl.widget.show: keyboard_message_input
+      - lambda: |-
+          lv_obj_set_y(id(textarea_message_public_input), -80);
+          lv_obj_set_height(id(list_message_public), 60);
+          lv_obj_set_y(id(textarea_message_friend_input), -80);
+          lv_obj_set_height(id(list_message_friend), 60);
+
+  - id: keyboard_message_hide
+    then:
+      - lvgl.widget.hide: keyboard_message_input
+      - lambda: |-
+          lv_obj_set_y(id(textarea_message_public_input), 15);
+          lv_obj_set_height(id(list_message_public), 155);
+          lv_obj_set_y(id(textarea_message_friend_input), 15);
+          lv_obj_set_height(id(list_message_friend), 155);
