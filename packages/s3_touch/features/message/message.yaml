@@ -14,12 +14,12 @@ script:
     then:
       - lambda: |-
           uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
+          // 目标uid需要补足4位，所以要补0
+          std::string targetuid = std::to_string(lv_spinbox_get_value(spinbox_message_friend_number));
           switch (tab_act) {
             case 0:
               break;
             case 1:
-              // 目标uid需要补足4位，所以要补0
-              std::string targetuid = std::to_string(lv_spinbox_get_value(spinbox_message_friend_number));
               targetuid = std::string(4 - targetuid.length(), '0') + targetuid;
               ESP_LOGD("Chat", "Target UID: %s", targetuid.c_str());
               id(mqtt_client).publish_json((std::string("chat/receive/") +
