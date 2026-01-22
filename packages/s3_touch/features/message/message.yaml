@@ -111,8 +111,8 @@ script:
                                   (
                                     std::string(t.strftime("%Y-%m-%d %H:%M:%S")) +
                                     std::string(" · ") +
-                                    root["sender_id"].as<std::string>() +
-                                    std::string(": ")
+                                    root["sender_id"].as<std::string>() // +
+                                    // std::string(": ")
                                   ).c_str()
                                 );
                 lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, display_content.c_str());
@@ -152,8 +152,8 @@ script:
                                 (
                                   std::string(t.strftime("%Y-%m-%d %H:%M:%S")) +
                                   std::string(" · ") +
-                                  sender +
-                                  std::string(": ")
+                                  sender // +
+                                  // std::string(": ")
                                 ).c_str()
                               );
               lv_obj_t * list_btn = lv_list_add_btn(list_message_public, NULL, content.c_str());
