@@ -35,6 +35,9 @@ lvgl:
             y: 18
             width: 320
             height: 222
+            on_value:
+              then:
+                - script.execute: keyboard_message_hide
             size: 15%
             tabs:
               - name: 聊天设置

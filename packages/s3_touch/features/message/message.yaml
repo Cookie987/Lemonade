@@ -1,6 +1,7 @@
 packages:
   - !include message-lvgl.yaml
   - !include message-resource.yaml
+  - !include message-shortcode.yaml
 
 esphome:
   on_boot:
