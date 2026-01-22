@@ -115,6 +115,9 @@ lvgl:
                       on_click:
                         then:
                           - script.execute: keyboard_message_show
+                          - lvgl.keyboard.update:
+                              id: keyboard_message_input
+                              textarea: textarea_message_friend_input
               - name: 公聊
                 scrollable: false
                 widgets:
@@ -141,9 +144,12 @@ lvgl:
                       on_click:
                         then:
                           - script.execute: keyboard_message_show
+                          - lvgl.keyboard.update:
+                              id: keyboard_message_input
+                              textarea: textarea_message_public_input
         - keyboard:
             x: 0
-            y: 18
+            y: -2
             width: 320
             height: 100
             hidden: true
