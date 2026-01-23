@@ -309,6 +309,7 @@ script:
                   // if (in_ap_mode) {
                   //   return "\U000F0003 AP";
                   // }
+                  auto x = id(rssi).state;
                   char buf[10];
                   if (x <= -100) {
                     sprintf(buf, "--dBm");
