@@ -107,6 +107,12 @@ lvgl:
                           list_text: {}
                         - text: "[系统] 暂不支持聊天记录保存！" 
                           list_button: {}
+                      on_click:
+                        then:
+                          - logger.log: "点击消息"
+                          - lambda: |-
+                              lv_obj_t * friendlist_obj = lv_event_get_target(event);
+                              LV_LOG_USER("Clicked: %s", lv_list_get_btn_text(list_message_friend, friendlist_obj));
                   - textarea:
                       id: textarea_message_friend_input
                       x: 0
