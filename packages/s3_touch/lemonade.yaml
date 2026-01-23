@@ -267,6 +267,7 @@ mqtt:
   idf_send_async: true
   discovery: false
   discover_ip: false
+  discovery_retain: false
   keepalive: 200s
   topic_prefix: lemonade
   log_topic:
