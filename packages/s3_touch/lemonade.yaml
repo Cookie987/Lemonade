@@ -6,7 +6,7 @@ esphome:
     build_flags:
       -DCONFIG_PM_ENABLE=1
       -DCONFIG_FREERTOS_USE_TICKLESS_IDLE=1
-      -DCONFIG_FREERTOS_IDLE_TIME_BEFORE_SLEEP=2
+      -DCONFIG_FREERTOS_IDLE_TIME_BEFORE_SLEEP=3
 
   includes:
     - <esp_littlefs.h>
