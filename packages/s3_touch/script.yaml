@@ -11,9 +11,13 @@ script:
           condition:
             lambda: 'return id(is_sleeping);'
           then:
+            # sleep out
+            - lambda: mipi_spi->set_madctl(0x11);
             - light.turn_on:
                 id: backlight
                 transition_length: 0.5s
+            # display on
+            - lambda: mipi_spi->set_madctl(0x11);
             - lambda: id(is_sleeping)=false;
             - lvgl.animimg.start: ani_battery_charging
             - lvgl.resume:
@@ -32,10 +36,14 @@ script:
           condition:
             lambda: 'return id(is_sleeping);'
           then:
+            # display off
+            - lambda: mipi_spi->set_madctl(0x28);
             - lvgl.pause:
                 show_snow: false
                 lvgl_id: lvgl_1
             - lvgl.animimg.stop: ani_battery_charging
+            # sleep in
+            - lambda: mipi_spi->set_madctl(0x10);
 
   - id: littlefs_init
     mode: single
