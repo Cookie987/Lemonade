@@ -17,6 +17,8 @@ script:
           uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
           // 目标uid需要补足4位，所以要补0
           std::string targetuid = std::to_string(lv_spinbox_get_value(spinbox_message_friend_number));
+          targetuid = std::string(4 - targetuid.length(), '0') + targetuid;
+          ESP_LOGD("Chat", "Target UID: %s", targetuid.c_str());
           // 要发送的消息内容
           std::string message_content;
           switch (tab_act) {
@@ -32,8 +34,6 @@ script:
           
           // 处理短代码
           // eg /hd/ 将被替换为好的
-
-                    
           std::string text = message_content;
           size_t pos = 0;
           while (pos < text.length()) {
@@ -58,8 +58,6 @@ script:
             case 0:
               break;
             case 1:
-              targetuid = std::string(4 - targetuid.length(), '0') + targetuid;
-              ESP_LOGD("Chat", "Target UID: %s", targetuid.c_str());
               id(mqtt_client).publish_json((std::string("chat/receive/") +
                                             std::string(targetuid.c_str())
                                             ).c_str(),
