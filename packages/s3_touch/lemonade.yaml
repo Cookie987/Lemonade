@@ -261,6 +261,7 @@ switch:
 mqtt:
   id: mqtt_client
   broker: ${c987_mqtt_server}
+  port: 8883
   reboot_timeout: 0s
   username: !secret mqtt_username
   password: !secret mqtt_password
@@ -270,6 +271,34 @@ mqtt:
   discovery_retain: false
   keepalive: 200s
   topic_prefix: lemonade
+  skip_cert_cn_check: true
+  certificate_authority: |
+    -----BEGIN CERTIFICATE-----
+    MIIEZTCCA02gAwIBAgIQAKY5byvVDbcHl3U5I3LxdzANBgkqhkiG9w0BAQsFADCB
+    hDEYMBYGA1UEAwwPKi5jb29raWU5ODcudG9wMRkwFwYDVQQKDBBSZWRDb29raWVT
+    dHVkaW9zMRgwFgYDVQQLDA9TaWx2ZXJSaXZlclJpbmcxCzAJBgNVBAYTAkNOMSYw
+    JAYJKoZIhvcNAQkBFhdjb29raWU5ODdAY29va2llOTg3LnRvcDAeFw0yNjAxMjkx
+    MzUyMzdaFw0zNjAxMjcxMzUyMzdaMIGEMRgwFgYDVQQDDA8qLmNvb2tpZTk4Ny50
+    b3AxGTAXBgNVBAoMEFJlZENvb2tpZVN0dWRpb3MxGDAWBgNVBAsMD1NpbHZlclJp
+    dmVyUmluZzELMAkGA1UEBhMCQ04xJjAkBgkqhkiG9w0BCQEWF2Nvb2tpZTk4N0Bj
+    b29raWU5ODcudG9wMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoGdg
+    Lq4yuteA+ffUW9OAvVUcJ84PDSD5hJJ5gFXg0EbLvAW4AmvpDpZhZa5tewfUm3L/
+    wmcmGVGCeZDBSUZFGBbjcXxZxERD8UplcqdkCBiyGfd1MwXTqimpdUBv342gKhvX
+    ZuKZ3vVTbsj/ZW5QlT/2WwaHFdavP8D2BPH1Cj1VWoRkRn7mO2hsqn9KmAs8ph/3
+    KlS+Nu8UIzqILXQbR8MJ7gNe05n5W0N7A6W77oNpu3W8rJjWyhD30WOfGtrzLxVg
+    cXATr9E6me0NsBp+BPKPBZl7O7APLLHDnu/GMQicfYBTmX48qkeE8ls/vpxE3cn8
+    QZtkS4L2K+0QBDeIcQIDAQABo4HQMIHNMC0GA1UdEQQmMCSCEWlvdC5jb29raWU5
+    ODcudG9wgg8qLmNvb2tpZTk4Ny50b3AwHQYDVR0OBBYEFGQU13fn48CNG1lcd6ub
+    zc/s5aazMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MDsGA1UdJQQ0
+    MDIGCCsGAQUFBwMCBggrBgEFBQcDAQYIKwYBBQUHAwMGCCsGAQUFBwMEBggrBgEF
+    BQcDCDAfBgNVHSMEGDAWgBRkFNd35+PAjRtZXHerm83P7OWmszANBgkqhkiG9w0B
+    AQsFAAOCAQEAKsWyrqNUWuWNz1cY2hqdGipCduSnzZQo1N8FVm6eY7meD1JKzwxG
+    5+n1sczK3gsxOCy0eHGkIRN9duWbAWKl90w7zq5omoAfs58Twd7pi0XFcE53tA4v
+    e9eo8FXweeM2rKPywFt+f9G+5TonYw34fPFN4jXz7DmUqIrx8mlQRlP46D59G0XK
+    O2oDqgVi0+DToPT0aZsiE0e3lTSelYeaAYssCyJS3XwlhJH6Cj3MJWX+zNi3H3zQ
+    a3wa+YllEnbCKwQUJqgZbFeeFHTKe/+zmboMT45nqUr9dGMpGcVY9aZppBpmJQ9d
+    /6XGEt7QCG4sM3UAJmF8HEZErzjm0MoimQ==
+    -----END CERTIFICATE-----
   log_topic:
     topic: null
 
