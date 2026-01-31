@@ -1,0 +1,141 @@
+script:
+  - id: mqtt_response_handler
+    then:
+      - lambda: |-
+          std::string mac = id(text_sensor_mac_address).state;
+          id(mqtt_client).subscribe("device/" + mac + "/response/#", [=](const std::string &topic, const std::string &payload) {
+              ESP_LOGI("CookieIoT", "Received from topic %s: %s", topic.c_str(), payload.c_str());
+              // 提取topic中response后的内容，例如response/1/status提取1/status
+              std::string response_suffix = "";
+              size_t pos = topic.find("response/");
+              if (pos != std::string::npos) {
+                response_suffix = topic.substr(pos + 9); // "response/".length() == 9
+              }
+              ESP_LOGI("CookieIoT", "Suffix: %s", response_suffix.c_str());
+              
+              //
+              // wifilist
+              //
+              if (response_suffix == "wifilist"){
+                ESP_LOGI("CookieIoT", "Response endpoint: wifilist");
+                json::parse_json(payload, [&](JsonVariant root) -> bool {
+                  if (root["statusCode"] == 200){
+                    ESP_LOGI("CookieIoT", "Clearing WiFi STA");
+                    auto wifi = wifi::global_wifi_component;
+                    wifi->clear_saved_wifi_stas();
+                    JsonArray wifis = root["wifis"];
+                    int i = 0;
+                    for (JsonObject item : wifis) { 
+                      wifi->append_wifi_sta(item["ssid"].as<std::string>(), item["password"].as<std::string>());
+                      ESP_LOGI("CookieIoT", "Saved WiFi STA: %s", item["ssid"].as<std::string>().c_str());
+                      i++;
+                    }
+                    lv_label_set_text(lbl_wifi_get_info,(
+                                      std::string("保存了") +
+                                      std::to_string(i) +
+                                      std::string("个WiFi。请关闭并重新打开WiFi")).c_str());
+                  }
+                  else{
+                    lv_label_set_text(lbl_wifi_get_info,(
+                                      std::string("获取WiFi信息失败：") +
+                                      root["error"].as<std::string>()).c_str());
+                  }
+                  return true;
+                });
+              }
+
+              //
+              // 配置信息
+              //
+              if (response_suffix == "config"){
+                ESP_LOGI("CookieIoT", "Response endpoint: config");
+                json::parse_json(payload, [&](JsonVariant root) -> bool {
+                  return true;
+                });
+              }
+
+              //
+              // 背景图片
+              //
+              if (response_suffix == "background"){ 
+                ESP_LOGI("CookieIoT", "Response endpoint: background");
+                json::parse_json(payload, [&](JsonVariant root) -> bool { 
+                  if (root["statusCode"] == 200){
+                    // 删掉已有图片
+                    struct stat st;
+                    if (stat("/data/custom_bg.jpg", &st) == 0)
+                    {
+                      unlink("/data/custom_bg.jpg");
+                      ESP_LOGI("CookieIoT", "Deleted existing background image.");
+                    }
+                    // --- 1. 获取 Base64 字符串 ---
+                    // 假设 JSON 路径 "image_base64" 存在且为字符串
+                    const char *base64_str = root["image_base64"].as<const char *>();
+                    
+                    if (base64_str == nullptr) {
+                        ESP_LOGW("CookieIoT", "'image_base64' field is missing or not a string.");
+                        return false;
+                    }
+                    
+                    size_t base64_len = strlen(base64_str);
+                    if (base64_len == 0) {
+                        ESP_LOGW("CookieIoT", "Received empty Base64 string.");
+                        return false;
+                    }
+                    std::string start_of_str(base64_str, std::min((size_t)20, base64_len));
+                    ESP_LOGI("CookieIoT", "Base64 string starts with: %s", start_of_str.c_str());
+                    // --- 2. Base64 解码 ---
+                    size_t decoded_max_len = base64_len / 4 * 3 + 4;
+                    // 使用 std::vector 存储解码后的二进制数据
+                    std::vector<uint8_t> decoded_data(decoded_max_len);
+                    size_t decoded_len = 0;
+                    
+                    // 使用 mbedtls Base64 解码
+                    int ret = mbedtls_base64_decode(
+                        decoded_data.data(),
+                        decoded_max_len,
+                        &decoded_len,
+                        (const unsigned char *)base64_str,
+                        base64_len
+                    );
+
+                    if (ret != 0) {
+                        ESP_LOGE("CookieIoT", "Base64 decode failed with code %d!", ret);
+                        return false;
+                    }
+                    
+                    ESP_LOGI("CookieIoT", "Decoded image size: %zu bytes.", decoded_len);
+                    
+                    // --- 3. 写入 littlefs ---
+                    const char* LOCAL_FILE_PATH = "/data/custom_bg.jpg";
+                    // 以二进制模式打开文件
+                    std::ofstream file(LOCAL_FILE_PATH, std::ios::binary);
+                    if (!file.is_open()) {
+                        ESP_LOGE("CookieIoT", "Failed to open file %s for writing!", LOCAL_FILE_PATH);
+                        return false;
+                    }
+                    // 写入实际解码的数据
+                    file.write(reinterpret_cast<const char*>(decoded_data.data()), decoded_len);
+                    // 检查写入是否成功
+                    if (!file.good()) {
+                        ESP_LOGE("CookieIoT", "File write failed. Expected %zu bytes.", decoded_len);
+                        file.close();
+                        return false;
+                    }
+                    file.close();
+                    ESP_LOGI("CookieIoT", "File saved successfully: %s (%zu bytes)", LOCAL_FILE_PATH, decoded_len);
+                    const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
+                    if (id(background_image) == nullptr) {
+                        ESP_LOGW("CookieIoT", "LVGL image object (background_image) not initialized.");
+                        return false; 
+                    }
+                    lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+                    ESP_LOGI("CookieIoT", "Image source updated.");
+                    return true;
+                  }
+                  else{
+                    return false;
+                  }
+                });
+              }
+          },1);

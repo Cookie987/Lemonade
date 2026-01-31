@@ -2,13 +2,15 @@ packages:
   - !include message-lvgl.yaml
   - !include message-resource.yaml
   - !include message-shortcode.yaml
+  - !include message-mqtt_handler.yaml
 
 esphome:
   on_boot:
-    - priority: 200
+    - priority: 100
       then:
         - script.execute: message_personal_listen
         - script.execute: message_public_listen
+        - script.execute: message_mqtt_handler
 
 script:
   - id: send_message

@@ -1,0 +1,60 @@
+script:
+  - id: message_mqtt_handler
+    then:
+      - lambda: |-
+          std::string mac = id(text_sensor_mac_address).state;
+          id(mqtt_client).subscribe("chat/" + mac + "/#", [=](const std::string &topic, const std::string &payload) {
+              ESP_LOGI("CookieIoT", "Received from topic %s: %s", topic.c_str(), payload.c_str());
+              // 提取mac后的内容
+              std::string response_suffix = "";
+              size_t pos = topic.find(mac + "/");
+              if (pos != std::string::npos) {
+                response_suffix = topic.substr(pos + 18); // "00:00:00:00:00:00/".length() == 18
+              }
+              ESP_LOGI("CookieIoT", "Suffix: %s", response_suffix.c_str());
+
+              //
+              // down
+              //
+              if (response_suffix == "down"){
+                ESP_LOGI("CookieIoT", "Received down");
+                json::parse_json(payload, [&](JsonVariant root) -> bool {
+                  std::string type = root["type"] | "chat";  // "chat", "ack", "system"
+                  std::string sub_type = root["sub_type"] | "p2p";  // "p2p", "channel"
+                  std::string msg_id = root["msg_id"] | "";
+                  time_t timestamp = root["timestamp"] | 0;
+                  // timestamp 转为时间
+                  esphome::ESPTime esp_time = esphome::ESPTime::from_epoch_local(timestamp);
+                  if (type == "chat"){
+                    std::string from_name = root["from"]["name"] | "匿名用户";
+                    std::string format = root["payload"]["fmt"] | "text";  // "text", "image"
+                    std::string content = root["payload"]["content"] | "";
+                    if (sub_type == "p2p"){
+                      lv_list_add_text(id(list_message_friend),
+                                        (
+                                          std::string(esp_time.strftime("%Y-%m-%d %H:%M:%S")) +
+                                          std::string(" · ") +
+                                          from_name // +
+                                          // std::string(": ")
+                                        ).c_str()
+                                      );
+                      lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, content.c_str());
+                      // 只保留最近的100条
+                      uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
+                      if (children_count > 100) {
+                        for (uint32_t i = 0; i < children_count - 100; i++) {
+                          lv_obj_del(lv_obj_get_child(list_message_friend, 0));
+                        }
+                      }
+                      lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
+                    }
+                  }
+                  return true;
+                });
+              }
+
+              //
+              // ack
+              //
+              
+          },1);

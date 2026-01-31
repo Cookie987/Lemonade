@@ -406,11 +406,11 @@ lvgl:
             text: "加载中..."
             text_font: chinese_font14
         - label:
-            id: lbl_zsv_iot_info
+            id: lbl_wifi_get_info
             align: CENTER
             width: 95%
             y: 20
-            text: "自上次开机以来，未获取 ZSV IoT 配置。"
+            text: "自上次开机以来，未获取 WiFi 配置。"
             text_font: chinese_font14
         - button:
             id: btn_wifi_config
@@ -422,10 +422,10 @@ lvgl:
             widgets:
               - label:
                   align: CENTER
-                  text: "获取 ZSV IoT 配置"
+                  text: "获取 WiFi 配置"
             on_click:
               then:
-                - script.execute: zsv_iot_update
+                - script.execute: wifi_list_update
         - button:
             id: btn_clear_network
             align: CENTER
@@ -443,7 +443,7 @@ lvgl:
                     auto wifi = wifi::global_wifi_component;
                     if (wifi == nullptr) return;
                     wifi->clear_saved_wifi_stas();
-                    ESP_LOGI("zsv_iot", "Cleared user saved WiFi STA");
+                    ESP_LOGI("CookieIoT", "Cleared user saved WiFi STA");
                     wifi->append_wifi_sta("SEEWO", "SEEWOSEEWO");
 
     - id: system_setting_system_page

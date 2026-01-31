@@ -39,6 +39,9 @@ esphome:
             then:
               - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
         - lvgl.widget.hide: boot_screen
+    - priority: 100
+      then:
+        - script.execute: mqtt_response_handler
 
 esp32:
   board: ${lemonade_board}
@@ -270,7 +273,7 @@ mqtt:
   discover_ip: false
   discovery_retain: false
   keepalive: 200s
-  topic_prefix: lemonade
+  topic_prefix: null
   skip_cert_cn_check: true
   certificate_authority: |
     -----BEGIN CERTIFICATE-----
