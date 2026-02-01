@@ -56,5 +56,26 @@ script:
               //
               // ack
               //
-              
+              if (response_suffix == "ack"){
+                ESP_LOGI("CookieIoT", "Received ack");
+                json::parse_json(payload, [&](JsonVariant root) -> bool {
+                  auto t = id(ntp_time).now();
+                  std::string status = root["status"] | "error";
+                  if (status == "delivered"){
+                    ESP_LOGI("CookieIoT", "Ack success");
+                    lv_textarea_set_placeholder_text(textarea_message_friend_input, 
+                                                  (std::string(t.strftime("%Y-%m-%d %H:%M:%S")) +
+                                                  std::string(" 发送成功")).c_str()
+                                                );
+                  }
+                  else{
+                    ESP_LOGI("CookieIoT", "Ack error");
+                    lv_textarea_set_placeholder_text(textarea_message_friend_input, 
+                                                  (std::string(t.strftime("%Y-%m-%d %H:%M:%S")) +
+                                                  std::string(" 发送失败")).c_str()
+                                                );
+                  }
+                  return true;
+                });
+              }
           },1);

@@ -272,7 +272,7 @@ lvgl:
                 symbol: "\uF107" # angle-down
                 options:
                   - 系统默认
-                  - ZSV IoT
+                  - Cookie IoT
                 text_font: chinese_font14
                 on_change:
                   then:
@@ -286,7 +286,7 @@ lvgl:
                               src: default_bg
                     - if:
                         condition:
-                          lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
+                          lambda: 'return id(dropdown_image).get_selected_text() == "Cookie IoT";'
                         then:
                           - script.execute: set_background_img
             - label:
@@ -304,7 +304,7 @@ lvgl:
                   - label:
                       align: CENTER
                       text_font: chinese_font14
-                      text: "获取 ZSV IoT 背景图片"
+                      text: "获取 Cookie IoT 背景图片"
                 on_click:
                   then:
                     - lvgl.dropdown.update:
@@ -330,7 +330,7 @@ lvgl:
         - lvgl.widget.show: btn_back_setting
         - lvgl.label.update:
             id: lbl_topbar_title
-            text: "IoT 平台"
+            text: "Cookie IoT"
       on_unload:
         - lvgl.widget.hide: btn_back_setting
       widgets:
@@ -344,7 +344,7 @@ lvgl:
             widgets:
               - label:
                   align: CENTER
-                  text: "获取 IoT 配置"
+                  text: "刷新 IoT 配置"
             on_click:
               then:
                 - script.execute: get_iot_info
@@ -354,14 +354,8 @@ lvgl:
             align: TOP_LEFT
             x: 30
             y: 35
-            text: "${lemonade_version}\nAPI版本：2\nWiFi数量：N/A\n设备描述：N/A\n获取时间：1970-01-01 00:00:00"
-        - label:
-            id: lbl_uid
-            align: TOP_RIGHT
-            text_font: clock24
-            x: -25
-            y: 20
-            text: "0000"
+            text: "${lemonade_version}\n用户名：N/A\nAPI版本：2\nWiFi数量：N/A\n设备描述：N/A\n获取时间：1970-01-01 00:00:00"
+
 
     - id: system_setting_network_page
       skip: true

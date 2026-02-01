@@ -75,25 +75,27 @@ script:
     mode: single
     then:
       - lambda: |-
-          ESP_LOGI("987IoT", "Selected ZSV IoT background image.");
+          ESP_LOGI("CookieIoT", "Selected Cookie IoT background image.");
           struct stat st;
           const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
-          ESP_LOGI("987IoT", "Have custom background image.");
+          ESP_LOGI("CookieIoT", "Have custom background image.");
           if (id(background_image) == nullptr) {
-              ESP_LOGW("987IoT", "LVGL image object (background_image) not initialized.");
+              ESP_LOGW("CookieIoT", "LVGL image object (background_image) not initialized.");
               return; 
           }
           lv_img_set_src(id(background_image), LVGL_FILE_PATH);
-          ESP_LOGI("987IoT", "Background image source updated form LittleFS.");
+          ESP_LOGI("CookieIoT", "Background image source updated form LittleFS.");
 
   - id: get_background_img
     mode: single
     then:
-      - mqtt.publish_json:
-          topic: !lambda |-
-            return "background/request";
-          payload: |-
-            root["mac"] = id(text_sensor_mac_address).state;
+      - lambda: |-
+          std::string mac = id(text_sensor_mac_address).state;
+          id(mqtt_client).publish_json(
+            "server/" + mac + "/request/background",
+            [=](JsonObject root) {},
+            1); // QoS 1
+          ESP_LOGD("CookieIoT", "Requested background image...");
           
 
   - id: update_date
@@ -258,47 +260,27 @@ script:
 
   - id: get_iot_info
     then:
-      - mqtt.publish_json:
-          topic: !lambda |-
-            return "zsv/cfg/request";
-          payload: |-
-            root["mac"] = id(text_sensor_mac_address).state;
-      - mqtt.publish_json:
-          topic: !lambda |-
-            return "uid/request";
-          payload: |-
-            root["mac"] = id(text_sensor_mac_address).state;
-      - delay: 2s
       - lambda: |-
-          ESP_LOGD("987IoT", "Started updating config");
           std::string mac = id(text_sensor_mac_address).state;
-          id(mqtt_client).subscribe("zsv/cfg/response/" + mac, [=](const std::string &topic, const std::string &payload) {
-              ESP_LOGD("987IoT", "Got config response");
-              std::ofstream file("/data/cfg.json");
-              file << payload;
-              file.close();
-              ESP_LOGD("987IoT", "Config response saved.");
-          });
-          id(mqtt_client).subscribe("uid/response/" + mac, [=](const std::string &topic, const std::string &payload) {
-              ESP_LOGD("987IoT", "Got special uid response");
-              std::ofstream file("/data/uid.json");
-              file << payload;
-              file.close();
-              ESP_LOGD("987IoT", "Special uid response saved.");
-          });
+          id(mqtt_client).publish_json(
+            "server/" + mac + "/request/config",
+            [=](JsonObject root) {},
+            1); // QoS 1
+          ESP_LOGD("CookieIoT", "Requested config...");
+      - lambda: |-
           // 获取时间日期
           auto t = id(ntp_time).now();
-          id(zsv_iot_last_status) = t.strftime("%Y-%m-%d %H:%M:%S");
+          id(iot_last_status) = t.strftime("%Y-%m-%d %H:%M:%S");
 
   - id: prase_iot_info
     then:
       - lambda: |-
           std::string config_json;
           // 读取文件
-          ESP_LOGD("987IoT", "Started parsing cfg.json");
+          ESP_LOGD("CookieIoT", "Started parsing cfg.json");
           std::ifstream file("/data/cfg.json");
           if (!file.is_open()) {
-              ESP_LOGW("987IoT", "Config file not found.");
+              ESP_LOGW("CookieIoT", "Config file not found.");
               return;
           }
           std::string line;
@@ -308,14 +290,14 @@ script:
           file.close();
           int wifi_sum = 0;
           std::string desc;
-          ESP_LOGD("987IoT", "JSON: '%s'", config_json.c_str());
+          ESP_LOGD("CookieIoT", "JSON: '%s'", config_json.c_str());
           json::parse_json(config_json, [&](JsonVariant root) -> bool {
               if (!root["uid"]) {
-                ESP_LOGE("987IoT", "JSON missing 'uid' key!");
+                ESP_LOGE("CookieIoT", "JSON missing 'uid' key!");
                 return false;
               }
-              if (root["morewifi"]) {
-                JsonArray morewifi = root["morewifi"];
+              if (root["wifis"]) {
+                JsonArray morewifi = root["wifis"];
                 for (JsonObject item : morewifi) {
                   wifi_sum++;
                 }
@@ -326,36 +308,15 @@ script:
               id(uid)= root["uid"].as<std::string>();
               return true;
           });
-
-          // 特殊uid处理
-          std::string uid_json;
-          std::ifstream file2("/data/uid.json");
-          if (!file2.is_open()) {
-              ESP_LOGW("987IoT", "Special uid file not found.");
-              return;
-          }
-          std::string line2;
-          while (std::getline(file2, line2)) {
-              uid_json += line2 + "\n";
-          }
-          file2.close();
-          json::parse_json(uid_json, [&](JsonVariant root) -> bool { 
-              if (root["error"]) {
-                ESP_LOGW("987IoT", "Special uid JSON error. Using ZSV uid.");
-                return false;
-              }
-              id(uid)= root["uid"].as<std::string>();
-              return true;
-          });
           // 更新标签
           std::string info_text = "${lemonade_version}\n";
+          info_text += "用户名：" + id(uid) + "\n";
           info_text += "API版本：2\n";
           info_text += "WiFi数量：" + std::to_string(wifi_sum) + "\n";
           info_text += "设备描述：" + desc + "\n";
-          info_text += "获取时间：" + id(zsv_iot_last_status);
+          info_text += "获取时间：" + id(iot_last_status);
           ESP_LOGD("987IoT", "Info text: '%s'", info_text.c_str());
           lv_label_set_text(id(lbl_iot_info), info_text.c_str());
-          lv_label_set_text(id(lbl_uid), id(uid).c_str());
       - lambda: global_preferences->sync();
 
 

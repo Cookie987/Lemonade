@@ -8,7 +8,6 @@ esphome:
   on_boot:
     - priority: 100
       then:
-        - script.execute: message_personal_listen
         - script.execute: message_public_listen
         - script.execute: message_mqtt_handler
 
@@ -17,9 +16,7 @@ script:
     then:
       - lambda: |-
           uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
-          // 目标uid需要补足4位，所以要补0
-          std::string targetuid = std::to_string(lv_spinbox_get_value(spinbox_message_friend_number));
-          targetuid = std::string(4 - targetuid.length(), '0') + targetuid;
+          std::string targetuid = std::string(lv_textarea_get_text(textarea_message_username_input));
           ESP_LOGD("Chat", "Target UID: %s", targetuid.c_str());
           // 要发送的消息内容
           std::string message_content;
@@ -55,30 +52,19 @@ script:
               }
           }
           message_content = text;
-
+          std::string mac = id(text_sensor_mac_address).state;
           switch (tab_act) {
             case 0:
               break;
             case 1:
-              id(mqtt_client).publish_json((std::string("chat/receive/") +
-                                            std::string(targetuid.c_str())
-                                            ).c_str(),
+              id(mqtt_client).publish_json((std::string("chat/") +
+                                            mac +
+                                            std::string("/up")).c_str(),
                                             [=](JsonObject root) {
-                root["sender_id"] = id(uid);
+                root["type"] = "p2p";
+                root["to"] = targetuid;
                 root["content"] = message_content;
-                root["platform"] = "Lemonade OS/${lemonade_version}";
-              });
-              ESP_LOGD("Chat", "Sent message to %s", targetuid.c_str());
-              // 给自己也发一遍
-              targetuid = id(uid);
-              ESP_LOGD("Chat", "Target UID: %s", targetuid.c_str());
-              id(mqtt_client).publish_json((std::string("chat/receive/") +
-                                            std::string(targetuid.c_str())
-                                            ).c_str(),
-                                            [=](JsonObject root) {
-                root["sender_id"] = id(uid);
-                root["content"] = message_content;
-                root["platform"] = "Lemonade OS/${lemonade_version}";
+                root["msg_id"] = esp_random();
               });
               lv_textarea_set_text(textarea_message_friend_input, "");
               ESP_LOGD("Chat", "Sent message to %s", targetuid.c_str());
@@ -96,39 +82,6 @@ script:
             default:
               break;
           }
-
-
-  - id: message_personal_listen
-    then:
-      - lambda: |-
-          id(mqtt_client).subscribe_json("chat/receive/" + id(uid), [=](const std::string &topic, JsonObject root) {
-              ESP_LOGD("Chat", "Got raw chat message. Started parsing.");
-              if (root["sender_id"] && root["content"]){
-                // 获取当前时间
-                auto t = id(ntp_time).now();
-                std::string display_content = root["content"].as<std::string>();
-                lv_list_add_text(id(list_message_friend),
-                                  (
-                                    std::string(t.strftime("%Y-%m-%d %H:%M:%S")) +
-                                    std::string(" · ") +
-                                    root["sender_id"].as<std::string>() // +
-                                    // std::string(": ")
-                                  ).c_str()
-                                );
-                lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, display_content.c_str());
-                // 只保留最近的100条
-                uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
-                if (children_count > 100) {
-                  for (uint32_t i = 0; i < children_count - 100; i++) {
-                    lv_obj_del(lv_obj_get_child(list_message_friend, 0));
-                  }
-                }
-                lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
-              }
-              else{
-                ESP_LOGW("Chat", "Invalid chat message. Skipping.");
-              }
-          });
           
 
   - id: message_public_listen

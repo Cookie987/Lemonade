@@ -43,55 +43,25 @@ lvgl:
               - name: 聊天设置
                 widgets:
                   - label:
-                      id: lbl_message_friend_id_prompt
+                      id: lbl_message_username_id_prompt
                       x: -80
                       y: 5
                       align: TOP_MID
-                      text: "私聊UID："
-                  - container:
-                      id: container_message_friend_input
-                      x: 40
-                      y: -5
-                      width: 160
-                      height: 50
-                      align: TOP_MID
-                      widgets:
-                        - button:
-                            id: btn_message_friend_increase
-                            align: RIGHT_MID
-                            width: 40
-                            height: 40
-                            widgets:
-                              - label:
-                                  align: CENTER
-                                  text: "+"
-                            on_click:
-                              then:
-                                - lvgl.spinbox.increment: spinbox_message_friend_number
-                        - button:
-                            id: btn_message_friend_decrease
-                            align: LEFT_MID
-                            width: 40
-                            height: 40
-                            widgets:
-                              - label:
-                                  align: CENTER
-                                  text: "-"
-                            on_click:
-                              then:
-                                - lvgl.spinbox.decrement: spinbox_message_friend_number
-                        - spinbox:
-                            id: spinbox_message_friend_number
-                            x: 0
-                            y: 0
-                            align: CENTER
-                            width: 60
-                            height: 40
-                            digits: 4
-                            range_from: 100
-                            range_to: 9999
-                            value: 100
-                            decimal_places: 0
+                      text: "私聊用户名："
+                  - textarea:
+                      id: textarea_message_username_input
+                      x: 0
+                      y: -25
+                      align: CENTER
+                      width: 200
+                      height: 40
+                      placeholder_text: "输入私聊的用户名"
+                      on_click:
+                        then:
+                          - script.execute: keyboard_message_show
+                          - lvgl.keyboard.update:
+                              id: keyboard_message_input
+                              textarea: textarea_message_username_input
               - name: 私聊
                 scrollable: false
                 widgets:
@@ -105,7 +75,7 @@ lvgl:
                         # 按钮类型项目
                         - text: "系统消息"
                           list_text: {}
-                        - text: "[系统] 暂不支持聊天记录保存！" 
+                        - text: "[系统] 聊天记录将保存至云端。" 
                           list_button: {}
                   - textarea:
                       id: textarea_message_friend_input
@@ -134,7 +104,7 @@ lvgl:
                         # 按钮类型项目
                         - text: "系统消息"
                           list_text: {}
-                        - text: "[系统] 暂不支持聊天记录保存！" 
+                        - text: "[系统] 聊天记录将保存至云端。" 
                           list_button: {}
                   - textarea:
                       id: textarea_message_public_input

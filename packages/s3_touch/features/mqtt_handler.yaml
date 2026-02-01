@@ -12,7 +12,7 @@ script:
                 response_suffix = topic.substr(pos + 9); // "response/".length() == 9
               }
               ESP_LOGI("CookieIoT", "Suffix: %s", response_suffix.c_str());
-              
+
               //
               // wifilist
               //
@@ -49,9 +49,10 @@ script:
               //
               if (response_suffix == "config"){
                 ESP_LOGI("CookieIoT", "Response endpoint: config");
-                json::parse_json(payload, [&](JsonVariant root) -> bool {
-                  return true;
-                });
+                std::ofstream file("/data/cfg.json");
+                file << payload;
+                file.close();
+                ESP_LOGD("CookieIoT", "Config response saved.");
               }
 
               //

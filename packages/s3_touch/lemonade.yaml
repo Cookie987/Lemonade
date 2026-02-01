@@ -129,7 +129,7 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
-  - id: zsv_iot_last_status
+  - id: iot_last_status
     type: std::string
     restore_value: yes
     initial_value: '"未获取过"'
