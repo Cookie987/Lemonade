@@ -53,6 +53,7 @@ script:
           }
           message_content = text;
           std::string mac = id(text_sensor_mac_address).state;
+          auto t = id(ntp_time).now();
           switch (tab_act) {
             case 0:
               break;
