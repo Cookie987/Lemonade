@@ -67,6 +67,10 @@ script:
                 root["msg_id"] = esp_random();
               });
               lv_textarea_set_text(textarea_message_friend_input, "");
+              lv_textarea_set_placeholder_text(textarea_message_friend_input, 
+                              (std::string(t.strftime("%Y-%m-%d %H:%M:%S")) +
+                              std::string(" 发送中……")).c_str()
+                            );
               ESP_LOGD("Chat", "Sent message to %s", targetuid.c_str());
               break;
             case 2:
