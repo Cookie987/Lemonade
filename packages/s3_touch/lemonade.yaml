@@ -22,7 +22,7 @@ esphome:
         - script.execute: prase_iot_info
         - if:
             condition:
-              lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
+              lambda: 'return id(dropdown_image).get_selected_text() == "Cookie IoT";'
             then:
               - script.execute: set_background_img
     - priority: 300
