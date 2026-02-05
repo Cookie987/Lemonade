@@ -138,7 +138,7 @@ globals:
 logger:
   level: DEBUG
   on_message:
-    level: INFO
+    level: WARN
     then:
       - mqtt.publish:
           topic: !lambda |-
