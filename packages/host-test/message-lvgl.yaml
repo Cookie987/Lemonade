@@ -1,6 +1,7 @@
 lvgl:
   pages:
     - id: !extend page_main
+      scrollable: false
       widgets:
         - tileview:
             id: !extend tileview_main
@@ -22,7 +23,6 @@ lvgl:
                               animation: FADE_IN
                               time: 200ms
     - id: page_message
-      scrollable: false
       on_load:
         - lvgl.label.update:
             id: lbl_topbar_title
@@ -35,63 +35,33 @@ lvgl:
             y: 18
             width: 320
             height: 222
-            size: 15%
             on_value:
               then:
                 - script.execute: keyboard_message_hide
+            size: 15%
             tabs:
               - name: 聊天设置
                 widgets:
                   - label:
-                      id: lbl_message_friend_id_prompt
+                      id: lbl_message_username_id_prompt
                       x: -80
                       y: 5
                       align: TOP_MID
-                      text: "私聊UID："
-                  - container:
-                      id: container_message_friend_input
-                      x: 40
-                      y: -5
-                      width: 160
-                      height: 50
-                      align: TOP_MID
-                      widgets:
-                        - button:
-                            id: btn_message_friend_increase
-                            align: RIGHT_MID
-                            width: 40
-                            height: 40
-                            widgets:
-                              - label:
-                                  align: CENTER
-                                  text: "+"
-                            on_click:
-                              then:
-                                - lvgl.spinbox.increment: spinbox_message_friend_number
-                        - button:
-                            id: btn_message_friend_decrease
-                            align: LEFT_MID
-                            width: 40
-                            height: 40
-                            widgets:
-                              - label:
-                                  align: CENTER
-                                  text: "-"
-                            on_click:
-                              then:
-                                - lvgl.spinbox.decrement: spinbox_message_friend_number
-                        - spinbox:
-                            id: spinbox_message_friend_number
-                            x: 0
-                            y: 0
-                            align: CENTER
-                            width: 60
-                            height: 40
-                            digits: 4
-                            range_from: 100
-                            range_to: 9999
-                            value: 100
-                            decimal_places: 0
+                      text: "私聊用户名："
+                  - textarea:
+                      id: textarea_message_username_input
+                      x: 0
+                      y: -25
+                      align: CENTER
+                      width: 200
+                      height: 40
+                      placeholder_text: "输入私聊的用户名"
+                      on_click:
+                        then:
+                          - script.execute: keyboard_message_show
+                          - lvgl.keyboard.update:
+                              id: keyboard_message_input
+                              textarea: textarea_message_username_input
               - name: 私聊
                 scrollable: false
                 widgets:
@@ -105,14 +75,8 @@ lvgl:
                         # 按钮类型项目
                         - text: "系统消息"
                           list_text: {}
-                        - text: "[系统] 暂不支持聊天记录保存！" 
+                        - text: "[系统] 聊天记录将保存至云端。" 
                           list_button: {}
-                      on_click:
-                        then:
-                          - logger.log: "点击消息"
-                          - lambda: |-
-                              lv_obj_t * friendlist_obj = lv_event_get_target(event);
-                              LV_LOG_USER("Clicked: %s", lv_list_get_btn_text(list_message_friend, friendlist_obj));
                   - textarea:
                       id: textarea_message_friend_input
                       x: 0
@@ -120,8 +84,17 @@ lvgl:
                       align: BOTTOM_MID
                       width: 320
                       height: 40
-                      placeholder_text: "输入消息..."
-                      on_click:
+                      placeholder_text: "单击输入消息，长按进入全屏输入"
+                      on_long_press:
+                        then:
+                          - lambda: |-
+                              lv_obj_set_size(id(textarea_message_friend_input), 320, 95);
+                              lv_textarea_set_placeholder_text(textarea_message_friend_input, "收起键盘退出全屏输入");
+                          - script.execute: keyboard_message_show
+                          - lvgl.keyboard.update:
+                              id: keyboard_message_input
+                              textarea: textarea_message_friend_input
+                      on_short_click:
                         then:
                           - script.execute: keyboard_message_show
                           - lvgl.keyboard.update:
@@ -140,7 +113,7 @@ lvgl:
                         # 按钮类型项目
                         - text: "系统消息"
                           list_text: {}
-                        - text: "[系统] 暂不支持聊天记录保存！" 
+                        - text: "[系统] 聊天记录将保存至云端。" 
                           list_button: {}
                   - textarea:
                       id: textarea_message_public_input
@@ -149,8 +122,17 @@ lvgl:
                       align: BOTTOM_MID
                       width: 320
                       height: 40
-                      placeholder_text: "输入消息..."
-                      on_click:
+                      placeholder_text: "单击输入消息，长按进入全屏输入"
+                      on_long_press:
+                        then:
+                          - lambda: |-
+                              lv_obj_set_size(id(textarea_message_public_input), 320, 95);
+                              lv_textarea_set_placeholder_text(textarea_message_public_input, "收起键盘退出全屏输入");
+                          - script.execute: keyboard_message_show
+                          - lvgl.keyboard.update:
+                              id: keyboard_message_input
+                              textarea: textarea_message_public_input
+                      on_short_click:
                         then:
                           - script.execute: keyboard_message_show
                           - lvgl.keyboard.update:
@@ -158,7 +140,7 @@ lvgl:
                               textarea: textarea_message_public_input
         - keyboard:
             x: 0
-            y: 0
+            y: -2
             width: 320
             height: 100
             hidden: true
@@ -184,6 +166,13 @@ script:
     then:
       - lvgl.widget.hide: keyboard_message_input
       - lambda: |-
+          lv_obj_align(id(textarea_message_public_input), LV_ALIGN_BOTTOM_MID, 0, 15);
+          lv_obj_set_size(id(textarea_message_public_input), 320, 40);
+          lv_obj_align(id(textarea_message_friend_input), LV_ALIGN_BOTTOM_MID, 0, 15);
+          lv_obj_set_size(id(textarea_message_friend_input), 320, 40);
+          lv_textarea_set_placeholder_text(textarea_message_public_input, "单击输入消息，长按进入全屏输入");
+          lv_textarea_set_placeholder_text(textarea_message_friend_input, "单击输入消息，长按进入全屏输入");
+          //
           lv_obj_set_y(id(textarea_message_public_input), 15);
           lv_obj_set_height(id(list_message_public), 155);
           lv_obj_set_y(id(textarea_message_friend_input), 15);
