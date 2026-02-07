@@ -304,6 +304,9 @@ mqtt:
     -----END CERTIFICATE-----
   log_topic:
     topic: null
+  on_connect: 
+    then:
+      - script.execute: keepalive
 
 time:
   - id: ntp_time

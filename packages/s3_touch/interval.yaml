@@ -85,3 +85,8 @@ interval:
                           lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, 0, LV_ANIM_ON);
                         }
                       }
+
+  # keepalive
+  - interval: 120s
+    then:
+      - script.execute: keepalive

@@ -214,6 +214,17 @@ script:
                 snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.hour, t.minute, t.second);
                 lv_label_set_text(id(time_label), buf);
 
+  - id: keepalive
+    then:
+      - lambda: |-
+          std::string mac = id(text_sensor_mac_address).state;
+          id(mqtt_client).publish_json((std::string("server/") +
+                                            mac +
+                                            std::string("/request/keepalive")).c_str(),
+                                            [=](JsonObject root) {
+                root["version"] = "${lemonade_version}";
+              });
+
   - id: statusbar_update
     then:
       - if:
