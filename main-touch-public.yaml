@@ -21,9 +21,7 @@ substitutions:
   lemonade_ota_md5_url: ***REMOVED***lemonade/s3-touch/lemonade.md5
   lemonade_ota_url: ***REMOVED***lemonade/s3-touch/firmware.ota.bin
 
-***REMOVED***  zsv_iot_url: ***REMOVED***zsv/
-  c987_iot_url: ***REMOVED***api/
-
+***REMOVED***
 external_components:
   - source: github://cookie987/esphome-custom-components
     components: [git_commit_sha, power_management]
