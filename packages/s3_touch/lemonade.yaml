@@ -313,7 +313,7 @@ time:
     platform: sntp
     timezone: "Asia/Shanghai"   # 可改为你所在时区
     servers:
-      - 39.101.78.82
+      - ntp.cookie987.top
       - cn.pool.ntp.org
     on_time_sync: 
       then:
