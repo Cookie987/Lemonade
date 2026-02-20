@@ -18,9 +18,11 @@ script:
             - lvgl.animimg.start: ani_battery_charging
             - lvgl.resume:
                 lvgl_id: lvgl_1
+            - switch.turn_on: switch_powermanage_lock_apb
   
   - id: sleep_button
     then:
+      - switch.toggle: switch_powermanage_lock_apb
       - light.toggle:
           id: backlight
           transition_length: 0.5s
