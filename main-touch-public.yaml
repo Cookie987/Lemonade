@@ -40,6 +40,8 @@ packages:
   - !include packages/s3_touch/networks.yaml
   - !include packages/s3_touch/features/mqtt_handler.yaml
   # - !include packages/storage.yaml
+  # 秒表
+  - !include packages/s3_touch/features/timer/timer.yaml
   # 设置
   - !include packages/s3_touch/features/setting/setting.yaml
   # 游戏
