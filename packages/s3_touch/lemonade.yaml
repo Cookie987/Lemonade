@@ -3,10 +3,6 @@ esphome:
   friendly_name: ${lemonade_device_friendly_name}
   platformio_options:
     upload_speed: 921600
-    build_flags:
-      -DCONFIG_PM_ENABLE=1
-      -DCONFIG_FREERTOS_USE_TICKLESS_IDLE=1
-      -DCONFIG_FREERTOS_IDLE_TIME_BEFORE_SLEEP=3
 
   includes:
     - <esp_littlefs.h>
@@ -69,17 +65,16 @@ safe_mode:
   boot_is_good_after: 10s
   reboot_timeout: 1min
 
-# Set tickless_idle if you want auto light sleep
-# Do not use tickless_idle if adding a deep_sleep component
 power_management:
-  id: pm_id
-  initial_lock_duration: 61sec
-  tickless_idle: true
-  # Safe power down, do not set to true if device has PSRAM.
+  max_frequency: 240MHZ
+  min_frequency: 40MHZ
+  enable_light_sleep: true
+  idle_time_before_sleep: 3
   power_down_flash: false
-  # For disabled peripherals, automatically save and restore peripheral states, which allows the peripherals to be powered down.
   power_down_peripherals: true
+  esphome_locks: true
   profiling: false
+  trace: false
 
 debug:
   update_interval: 5s
