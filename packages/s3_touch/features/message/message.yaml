@@ -11,6 +11,12 @@ esphome:
         - script.execute: message_public_listen
         - script.execute: message_mqtt_handler
 
+globals:
+  - id: unread_messages_amount
+    type: uint8_t
+    restore_value: no
+    initial_value: '0'
+
 script:
   - id: send_message
     then:

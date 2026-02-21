@@ -38,6 +38,20 @@ script:
                                           // std::string(": ")
                                         ).c_str()
                                       );
+                      if(id(unread_messages_amount) < 255){
+                        id(unread_messages_amount)++;
+                        id(show_notification)->execute((
+                          std::string("收到 ") +
+                          std::to_string(id(unread_messages_amount)) +
+                          std::string(" 条新消息")
+                        ).c_str());
+                      }
+                      else{
+                        id(show_notification)->execute((
+                          std::string("收到 255+ 条新消息")
+                        ).c_str());
+                      }
+                      
                       lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, content.c_str());
                       // 只保留最近的100条
                       uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);

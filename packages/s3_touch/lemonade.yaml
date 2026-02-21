@@ -129,6 +129,11 @@ globals:
     type: std::string
     restore_value: yes
     initial_value: '"未获取过"'
+  - id: notification_amount
+    type: uint8_t
+    restore_value: no
+    initial_value: '0'
+
 
 # Enable logging
 logger:

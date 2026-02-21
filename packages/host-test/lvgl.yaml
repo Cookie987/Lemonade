@@ -175,6 +175,7 @@ lvgl:
                       y: -2
                       x: 10
                       text_font: chinese_font14
+                      # text_color: !lambda return lv_color_hex(0xffffff);
                       recolor: true
                       text: "\U000F092E --dBm" # start with mdi-battery-unknown
                   - label:
@@ -183,6 +184,7 @@ lvgl:
                       y: -3
                       x: -10
                       text_font: chinese_font14
+                      # text_color: !lambda return lv_color_hex(0xffffff);
                       recolor: true
                       text: "\U000F0091 -.--V" # start with mdi-battery-unknown
                   - animimg:
@@ -234,10 +236,78 @@ lvgl:
                       align: CENTER
                       on_click:
                         then:
-                          - lvgl.page.show:
-                              id: page_timer
-                              animation: FADE_IN
-                              time: 200ms
+                          - lambda: |-
+                              // 1. 创建背景框 (Parent)
+                              lv_obj_t * obj_notification_bar = lv_obj_create(lv_disp_get_layer_top(lvgl_1->get_disp()));
+                              lv_obj_set_size(obj_notification_bar, 240, 25);
+                              lv_obj_align(obj_notification_bar, LV_ALIGN_TOP_MID, 0, -40); // 初始位置在屏幕上方 -40，完全藏住
+                              lv_obj_set_scrollbar_mode(obj_notification_bar, LV_SCROLLBAR_MODE_OFF);
+                              lv_obj_set_style_bg_opa(obj_notification_bar, 175, 0); // 45% 透明度 (255 * 0.7 ≈ 175)
+                              lv_obj_set_style_pad_all(obj_notification_bar, 0, 0);
+
+                              lv_anim_t a_in;
+                              lv_anim_init(&a_in);
+                              lv_anim_set_var(&a_in, obj_notification_bar);
+                              lv_anim_set_values(&a_in, -40, 10); // 从屏幕外滑入到 y=10 的位置
+                              lv_anim_set_exec_cb(&a_in, (lv_anim_exec_xcb_t)lv_obj_set_y);
+                              lv_anim_set_time(&a_in, 500);
+                              
+                              // 使用 overshoot 路径，会有一个帅气的回弹效果
+                              lv_anim_set_path_cb(&a_in, lv_anim_path_overshoot); 
+                              
+                              lv_anim_start(&a_in);
+
+                              // 2. 创建标签 (Child) - 注意第一个参数传入 obj_notification_bar
+                              lv_obj_t * lbl_notification = lv_label_create(obj_notification_bar); 
+                              lv_label_set_text(lbl_notification, "New message 有新消息！！");
+                              lv_obj_set_width(lbl_notification, 220);
+                              lv_label_set_long_mode(lbl_notification, LV_LABEL_LONG_SCROLL_CIRCULAR);
+                              lv_obj_align(lbl_notification, LV_ALIGN_CENTER, 0, 0); // 在父框内居中
+
+
+                              // --- 动画收回逻辑 ---
+
+                              // 3. 给背景框添加点击事件
+                              lv_obj_add_event_cb(obj_notification_bar, [](lv_event_t * e) {
+                                  lv_obj_t * bar = lv_event_get_target(e);
+
+                                  // 创建收回动画
+                                  static lv_anim_t a;
+                                  lv_anim_init(&a);
+                                  lv_anim_set_var(&a, bar);
+                                  
+                                  // 从当前位置 y=10 向上移动到屏幕外 (比如 -30)
+                                  lv_anim_set_values(&a, lv_obj_get_y(bar), -30);
+                                  lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+                                  lv_anim_set_time(&a, 300);
+                                  lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
+
+                                  // 动画结束后的清理工作
+                                  lv_anim_set_ready_cb(&a, [](lv_anim_t * anim) {
+                                      // 删除父对象 bar，其子对象 lbl_notification 会被自动释放
+                                      lv_obj_del((lv_obj_t *)anim->var); 
+                                  });
+
+                                  lv_anim_start(&a);
+                              }, LV_EVENT_CLICKED, NULL);
+
+        # - obj:
+        #     align: TOP_MID
+        #     id: obj_notification_bar
+        #     width: 200
+        #     height: 25
+        #     y: 10
+        #     scrollbar_mode: "OFF"
+        #     opa: 45%
+        #     hidden: true
+        # - label:
+        #     id: lbl_notification
+        #     align: TOP_MID
+        #     y: 12
+        #     text_font: chinese_font14
+        #     # text_color: !lambda return lv_color_hex(0xffffff);
+        #     recolor: true
+        #     text: "New message  有新消息！"
 
 
     - id: page_timer

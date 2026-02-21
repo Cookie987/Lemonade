@@ -414,3 +414,114 @@ script:
             [=](JsonObject root) {},
             1); // QoS 1
           ESP_LOGD("CookieIoT", "Requested WiFi list...");
+
+  - id: show_notification
+    parameters:
+      notification_message: string
+    mode: queued
+    then:
+      - lambda: |-
+          lv_obj_t * screen = lv_disp_get_layer_top(lvgl_1->get_disp());
+          lv_obj_t * target_bar = nullptr;
+          const std::string suffix = "条新消息";
+          const int32_t BAR_Y_HIDE = -45; // 隐藏时的 Y 坐标
+          const int32_t BAR_Y_SHOW = 10;  // 显示时的 Y 坐标
+          // 1. 创建背景框 (Parent)
+          lv_obj_t * obj_notification_bar = lv_obj_create(screen);
+          lv_obj_set_size(obj_notification_bar, 240, 25);
+          lv_obj_align(obj_notification_bar, LV_ALIGN_TOP_MID, 0, BAR_Y_HIDE); // 初始位置在屏幕上方 -40，完全藏住
+          lv_obj_set_scrollbar_mode(obj_notification_bar, LV_SCROLLBAR_MODE_OFF);
+          lv_obj_set_style_bg_opa(obj_notification_bar, 175, 0); // 45% 透明度 (255 * 0.7 ≈ 175)
+          lv_obj_set_style_pad_all(obj_notification_bar, 0, 0);
+          lv_obj_set_user_data(obj_notification_bar, (void*)0xDEAD);
+
+          // --- 2. 查找是否已有符合条件的通知条 ---
+          uint32_t child_cnt = lv_obj_get_child_cnt(screen);
+          for(uint32_t i = 0; i < child_cnt; i++) {
+            lv_obj_t * child = lv_obj_get_child(screen, i);
+            // 检查标记是否为我们定义的通知条 (0xDEAD)
+            if(lv_obj_get_user_data(child) == (void*)0xDEAD) {
+              lv_obj_t * lbl = lv_obj_get_child(child, 0); // 找到里面的 Label
+              if(lbl) {
+                std::string current_text = lv_label_get_text(lbl);
+                // 检查字符串是否以指定后缀结尾
+                if(current_text.size() >= suffix.size() && 
+                  current_text.compare(current_text.size() - suffix.size(), suffix.size(), suffix) == 0) {
+                    target_bar = child;
+                    break; 
+                }
+              }
+            }
+          }
+
+          if(target_bar) {
+            // 找到了旧通知，直接更新文字
+            lv_obj_t * lbl = lv_obj_get_child(target_bar, 0);
+            lv_obj_move_foreground(target_bar);
+            lv_label_set_text(lbl, notification_message.c_str());
+            // 视觉反馈：让它“弹跳”一下，提醒用户内容更新了
+            lv_anim_t a_shake;
+            lv_anim_init(&a_shake);
+            lv_anim_set_var(&a_shake, target_bar);
+            lv_anim_set_values(&a_shake, BAR_Y_SHOW, BAR_Y_SHOW + 8); 
+            lv_anim_set_exec_cb(&a_shake, (lv_anim_exec_xcb_t)lv_obj_set_y);
+            lv_anim_set_time(&a_shake, 100);
+            lv_anim_set_playback_time(&a_shake, 100); // 弹下去再缩回来
+            lv_anim_start(&a_shake);
+            // 旧通知已经加过callback
+            return;
+          }
+
+          lv_anim_t a_in;
+          lv_anim_init(&a_in);
+          lv_anim_set_var(&a_in, obj_notification_bar);
+          lv_anim_set_values(&a_in, BAR_Y_HIDE, BAR_Y_SHOW); // 从屏幕外滑入
+          lv_anim_set_exec_cb(&a_in, (lv_anim_exec_xcb_t)lv_obj_set_y);
+          lv_anim_set_time(&a_in, 500);
+          
+          // 使用 overshoot 路径，会有一个帅气的回弹效果
+          lv_anim_set_path_cb(&a_in, lv_anim_path_overshoot); 
+          
+          lv_anim_start(&a_in);
+
+          // 2. 创建标签 (Child) - 注意第一个参数传入 obj_notification_bar
+          lv_obj_t * lbl_notification = lv_label_create(obj_notification_bar); 
+          lv_label_set_text(lbl_notification, notification_message.c_str());
+          lv_obj_set_width(lbl_notification, 220);
+          lv_label_set_long_mode(lbl_notification, LV_LABEL_LONG_DOT);
+          lv_obj_set_style_text_align(lbl_notification, LV_TEXT_ALIGN_CENTER, 0);
+          lv_obj_align(lbl_notification, LV_ALIGN_CENTER, 0, 0); // 在父框内居中
+          if (id(notification_amount) > 15) {
+            ESP_LOGW("Notification", "Reached the maximum number of notifications. No more notifications will be displayed.");
+            lv_obj_del(obj_notification_bar);
+            return;
+          } //最多显示15条
+          id(notification_amount) += 1;
+
+          // --- 动画收回逻辑 ---
+
+          // 3. 给背景框添加点击事件
+          lv_obj_add_event_cb(obj_notification_bar, [](lv_event_t * e) {
+            lv_obj_t * bar = lv_event_get_target(e);
+
+            // 创建收回动画
+            static lv_anim_t a;
+            lv_anim_init(&a);
+            lv_anim_set_var(&a, bar);
+            
+            // 从当前位置 y=10 向上移动到屏幕外 (比如 -30)
+            lv_anim_set_values(&a, lv_obj_get_y(bar), BAR_Y_HIDE);
+            lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+            lv_anim_set_time(&a, 300);
+            lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
+
+            // 动画结束后的清理工作
+            lv_anim_set_ready_cb(&a, [](lv_anim_t * anim) {
+              // 删除父对象 bar，其子对象 lbl_notification 会被自动释放
+              lv_obj_del((lv_obj_t *)anim->var);
+              if (id(notification_amount) > 0) {
+                id(notification_amount) -= 1;
+              }
+            });
+            lv_anim_start(&a);
+          }, LV_EVENT_CLICKED, NULL);

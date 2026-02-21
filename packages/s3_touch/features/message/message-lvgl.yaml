@@ -18,6 +18,7 @@ lvgl:
                       align: CENTER
                       on_click:
                         then:
+                          - lambda: id(unread_messages_amount) = 0;
                           - lvgl.page.show:
                               id: page_message
                               animation: FADE_IN
