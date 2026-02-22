@@ -111,6 +111,7 @@ script:
                 text: !lambda |-
                   int x = id(rssi).state;
                   std::string icon;
+                  auto ssid_val = id(ssid).state;
                   if (x >= -50) {
                     icon = "\U000F0928"; // mdi-wifi-strength-4
                   } else if (x >= -65) {
@@ -121,6 +122,12 @@ script:
                     icon = "\U000F091F"; // mdi-wifi-strength-1
                   } else {
                     icon = "\U000F092E"; // mdi-wifi-strength-off-outline
+                  }
+                  if (!id(wifi_switch).state) {
+                    icon = "\U000F092E"; // mdi-wifi-strength-off-outline
+                  }
+                  if (ssid_val == "") {
+                    icon = "\U000F092F"; // mdi-wifi-strength-outline
                   }
                   float v = id(battery_voltage).state;
                   // 保留两位小数（四舍五入）

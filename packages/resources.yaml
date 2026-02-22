@@ -93,6 +93,7 @@ font:
           "\U000F0079", # mdi-battery (full)
           "\U000F008E", # mdi-battery-outline
           "\U000F0091", # mdi-battery-unknown
+          "\U000F092F", # wifi-strength-outline
           "\U000F091F", # mdi-wifi-strength-1
           "\U000F0922", # mdi-wifi-strength-2
           "\U000F0925", # mdi-wifi-strength-3
