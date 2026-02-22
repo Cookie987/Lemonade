@@ -22,7 +22,6 @@ script:
   
   - id: sleep_button
     then:
-      - switch.toggle: switch_powermanage_lock_apb
       - light.toggle:
           id: backlight
           transition_length: 0.5s
@@ -38,6 +37,7 @@ script:
                 show_snow: false
                 lvgl_id: lvgl_1
             - lvgl.animimg.stop: ani_battery_charging
+      - switch.toggle: switch_powermanage_lock_apb
 
   - id: littlefs_init
     mode: single

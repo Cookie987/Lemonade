@@ -174,28 +174,104 @@ lvgl:
               then:
                 - script.execute: keyboard_message_hide
                 - script.execute: send_message
+
 script:
   - id: keyboard_message_show
     then:
-      - lvgl.widget.show: keyboard_message_input
       - lambda: |-
-          lv_obj_set_y(id(textarea_message_public_input), -80);
-          lv_obj_set_height(id(list_message_public), 60);
-          lv_obj_set_y(id(textarea_message_friend_input), -80);
-          lv_obj_set_height(id(list_message_friend), 60);
+          auto kb = id(keyboard_message_input)->obj;
+          auto pub_input = id(textarea_message_public_input);
+          auto pub_list = id(list_message_public);
+          auto fri_input = id(textarea_message_friend_input);
+          auto fri_list = id(list_message_friend);
+
+          // 1. 预处理：强制清理这些对象上所有正在运行的动画，确保状态可控
+          lv_anim_del(kb, nullptr);
+          lv_anim_del(pub_input, nullptr);
+          lv_anim_del(pub_list, nullptr);
+          lv_anim_del(fri_input, nullptr);
+          lv_anim_del(fri_list, nullptr);
+
+          // 2. 确保对象可见
+          lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
+          
+          // 高度动画回调
+          auto anim_height_cb = [](void * var, int32_t v) { lv_obj_set_height((lv_obj_t *)var, v); };
+
+          lv_anim_t a;
+          lv_anim_init(&a);
+          lv_anim_set_time(&a, 300);
+          lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+
+          // --- 键盘：强制从当前位置滑动到确定的 -2 ---
+          lv_anim_set_var(&a, kb);
+          lv_anim_set_values(&a, lv_obj_get_y(kb), -2); 
+          lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+          lv_anim_start(&a);
+
+          // --- Public 输入框：滑动到确定的 -80 ---
+          lv_anim_set_var(&a, pub_input);
+          lv_anim_set_values(&a, 15, -80);
+          lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+          lv_anim_start(&a);
+
+          // --- Public 列表：高度收缩到确定的 60 ---
+          lv_anim_set_var(&a, pub_list);
+          lv_anim_set_values(&a, lv_obj_get_height(pub_list), 60);
+          lv_anim_set_exec_cb(&a, anim_height_cb);
+          lv_anim_start(&a);
+
+          // --- Friend 输入框：滑动到确定的 -80 ---
+          lv_anim_set_var(&a, fri_input);
+          lv_anim_set_values(&a, 15, -80);
+          lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+          lv_anim_start(&a);
+
+          // --- Friend 列表：高度收缩到确定的 60 ---
+          lv_anim_set_var(&a, fri_list);
+          lv_anim_set_values(&a, lv_obj_get_height(fri_list), 60);
+          lv_anim_set_exec_cb(&a, anim_height_cb);
+          lv_anim_start(&a);
 
   - id: keyboard_message_hide
     then:
-      - lvgl.widget.hide: keyboard_message_input
       - lambda: |-
-          lv_obj_align(id(textarea_message_public_input), LV_ALIGN_BOTTOM_MID, 0, 15);
-          lv_obj_set_size(id(textarea_message_public_input), 320, 40);
-          lv_obj_align(id(textarea_message_friend_input), LV_ALIGN_BOTTOM_MID, 0, 15);
-          lv_obj_set_size(id(textarea_message_friend_input), 320, 40);
-          lv_textarea_set_placeholder_text(textarea_message_public_input, "单击输入消息，长按进入全屏输入");
-          lv_textarea_set_placeholder_text(textarea_message_friend_input, "单击输入消息，长按进入全屏输入");
-          //
-          lv_obj_set_y(id(textarea_message_public_input), 15);
-          lv_obj_set_height(id(list_message_public), 155);
-          lv_obj_set_y(id(textarea_message_friend_input), 15);
-          lv_obj_set_height(id(list_message_friend), 155);
+          auto kb = id(keyboard_message_input)->obj;
+          auto pub_input = id(textarea_message_public_input);
+          auto pub_list = id(list_message_public);
+          auto fri_input = id(textarea_message_friend_input);
+          auto fri_list = id(list_message_friend);
+
+          // 1. 立即停止所有动画，回归静止状态
+          lv_anim_del(kb, nullptr);
+          lv_anim_del(pub_input, nullptr);
+          lv_anim_del(pub_list, nullptr);
+          lv_anim_del(fri_input, nullptr);
+          lv_anim_del(fri_list, nullptr);
+
+          // 2. 【核心改动】键盘依然保持滑出动画，因为它在 Page 层级，不受 Tab 切换影响
+          lv_anim_t a;
+          lv_anim_init(&a);
+          lv_anim_set_time(&a, 300);
+          lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
+          lv_anim_set_var(&a, kb);
+          lv_anim_set_values(&a, lv_obj_get_y(kb), 100); // 滑向隐藏位
+          lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
+          lv_anim_set_ready_cb(&a, [](lv_anim_t * anim) {
+              lv_obj_add_flag((lv_obj_t *)anim->var, LV_OBJ_FLAG_HIDDEN);
+          });
+          lv_anim_start(&a);
+
+          // 3. 【回归原始】输入框和列表直接设置位置，不走动画
+          // 这部分代码完全照搬你以前“没问题”的版本
+          lv_obj_set_y(pub_input, 15);
+          lv_obj_set_height(pub_list, 155);
+          lv_obj_set_size(pub_input, 320, 40);
+
+          lv_obj_set_y(fri_input, 15);
+          lv_obj_set_height(fri_list, 155);
+          lv_obj_set_size(fri_input, 320, 40);
+
+          // 4. 重置其他属性
+          lv_textarea_set_placeholder_text(pub_input, "单击输入消息，长按进入全屏输入");
+          lv_textarea_set_placeholder_text(fri_input, "单击输入消息，长按进入全屏输入");
