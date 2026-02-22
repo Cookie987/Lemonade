@@ -87,15 +87,15 @@ lvgl:
                         id: system_setting_display_page
                         animation: MOVE_LEFT
                         time: 200ms
-              - text: "\uF0F3 通知"
-                id: btn_notification_setting
-                list_button: {}
-                on_click:
-                  then:
-                    - lvgl.page.show:
-                        id: system_setting_notification_page
-                        animation: MOVE_LEFT
-                        time: 200ms
+              # - text: "\uF0F3 通知"
+              #   id: btn_notification_setting
+              #   list_button: {}
+              #   on_click:
+              #     then:
+              #       - lvgl.page.show:
+              #           id: system_setting_notification_page
+              #           animation: MOVE_LEFT
+              #           time: 200ms
               - text: "\uF240 电源和电池"
                 id: btn_power_setting
                 list_button: {}
