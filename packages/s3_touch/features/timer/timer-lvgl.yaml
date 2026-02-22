@@ -5,6 +5,9 @@ lvgl:
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "计时器"
+        - script.execute:
+            id: close_notification
+            notification_message: "倒计时已结束"
       widgets:
         - tabview:
             id: tabview_timer

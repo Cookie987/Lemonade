@@ -71,6 +71,7 @@ font:
           "\uF104", 
           "\uF105", 
           "\uF2EA",
+          "\uF0F3", # bell
           "\uF240", # battery-full
           "\uF53F", # pattle
           "\uF05A", # info-circle

@@ -12,10 +12,15 @@ esphome:
         - script.execute: message_mqtt_handler
 
 globals:
-  - id: unread_messages_amount
+  - id: unread_messages_amount_private
     type: uint8_t
     restore_value: no
     initial_value: '0'
+  - id: unread_messages_amount_public
+    type: uint8_t
+    restore_value: no
+    initial_value: '0'
+
 
 script:
   - id: send_message
@@ -121,6 +126,22 @@ script:
                                 ).c_str()
                               );
               lv_obj_t * list_btn = lv_list_add_btn(list_message_public, NULL, content.c_str());
+              if(!id(page_message).is_showing()) {
+                lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
+                if (id(unread_messages_amount_public) < 255) {
+                  id(unread_messages_amount_public)++;
+                  id(show_notification)->execute((
+                    std::string("收到 ") +
+                    std::to_string(id(unread_messages_amount_public)) +
+                    std::string(" 条频道消息")
+                  ).c_str(), std::string("条频道消息"));
+                }
+                else{
+                  id(show_notification)->execute((
+                    std::string("收到 255+ 条频道消息")
+                  ).c_str(), std::string("条频道消息"));
+                }
+              }
               // 只保留最近的100条
               uint32_t children_count = lv_obj_get_child_cnt(list_message_public);
               if (children_count > 100) {
