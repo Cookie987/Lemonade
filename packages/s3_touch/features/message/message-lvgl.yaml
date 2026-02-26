@@ -1,4 +1,12 @@
 lvgl:
+  on_boot:
+    lambda: |-
+      lv_obj_t * kb = keyboard_message_input->obj;
+      lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_IME_CHN);
+      lv_obj_t * list = id(obj_message_candidate_list);
+      lv_keyboard_set_candidate_list(kb, list);
+      lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, 0);
+      lv_obj_clear_flag(list, LV_OBJ_FLAG_CLICKABLE);
   pages:
     - id: !extend page_main
       scrollable: false
@@ -60,6 +68,8 @@ lvgl:
             on_value:
               then:
                 - script.execute: keyboard_message_hide
+                - lambda: |-
+                    lv_keyboard_reset_ime(keyboard_message_input->obj);
             size: 15%
             tabs:
               - name: 聊天设置
@@ -78,6 +88,7 @@ lvgl:
                       width: 200
                       height: 40
                       placeholder_text: "输入私聊的用户名"
+                      one_line: true
                       on_click:
                         then:
                           - script.execute: keyboard_message_show
@@ -160,6 +171,17 @@ lvgl:
                           - lvgl.keyboard.update:
                               id: keyboard_message_input
                               textarea: textarea_message_public_input
+        - obj:
+            id: obj_message_candidate_list
+            scrollable: true
+            scroll_dir: HOR
+            x: 0
+            y: 60
+            align: TOP_MID
+            width: 320
+            height: 30
+            border_width: 0
+            pad_all: 0
         - keyboard:
             x: 0
             y: -2

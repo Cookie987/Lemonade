@@ -24,6 +24,7 @@ touchscreen:
 packages:
   - !include packages/host-test/lvgl.yaml
   - !include packages/host-test/script.yaml
+  - !include packages/host-test/ime/ime.yaml
   - !include packages/host-test/message-lvgl.yaml
   - !include packages/s3_touch/features/message/message-resource.yaml
   - !include packages/resources.yaml
