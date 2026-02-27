@@ -410,6 +410,8 @@ text_sensor:
       id: text_sensor_mac_address
     ssid:
       id: ssid
+    scan_results:
+      id: wifi_scan_results
   - platform: debug
     device:
       id: device_info

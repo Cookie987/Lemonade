@@ -42,16 +42,13 @@ script:
                         lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
                         if (id(unread_messages_amount_private) < 255) {
                           id(unread_messages_amount_private)++;
-                          id(show_notification)->execute((
+                          id(show_notification)->execute(
                             std::string("收到 ") +
                             std::to_string(id(unread_messages_amount_private)) +
-                            std::string(" 条私聊消息")
-                          ).c_str(), std::string("条私聊消息"));
+                            std::string(" 条私聊消息"), std::string("条私聊消息"));
                         }
                         else{
-                          id(show_notification)->execute((
-                            std::string("收到 255+ 条私聊消息")
-                          ).c_str(), std::string("条私聊消息"));
+                          id(show_notification)->execute(std::string("收到 255+ 条私聊消息"), std::string("条私聊消息"));
                         }
                       }
                       lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, content.c_str());

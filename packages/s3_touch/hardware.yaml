@@ -47,10 +47,10 @@ switch:
     id: acc
     restore_mode: ALWAYS_ON
 
-  - platform: lvgl
-    id: bluetooth_switch
-    widget: switch_bluetooth
-    restore_mode: ALWAYS_ON
+  # - platform: lvgl
+  #   id: bluetooth_switch
+  #   widget: switch_bluetooth
+  #   restore_mode: ALWAYS_ON
 
 output:
   - platform: ledc

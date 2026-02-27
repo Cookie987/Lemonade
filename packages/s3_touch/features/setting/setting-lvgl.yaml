@@ -1,4 +1,23 @@
 lvgl:
+  top_layer:
+    widgets: 
+      - button:
+          id: btn_back_setting
+          align: bottom_mid
+          width: 48
+          height: 24
+          bg_color: !lambda return lv_color_hex(0x1f95f6);
+          widgets:
+            - label:
+                align: CENTER
+                y: 2
+                text: "\uF2EA" # rotate-left
+          hidden: true
+          on_release:
+            then:
+              - lvgl.page.previous:
+                  animation: MOVE_RIGHT
+                  time: 200ms
   msgboxes:
     - id: msgbox_halt_message
       close_button: false
@@ -18,6 +37,52 @@ lvgl:
           on_click:
             then:
               - script.execute: halt
+
+    - id: msgbox_delete_wifi_message
+      close_button: false
+      title: 删除Wi-Fi
+      text_font: chinese_font14
+      body:
+        text: "你确定删除这个Wi-Fi吗？"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_delete_wifi_close
+          text: "不"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_delete_wifi_message
+        - id: btn_delete_wifi_ok
+          text: "好"
+          on_click:
+            then:
+              - lambda: |-
+                  auto wifi = wifi::global_wifi_component;
+                  lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_wifi_message);
+                  const char *txt = lv_label_get_text(msgbox_text);
+                  // 提取Wi-Fi名称，格式是 "确定要删除 Wi-Fi名称 吗？"
+                  std::string msg = txt;
+                  std::string prefix = "确定要删除 ";
+                  std::string suffix = " 吗？";
+
+                  size_t start = msg.find(prefix);
+                  if (start != std::string::npos)
+                  {
+                      start += prefix.length();
+                      size_t end = msg.find(suffix, start);
+
+                      if (end != std::string::npos)
+                      {
+                          std::string ssid = msg.substr(start, end - start);                
+                          std::string config_json;
+                          // 不知道为什么wifi->delete_wifi_stas不管用
+                          // 所以这里需要先读取保存的wifi列表再“不添加”要删除的wifi
+                          // 真的不是我故意这样写的😭
+                          id(delete_wifi_from_json)->execute(ssid);
+                          id(prase_wifi_list)->execute();
+                          id(refresh_wifi_list)->execute();
+                          lv_obj_add_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
+                      }
+                  }
 
     - id: msgbox_update_message
       close_button: false
@@ -389,18 +454,23 @@ lvgl:
             on_change:
               then:
                 - lambda: global_preferences->sync();
-        - label:
-            text: "蓝牙"
-            text_font: chinese_font14
-            x: 179
-            y: 53
-        - switch:
-            id: switch_bluetooth
-            x: 250
+        - button:
+            id: btn_change_wifi_config
+            x: 175
             y: 48
-            state:
-              checked: false
-              disabled: true
+            width: 130
+            height: 32
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "Wi-Fi 配置"
+            on_click:
+              then:
+                - lvgl.page.show:
+                    id: system_setting_wifi_config_page
+                    animation: MOVE_LEFT
+                    time: 200ms
+                - lambda: wifi::global_wifi_component->start_scanning();
         - label:
             id: lbl_wifi_info
             align: CENTER
@@ -538,16 +608,94 @@ lvgl:
             text: "加载中..."
             text_font: chinese_font14
 
-    - id: system_setting_network_wifi_page
+    - id: system_setting_wifi_config_page
       skip: true
       on_load:
-        - lvgl.widget.show: [btn_back_setting]
-        - script.execute: refresh_info_page
         - lvgl.label.update:
             id: lbl_topbar_title
-            text: "Wi-Fi配置"
-      on_unload:
+            text: "Wi-Fi 配置"
+      widgets:
+        - list:
+            id: list_scanned_wifi
+            x: 0
+            y: 18
+            width: 320
+            height: 222
+            items:
+              - text: "加载中……"
+                id: btn_list_scanned_wifi_loading
+                list_button: {}
+        - button:
+            id: btn_back_wifi_config
+            align: bottom_mid
+            width: 48
+            height: 24
+            bg_color: !lambda return lv_color_hex(0x1f95f6);
+            widgets:
+              - label:
+                  align: CENTER
+                  y: 2
+                  text: "\uF2EA" # rotate-left
+            on_release:
+              then:
+                - lvgl.page.show:
+                    id: system_setting_network_page
+                    animation: MOVE_RIGHT
+                    time: 200ms
+
+    - id: system_setting_new_wifi_page
+      skip: true
+      on_load:
         - lvgl.widget.hide: [btn_back_setting]
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "添加Wi-Fi"
+        - lambda: |-
+            // 清空textarea，因为每次进入这个页面才会有新的SSID
+            lv_textarea_set_text(txt_new_wifi_password, "");
+      widgets:
+        - label:
+            id: lbl_new_wifi_ssid
+            text: "连接到的Wi-Fi"
+            align: TOP_MID
+            transform_zoom: 1
+            x: 0
+            y: 40
+            text_font: chinese_font14
+        - textarea:
+            id: txt_new_wifi_password
+            align: TOP_MID
+            x: 0
+            y: 70
+            width: 300
+            height: 30
+            text_font: chinese_font14
+            password_mode: true
+            one_line: true
+            max_length: 16
+            placeholder_text: "输入Wi-Fi密码"
+            on_ready:
+              then:
+                - lambda: |-
+                    // 需要同步到json文件统一操作
+                    // ssid和密码
+                    std::string ssid = lv_label_get_text(id(lbl_new_wifi_ssid));
+                    std::string password = lv_textarea_get_text(id(txt_new_wifi_password));
+                    id(append_wifi_to_json)->execute(ssid, password);
+                    id(prase_wifi_list)->execute();
+                    id(refresh_wifi_list)->execute();
+                    id(lvgl_1)->show_page(system_setting_wifi_config_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+
+        - keyboard:
+            id: keyboard_new_wifi_password
+            textarea: txt_new_wifi_password
+            mode: TEXT_LOWER
+            on_cancel:
+              then:
+                - lvgl.page.show:
+                    id: system_setting_wifi_config_page
+                    animation: MOVE_RIGHT
+                    time: 200ms
 
     - id: system_setting_notification_page
       skip: true

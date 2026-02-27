@@ -20,20 +20,11 @@ script:
                 ESP_LOGI("CookieIoT", "Response endpoint: wifilist");
                 json::parse_json(payload, [&](JsonVariant root) -> bool {
                   if (root["statusCode"] == 200){
-                    ESP_LOGI("CookieIoT", "Clearing WiFi STA");
-                    auto wifi = wifi::global_wifi_component;
-                    wifi->clear_saved_wifi_stas();
-                    JsonArray wifis = root["wifis"];
-                    int i = 0;
-                    for (JsonObject item : wifis) { 
-                      wifi->append_wifi_sta(item["ssid"].as<std::string>(), item["password"].as<std::string>());
-                      ESP_LOGI("CookieIoT", "Saved WiFi STA: %s", item["ssid"].as<std::string>().c_str());
-                      i++;
-                    }
-                    lv_label_set_text(lbl_wifi_get_info,(
-                                      std::string("保存了") +
-                                      std::to_string(i) +
-                                      std::string("个WiFi。请关闭并重新打开WiFi")).c_str());
+                    std::ofstream file("/data/wifilist.json");
+                    file << payload;
+                    file.close();
+                    ESP_LOGD("CookieIoT", "Wifilist response saved.");
+                    id(prase_wifi_list)->execute();
                   }
                   else{
                     lv_label_set_text(lbl_wifi_get_info,(
@@ -53,6 +44,7 @@ script:
                 file << payload;
                 file.close();
                 ESP_LOGD("CookieIoT", "Config response saved.");
+                id(prase_iot_info)->execute();
               }
 
               //

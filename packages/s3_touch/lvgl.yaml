@@ -32,24 +32,6 @@ lvgl:
           recolor: true
           text_font: chinese_font14
 
-      - button:
-          id: btn_back_setting
-          align: bottom_mid
-          width: 48
-          height: 24
-          bg_color: !lambda return lv_color_hex(0x1f95f6);
-          widgets:
-            - label:
-                align: CENTER
-                y: 2
-                text: "\uF2EA" # rotate-left
-          hidden: true
-          on_release:
-            then:
-              - lvgl.page.previous:
-                  animation: MOVE_RIGHT
-                  time: 200ms
-
       - obj:
           id: boot_screen
           x: 0
@@ -96,19 +78,6 @@ lvgl:
             then:
               - lvgl.widget.hide: msgbox_battery_low
 
-  on_boot:
-    - if:
-        condition:
-          lambda: 'return id(dropdown_image).get_selected_text() == "系统默认";'
-        then:
-          - lvgl.image.update:
-              id: background_image
-              src: default_bg
-    - if:
-        condition:
-          lambda: 'return id(dropdown_image).get_selected_text() == "ZSV IoT";'
-        then:
-          - script.execute: set_background_img
   default_font: chinese_font14
   pages:
     - id: page_main

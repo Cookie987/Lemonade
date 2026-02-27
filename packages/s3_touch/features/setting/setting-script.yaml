@@ -1,0 +1,136 @@
+script:
+  - id: append_wifi_to_json
+    mode: queued
+    parameters:
+      ssid: string
+      password: string
+    then:
+      - lambda: |-
+          ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
+          std::ifstream file("/data/wifilist.json");
+          if (!file.is_open()) {
+              ESP_LOGW("CookieIoT", "Config file not found.");
+          }
+          std::string line;
+          std::string config_json;
+          while (std::getline(file, line)) {
+              config_json += line + "\n";
+          }
+          file.close();
+
+          // 2. 分配 JsonDocument
+          // 建议根据 JSON 大小预估内存，或者在 V7 中直接使用 JsonDocument doc;
+          JsonDocument doc;
+
+          // 3. 反序列化 (解析) 字符串
+          DeserializationError error = deserializeJson(doc, config_json);
+
+          if (error) {
+              // 解析失败处理
+              ESP_LOGW("CookieIoT", "Failed to parse JSON: %s", error.c_str());
+              return;
+          }
+
+          // 4. 获取 wifis 数组
+          // 如果 wifis 不存在，doc["wifis"].to<JsonArray>() 会创建一个
+          JsonArray wifis = doc["wifis"].as<JsonArray>();
+
+          // 5. 创建新的 WiFi 对象并添加到数组中
+          JsonObject newWifi = wifis.add<JsonObject>();
+          newWifi["ssid"] = ssid;
+          newWifi["password"] = password;
+
+          ESP_LOGI("CookieIoT", "Added WiFi: %s", ssid.c_str());
+          // 6. 将修改后的对象序列化回 std::string
+          std::string output;
+          serializeJson(doc, output);
+
+          // 7. 将修改后的对象写入文件
+          std::ofstream file1("/data/wifilist.json");
+          file1 << output;
+          file1.close();
+
+  - id: delete_wifi_from_json
+    mode: queued
+    parameters:
+      ssid: string
+    then:
+      - lambda: |-
+          // 1. 解析原始字符串
+          ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
+          std::ifstream file("/data/wifilist.json");
+          if (!file.is_open()) {
+              ESP_LOGW("CookieIoT", "Config file not found.");
+          }
+          std::string line;
+          std::string config_json;
+          while (std::getline(file, line)) {
+              config_json += line + "\n";
+          }
+          file.close();
+          JsonDocument doc;
+          DeserializationError error = deserializeJson(doc, config_json);
+          if (error) {
+              ESP_LOGW("CookieIoT", "Failed to parse JSON: %s", error.c_str());
+              return; // 解析失败
+          }
+
+          // 2. 获取 wifis 数组
+          JsonArray wifis = doc["wifis"].as<JsonArray>();
+
+          // 3. 遍历并查找匹配项
+          // 注意：使用迭代器进行删除是最安全的方式
+          for (JsonArray::iterator it = wifis.begin(); it != wifis.end(); ++it) {
+              // 检查当前对象的 "ssid" 是否匹配
+              if ((*it)["ssid"] == ssid) {
+                  wifis.remove(it); // 找到匹配项并删除
+                  ESP_LOGI("CookieIoT", "Deleted WiFi: %s", ssid.c_str());
+                  break;            // 如果只需删除第一个匹配项，直接跳出循环
+              }
+          }
+
+          // 4. 将结果序列化回字符串
+          std::string output;
+          serializeJson(doc, output);
+
+          // 7. 将修改后的对象写入文件
+          std::ofstream file1("/data/wifilist.json");
+          file1 << output;
+          file1.close();
+
+  - id: prase_wifi_list
+    then:
+      - lambda: |-
+          // 读取Wi-Fi配置文件
+          ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
+          std::ifstream file("/data/wifilist.json");
+          if (!file.is_open()) {
+              ESP_LOGW("CookieIoT", "Config file not found.");
+          }
+          std::string line;
+          std::string config_json;
+          while (std::getline(file, line)) {
+              config_json += line + "\n";
+          }
+          file.close();
+          ESP_LOGD("CookieIoT", "Config file content:\n%s", config_json.c_str());
+          json::parse_json(config_json, [&](JsonVariant root) -> bool {
+            if (root["statusCode"] == 200){
+              ESP_LOGI("CookieIoT", "Clearing WiFi STA");
+              auto wifi = wifi::global_wifi_component;
+              wifi->clear_saved_wifi_stas();
+              JsonArray wifis = root["wifis"];
+              int i = 0;
+              for (JsonObject item : wifis) { 
+                wifi->append_wifi_sta(item["ssid"].as<std::string>(), item["password"].as<std::string>());
+                ESP_LOGI("CookieIoT", "Saved WiFi STA: %s", item["ssid"].as<std::string>().c_str());
+                i++;
+              }
+              lv_label_set_text(lbl_wifi_get_info,(
+                                std::string("保存了") +
+                                std::to_string(i) +
+                                std::string("个WiFi。请关闭并重新打开WiFi")).c_str());
+            }                    
+            return true;
+          });
+

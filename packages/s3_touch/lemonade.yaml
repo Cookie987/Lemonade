@@ -8,6 +8,8 @@ esphome:
     - <esp_littlefs.h>
     - <mbedtls/base64.h>
     - <fstream>
+    - <vector>
+    - <algorithm>
 
   on_boot:
     - priority: 800
@@ -21,6 +23,30 @@ esphome:
               lambda: 'return id(dropdown_image).get_selected_text() == "Cookie IoT";'
             then:
               - script.execute: set_background_img
+        - lambda: |-
+            // 创建默认的/data/wifilist.json
+            struct stat st;
+            if (stat("/data/wifilist.json", &st) == 0)
+            {
+              ESP_LOGI("CookieIoT", "/data/wifilist.json exists");
+              return;
+            }
+            std::string payload;
+            // {
+            //   "statusCode": 200,
+            //   "error": null,
+            //   "wifis": [
+            //     {
+            //       "ssid": "SEEWO",
+            //       "password": "SEEWOSEEWO"
+            //     }
+            //   ]
+            // }
+            payload = std::string("{\"statusCode\": 200,\"error\": null,\"wifis\": [{\"ssid\": \"SEEWO\",\"password\": \"SEEWOSEEWO\"}]}");
+            std::ofstream file("/data/cfg.json");
+            file << payload;
+            file.close();
+            ESP_LOGI("CookieIoT", "Created /data/wifilist.json");
     - priority: 300
       then:
         - lambda: |-
@@ -133,6 +159,10 @@ globals:
     type: uint8_t
     restore_value: no
     initial_value: '0'
+  - id: wifi_ssid_to_connect
+    type: std::string
+    restore_value: no
+    initial_value: '""'
 
 
 # Enable logging
@@ -444,8 +474,18 @@ text_sensor:
   - platform: wifi_info
     mac_address:
       id: text_sensor_mac_address
+  - platform: wifi_info
     ssid:
       id: ssid
+      on_value: 
+        then:
+          - script.execute: refresh_wifi_list
+  - platform: wifi_info
+    scan_results:
+      id: wifi_scan_results
+      on_value: 
+        then:
+          - script.execute: refresh_wifi_list
   - platform: debug
     device:
       id: device_info

@@ -130,16 +130,14 @@ script:
                 lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
                 if (id(unread_messages_amount_public) < 255) {
                   id(unread_messages_amount_public)++;
-                  id(show_notification)->execute((
+                  id(show_notification)->execute(
                     std::string("收到 ") +
                     std::to_string(id(unread_messages_amount_public)) +
-                    std::string(" 条频道消息")
-                  ).c_str(), std::string("条频道消息"));
+                    std::string(" 条频道消息"), std::string("条频道消息"));
                 }
                 else{
-                  id(show_notification)->execute((
-                    std::string("收到 255+ 条频道消息")
-                  ).c_str(), std::string("条频道消息"));
+                  id(show_notification)->execute(
+                    std::string("收到 255+ 条频道消息"), std::string("条频道消息"));
                 }
               }
               // 只保留最近的100条
