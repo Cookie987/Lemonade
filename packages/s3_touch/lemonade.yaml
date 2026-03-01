@@ -3,7 +3,7 @@ esphome:
   friendly_name: ${lemonade_device_friendly_name}
   platformio_options:
     upload_speed: 921600
-
+  
   includes:
     - <esp_littlefs.h>
     - <mbedtls/base64.h>
@@ -81,6 +81,7 @@ esp32:
     sdkconfig_options:
       CONFIG_PM_ENABLE: y
       CONFIG_PM_DFS_INIT_AUTO: y
+      CONFIG_FATFS_LFN_STACK: y
 
 psram:
   mode: octal
@@ -251,14 +252,14 @@ wifi:
   on_disconnect:
     then:
       - mqtt.disable:
-      - if:
-          condition: 
-            lambda: 'return id(wifi_switch).state;'
-          then:
-            - logger.log: WiFi signal is too weak or not connected. Reconnecting...
-            - wifi.disable
-            - delay: 5s
-            - wifi.enable
+      # - if:
+      #     condition: 
+      #       lambda: 'return id(wifi_switch).state;'
+      #     then:
+      #       - logger.log: WiFi signal is too weak or not connected. Reconnecting...
+      #       - wifi.disable
+      #       - delay: 5s
+      #       - wifi.enable
 
 improv_serial:
 

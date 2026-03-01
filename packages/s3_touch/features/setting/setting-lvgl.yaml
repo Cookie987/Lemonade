@@ -422,7 +422,6 @@ lvgl:
             on_click:
               then:
                 - script.execute: get_iot_info
-                - script.execute: prase_iot_info
         - label:
             id: lbl_iot_info
             align: TOP_LEFT
@@ -683,7 +682,8 @@ lvgl:
                     std::string password = lv_textarea_get_text(id(txt_new_wifi_password));
                     id(append_wifi_to_json)->execute(ssid, password);
                     id(prase_wifi_list)->execute();
-                    id(refresh_wifi_list)->execute();
+                    global_preferences->sync();
+                    wifi::global_wifi_component->start_scanning();
                     id(lvgl_1)->show_page(system_setting_wifi_config_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
 
         - keyboard:

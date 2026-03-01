@@ -22,6 +22,11 @@ substitutions:
   lemonade_ota_url: ***REMOVED***lemonade/s3-touch/canary/firmware.ota.bin
 
 ***REMOVED***
+external_components:
+  - source: components
+
+api:
+  reboot_timeout: 0s
 
 esp32_ble_beacon: !remove
 
@@ -44,7 +49,18 @@ packages:
   # - !include packages/games/game_core.yaml
   # 天气与日历
   - !include packages/s3_touch/features/weather/weather.yaml
-  - !include packages/s3_touch/features/calendar/calendar.yaml
   # 聊天
   - !include packages/s3_touch/features/message/message.yaml
 
+wireguard:
+  address: 10.1.0.100
+  private_key: !secret wg_privkey
+***REMOVED***  peer_public_key: !secret wg_peer_public_key
+  # Optional netmask (this is the default, no outgoing traffic
+  # will pass through the tunnel if omitted)
+  netmask: 255.255.255.0
+  peer_port: 51820
+  peer_allowed_ips:
+    - 10.1.0.0/24
+    - 192.168.1.0/24
+  peer_persistent_keepalive: 25s

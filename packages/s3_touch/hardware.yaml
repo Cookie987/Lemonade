@@ -33,7 +33,7 @@ touchscreen:
 i2c:
   sda: GPIO11
   scl: GPIO9
-  scan: true
+  scan: false
   id: bus_a
   frequency: 20kHz
 
@@ -88,7 +88,35 @@ binary_sensor:
             id: page_main
             animation: FADE_IN
             time: 200ms
-    
+
+  - platform: gpio
+    id: charge
+    pin:
+      number: GPIO41
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - settle: 20ms
+    on_press:
+      then:
+        - logger.log: Charger connected
+    on_release: 
+      then:
+        - logger.log: Charger disconnected
+
+  - platform: gpio
+    pin:
+      number: GPIO48
+      mode: INPUT_PULLDOWN
+    id: sd_data3
+    filters:
+      - settle: 20ms
+    on_press:
+      then:
+        - logger.log: SD card injected
+    on_release: 
+      then:
+        - logger.log: SD card removed
 
 sensor:
   - platform: adc
