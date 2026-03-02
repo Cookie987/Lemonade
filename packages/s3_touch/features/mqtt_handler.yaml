@@ -50,9 +50,9 @@ script:
               //
               // 背景图片
               //
-              if (response_suffix == "background"){ 
+              if (response_suffix == "background"){
                 ESP_LOGI("CookieIoT", "Response endpoint: background");
-                json::parse_json(payload, [&](JsonVariant root) -> bool { 
+                json::parse_json(payload, [&](JsonVariant root) -> bool {
                   if (root["statusCode"] == 200){
                     // 删掉已有图片
                     struct stat st;
@@ -64,12 +64,12 @@ script:
                     // --- 1. 获取 Base64 字符串 ---
                     // 假设 JSON 路径 "image_base64" 存在且为字符串
                     const char *base64_str = root["image_base64"].as<const char *>();
-                    
+
                     if (base64_str == nullptr) {
                         ESP_LOGW("CookieIoT", "'image_base64' field is missing or not a string.");
                         return false;
                     }
-                    
+
                     size_t base64_len = strlen(base64_str);
                     if (base64_len == 0) {
                         ESP_LOGW("CookieIoT", "Received empty Base64 string.");
@@ -82,7 +82,7 @@ script:
                     // 使用 std::vector 存储解码后的二进制数据
                     std::vector<uint8_t> decoded_data(decoded_max_len);
                     size_t decoded_len = 0;
-                    
+
                     // 使用 mbedtls Base64 解码
                     int ret = mbedtls_base64_decode(
                         decoded_data.data(),
@@ -96,9 +96,9 @@ script:
                         ESP_LOGE("CookieIoT", "Base64 decode failed with code %d!", ret);
                         return false;
                     }
-                    
+
                     ESP_LOGI("CookieIoT", "Decoded image size: %zu bytes.", decoded_len);
-                    
+
                     // --- 3. 写入 littlefs ---
                     const char* LOCAL_FILE_PATH = "/data/custom_bg.jpg";
                     // 以二进制模式打开文件
@@ -120,7 +120,7 @@ script:
                     const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
                     if (id(background_image) == nullptr) {
                         ESP_LOGW("CookieIoT", "LVGL image object (background_image) not initialized.");
-                        return false; 
+                        return false;
                     }
                     lv_img_set_src(id(background_image), LVGL_FILE_PATH);
                     ESP_LOGI("CookieIoT", "Image source updated.");

@@ -23,14 +23,14 @@ script:
             - lvgl.resume:
                 lvgl_id: lvgl_1
             - switch.turn_on: switch_powermanage_lock_apb
-  
+
   - id: sleep_button
     then:
       - light.toggle:
           id: backlight
           transition_length: 0.5s
       - lambda: id(is_sleeping)=!id(is_sleeping);
-      - lvgl.resume: 
+      - lvgl.resume:
           lvgl_id: lvgl_1
       - if:
           condition:
@@ -92,7 +92,7 @@ script:
           ESP_LOGI("CookieIoT", "Have custom background image.");
           if (id(background_image) == nullptr) {
               ESP_LOGW("CookieIoT", "LVGL image object (background_image) not initialized.");
-              return; 
+              return;
           }
           lv_img_set_src(id(background_image), LVGL_FILE_PATH);
           ESP_LOGI("CookieIoT", "Background image source updated form LittleFS.");
@@ -107,7 +107,6 @@ script:
             [=](JsonObject root) {},
             1); // QoS 1
           ESP_LOGD("CookieIoT", "Requested background image...");
-          
 
   - id: update_date
     then:
@@ -398,8 +397,6 @@ script:
           lv_label_set_text(id(lbl_iot_info), info_text.c_str());
       - lambda: global_preferences->sync();
 
-
-
   - id: refresh_info_page
     then:
       - lambda: |-
@@ -420,12 +417,12 @@ script:
           std::string commit = "fffffff";
 
           auto cpu_freq1 = id(cpu_freq).state / 1000000;
-          std::string cpu_freq = std::to_string((int)cpu_freq1) + "MHz";  
+          std::string cpu_freq = std::to_string((int)cpu_freq1) + "MHz";
           std::string cpu_temp = std::to_string((int)id(internal_temp).state) + "°C";
 
           mac = id(text_sensor_mac_address).state;
           commit = id(lemonade_git_commit_sha).state.substr(0, 7);
-          
+
           auto esphome_ver = id(esphome_version).state;
           auto ssid_val = id(ssid).state;
           auto rssi_val = id(rssi).state;
@@ -435,7 +432,6 @@ script:
             rssi_str = "-∞";
           }
 
-          
           if (ssid_val == "") {
             ssid_val = "(未连接)";
             rssi_str = "-∞";
@@ -485,7 +481,7 @@ script:
   # 创建或修改通知
   # para1: 新的通知内容
   # para2: （若非空）要修改的通知消息的后缀
-  - id: show_notification 
+  - id: show_notification
     parameters:
       notification_message: string
       suffix: string
@@ -508,10 +504,10 @@ script:
                 if(lbl) {
                   std::string current_text = lv_label_get_text(lbl);
                   // 检查字符串是否以指定后缀结尾
-                  if(current_text.size() >= suffix.size() && 
+                  if(current_text.size() >= suffix.size() &&
                     current_text.compare(current_text.size() - suffix.size(), suffix.size(), suffix) == 0) {
                       target_bar = child;
-                      break; 
+                      break;
                   }
                 }
               }
@@ -527,7 +523,7 @@ script:
             lv_anim_t a_shake;
             lv_anim_init(&a_shake);
             lv_anim_set_var(&a_shake, target_bar);
-            lv_anim_set_values(&a_shake, BAR_Y_SHOW, BAR_Y_SHOW + 8); 
+            lv_anim_set_values(&a_shake, BAR_Y_SHOW, BAR_Y_SHOW + 8);
             lv_anim_set_exec_cb(&a_shake, (lv_anim_exec_xcb_t)lv_obj_set_y);
             lv_anim_set_time(&a_shake, 100);
             lv_anim_set_playback_time(&a_shake, 100); // 弹下去再缩回来
@@ -546,7 +542,7 @@ script:
           lv_obj_set_user_data(obj_notification_bar, (void*)0xDEAD);
 
           // 2. 创建标签 (Child) - 注意第一个参数传入 obj_notification_bar
-          lv_obj_t * lbl_notification = lv_label_create(obj_notification_bar); 
+          lv_obj_t * lbl_notification = lv_label_create(obj_notification_bar);
           lv_label_set_text(lbl_notification, notification_message.c_str());
           lv_obj_set_width(lbl_notification, 220);
           lv_label_set_long_mode(lbl_notification, LV_LABEL_LONG_DOT);
@@ -566,10 +562,10 @@ script:
           lv_anim_set_values(&a_in, BAR_Y_HIDE, BAR_Y_SHOW); // 从屏幕外滑入
           lv_anim_set_exec_cb(&a_in, (lv_anim_exec_xcb_t)lv_obj_set_y);
           lv_anim_set_time(&a_in, 500);
-          
+
           // 使用 overshoot 路径，会有一个帅气的回弹效果
-          lv_anim_set_path_cb(&a_in, lv_anim_path_overshoot); 
-          
+          lv_anim_set_path_cb(&a_in, lv_anim_path_overshoot);
+
           lv_anim_start(&a_in);
 
           // --- 动画收回逻辑 ---
@@ -582,7 +578,7 @@ script:
             static lv_anim_t a;
             lv_anim_init(&a);
             lv_anim_set_var(&a, bar);
-            
+
             lv_anim_set_values(&a, lv_obj_get_y(bar), BAR_Y_HIDE);
             lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
             lv_anim_set_time(&a, 300);
@@ -624,10 +620,10 @@ script:
               if(lbl) {
                 std::string current_text = lv_label_get_text(lbl);
                 // 检查字符串是否以指定后缀结尾
-                if(current_text.size() >= suffix.size() && 
+                if(current_text.size() >= suffix.size() &&
                   current_text.compare(current_text.size() - suffix.size(), suffix.size(), suffix) == 0) {
                     target_bar = child;
-                    break; 
+                    break;
                 }
               }
             }
@@ -637,7 +633,7 @@ script:
             static lv_anim_t a;
             lv_anim_init(&a);
             lv_anim_set_var(&a, target_bar);
-            
+
             lv_anim_set_values(&a, lv_obj_get_y(target_bar), BAR_Y_HIDE);
             lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
             lv_anim_set_time(&a, 300);

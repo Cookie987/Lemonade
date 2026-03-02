@@ -38,7 +38,7 @@ lvgl:
           y: 0
           width: 100%
           height: 100%
-          bg_color: 0x000000 #000000
+          bg_color: 0x000000  # #000000
           bg_opa: COVER
           radius: 0
           pad_all: 0
@@ -59,7 +59,7 @@ lvgl:
                 arc_length: 60deg
                 arc_width: 8
                 indicator:
-                  arc_color: 0x18bcf2 #18bcf2
+                  arc_color: 0x18bcf2  # #18bcf2
                   arc_width: 8
           on_press:
             - lvgl.widget.hide: boot_screen
@@ -115,7 +115,7 @@ lvgl:
                       recolor: true
                       y: -10
                       text: "00:00:00"
-                      #f4f4f4ff
+                      # #f4f4f4ff
                       text_color: !lambda return lv_color_hex(0xffffff);
                       text_font: clock24
                   - label:
@@ -131,14 +131,14 @@ lvgl:
                       y: -3
                       x: -10
                       recolor: true
-                      text: "\U000F0091 -.--V" # start with mdi-battery-unknown
+                      text: "\U000F0091 -.--V"  # start with mdi-battery-unknown
                   - label:
                       id: lbl_wifi_status
                       align: BOTTOM_LEFT
                       y: -2
                       x: 10
                       recolor: true
-                      text: "\U000F092E --dBm" # start with mdi-battery-unknown
+                      text: "\U000F092E --dBm"  # start with mdi-battery-unknown
               - id: tile_appcenter
                 column: 0
                 row: 1

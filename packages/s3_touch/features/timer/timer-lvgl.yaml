@@ -19,7 +19,7 @@ lvgl:
             size: 15%
             tab_style:
               scrollbar_mode: "OFF"
-            tabs: 
+            tabs:
               - id: tab_stopwatch
                 name: 秒表
                 text_font: chinese_font14
@@ -56,7 +56,7 @@ lvgl:
                                 id(is_timer_running) = false;
                                 lv_label_set_text(id(lbl_btn_stopwatch), "继续");
                               }
-                          
+
                   - button:
                       id: btn_reset_stopwatch
                       x: 172
@@ -77,12 +77,12 @@ lvgl:
                               // 重置计时器状态
                               id(stopwatch_start_time) = millis();
                               id(stopwatch_paused_time) = 0;
-              
+
               - id: tab_countdown
                 name: 倒计时
                 text_font: chinese_font14
                 scrollbar_mode: "OFF"
-                widgets: 
+                widgets:
                   # 小时十位
                   - roller:
                       id: roller_countdown_hours_tens
@@ -91,7 +91,7 @@ lvgl:
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: [0,1,2,3,4,5,6,7,8,9]
+                      options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
                       on_focus:
                         then:
                           - lvgl.tabview.select:
@@ -108,7 +108,7 @@ lvgl:
                       mode: INFINITE
                       selected:
                         transform_zoom: 1.5
-                      options: [0,1,2,3,4,5,6,7,8,9]
+                      options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
                   # 分隔符
                   - label:
                       text: ":"
@@ -123,7 +123,7 @@ lvgl:
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: [0,1,2,3,4,5]
+                      options: [0, 1, 2, 3, 4, 5]
                       text_font: chinese_font14
                   # 分钟个位
                   - roller:
@@ -133,7 +133,7 @@ lvgl:
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: [0,1,2,3,4,5,6,7,8,9]
+                      options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
                       text_font: chinese_font14
                   # 分隔符
                   - label:
@@ -149,7 +149,7 @@ lvgl:
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: [0,1,2,3,4,5]
+                      options: [0, 1, 2, 3, 4, 5]
                       text_font: chinese_font14
                   # 秒个位
                   - roller:
@@ -159,8 +159,8 @@ lvgl:
                       width: 35
                       height: 100
                       mode: INFINITE
-                      options: [0,1,2,3,4,5,6,7,8,9]
-                      text_font: chinese_font14     
+                      options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+                      text_font: chinese_font14
                   # 控制按钮
                   - button:
                       id: btn_countdown
@@ -192,18 +192,18 @@ lvgl:
                                   int minutes_ones = lv_roller_get_selected(id(roller_countdown_minutes_ones).obj);
                                   int seconds_tens = lv_roller_get_selected(id(roller_countdown_seconds_tens).obj);
                                   int seconds_ones = lv_roller_get_selected(id(roller_countdown_seconds_ones).obj);
-                                  
+
                                   // 计算总秒数
                                   int hours = hours_tens * 10 + hours_ones;
                                   int minutes = minutes_tens * 10 + minutes_ones;
                                   int seconds = seconds_tens * 10 + seconds_ones;
                                   unsigned long total_seconds = hours * 3600 + minutes * 60 + seconds;
-                                  
+
                                   // 保存设置的时间
                                   id(countdown_hours) = hours;
                                   id(countdown_minutes) = minutes;
                                   id(countdown_seconds) = seconds;
-                                  
+
                                   // 设置结束时间
                                   id(countdown_end_time) = millis() + (total_seconds * 1000);
                                   id(is_countdown_running) = true;

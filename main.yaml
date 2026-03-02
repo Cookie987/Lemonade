@@ -28,7 +28,6 @@ external_components:
   - source: github://cookie987/esphome-custom-components
     components: [git_commit_sha, power_management]
 
-
 esp32_ble_beacon: !remove
 
 packages:

@@ -68,7 +68,7 @@ lvgl:
                       y: -45
                       align: RIGHT_MID
                       text_font: chinese_font36
-                      text: "N/A" 
+                      text: "N/A"
                   - label:
                       id: lbl_current_weather_max_min_temp
                       x: -5
@@ -97,7 +97,7 @@ lvgl:
                   - label:
                       id: lbl_update_time
                       align: BOTTOM_LEFT
-                      #c4c4c4ff
+                      # #c4c4c4ff
                       text_color: !lambda return lv_color_hex(0xc4c4c4);
                       x: -8
                       y: 10
@@ -105,7 +105,7 @@ lvgl:
                   - label:
                       id: lbl_data_source
                       align: BOTTOM_RIGHT
-                      #f6f6f6
+                      # #f6f6f6
                       text_color: !lambda return lv_color_hex(0xc4c4c4);
                       x: 8
                       y: 10

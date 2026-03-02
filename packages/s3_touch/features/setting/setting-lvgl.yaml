@@ -1,6 +1,6 @@
 lvgl:
   top_layer:
-    widgets: 
+    widgets:
       - button:
           id: btn_back_setting
           align: bottom_mid
@@ -11,7 +11,7 @@ lvgl:
             - label:
                 align: CENTER
                 y: 2
-                text: "\uF2EA" # rotate-left
+                text: "\uF2EA"  # rotate-left
           hidden: true
           on_release:
             then:
@@ -72,7 +72,7 @@ lvgl:
 
                       if (end != std::string::npos)
                       {
-                          std::string ssid = msg.substr(start, end - start);                
+                          std::string ssid = msg.substr(start, end - start);
                           std::string config_json;
                           // 不知道为什么wifi->delete_wifi_stas不管用
                           // 所以这里需要先读取保存的wifi列表再“不添加”要删除的wifi
@@ -112,7 +112,7 @@ lvgl:
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "系统设置"
-      widgets: 
+      widgets:
         - list:
             id: list_widget
             x: 0
@@ -238,7 +238,7 @@ lvgl:
                       end_value: 60
                       color_start: 0xFF0000
                       color_end: 0xff2aff
-              - range_from: 0 # scale for the value labels
+              - range_from: 0  # scale for the value labels
                 range_to: 6
                 angle_range: 240
                 rotation: 150
@@ -292,7 +292,7 @@ lvgl:
                       end_value: 50
                       color_start: 0xFF0000
                       color_end: 0xff2aff
-              - range_from: 0 # scale for the value labels
+              - range_from: 0  # scale for the value labels
                 range_to: 5
                 angle_range: 240
                 rotation: 150
@@ -307,7 +307,7 @@ lvgl:
                     length: 10
                     color: 0x404040
                     label_gap: 10
-    
+
     - id: system_setting_display_page
       skip: true
       on_load:
@@ -318,94 +318,94 @@ lvgl:
       on_unload:
         - lvgl.widget.hide: btn_back_setting
       widgets:
-      - obj:
-          x: 0
-          y: 0
-          align: CENTER
-          border_width: 0
-          width: 320
-          height: 185
-          widgets:
-            - label:
-                text: "屏幕亮度"
-                text_font: chinese_font14
-                x: 9
-                y: 53
-            - slider:
-                id: backlight_slider
-                min_value: 10
-                max_value: 100
-                value: 100
-                width: 190
-                x: 83
-                y: 58
-                on_release:
-                  - lambda: global_preferences->sync();
-                on_change:
-                  then:
-                    - light.turn_on:
-                        id: backlight
-                        brightness: !lambda 'return lv_slider_get_value(id(backlight_slider)) / 100.0;'
-            - dropdown:
-                id: dropdown_image
-                x: 120
-                y: 93
-                width: 163
-                height: 38
-                symbol: "\uF107" # angle-down
-                options:
-                  - 系统默认
-                  - Cookie IoT
-                text_font: chinese_font14
-                on_change:
-                  then:
+        - obj:
+            x: 0
+            y: 0
+            align: CENTER
+            border_width: 0
+            width: 320
+            height: 185
+            widgets:
+              - label:
+                  text: "屏幕亮度"
+                  text_font: chinese_font14
+                  x: 9
+                  y: 53
+              - slider:
+                  id: backlight_slider
+                  min_value: 10
+                  max_value: 100
+                  value: 100
+                  width: 190
+                  x: 83
+                  y: 58
+                  on_release:
                     - lambda: global_preferences->sync();
-                    - if:
-                        condition:
-                          lambda: 'return id(dropdown_image).get_selected_text() == "系统默认";'
-                        then:
-                          - lvgl.image.update:
-                              id: background_image
-                              src: default_bg
-                    - if:
-                        condition:
-                          lambda: 'return id(dropdown_image).get_selected_text() == "Cookie IoT";'
-                        then:
-                          - script.execute: set_background_img
-            - label:
-                x: 9
-                y: 103
-                text: "背景图片"
-                text_font: chinese_font14
-            - button:
-                id: btn_get_background_img
-                align: CENTER
-                y: 90
-                width: 260
-                height: 32
-                widgets:
-                  - label:
-                      align: CENTER
-                      text_font: chinese_font14
-                      text: "获取 Cookie IoT 背景图片"
-                on_click:
-                  then:
-                    - lvgl.dropdown.update:
-                        id: dropdown_image
-                        selected_index: 1
-                    - script.execute: get_background_img
-            - label:
-                text: "蜂鸣器"
-                text_font: chinese_font14
-                x: 9
-                y: 213
-            - switch:
-                id: switch_buzzer
-                x: 230
-                y: 208
-                on_change:
-                  then:
-                    - lambda: global_preferences->sync();
+                  on_change:
+                    then:
+                      - light.turn_on:
+                          id: backlight
+                          brightness: !lambda 'return lv_slider_get_value(id(backlight_slider)) / 100.0;'
+              - dropdown:
+                  id: dropdown_image
+                  x: 120
+                  y: 93
+                  width: 163
+                  height: 38
+                  symbol: "\uF107"  # angle-down
+                  options:
+                    - 系统默认
+                    - Cookie IoT
+                  text_font: chinese_font14
+                  on_change:
+                    then:
+                      - lambda: global_preferences->sync();
+                      - if:
+                          condition:
+                            lambda: 'return id(dropdown_image).get_selected_text() == "系统默认";'
+                          then:
+                            - lvgl.image.update:
+                                id: background_image
+                                src: default_bg
+                      - if:
+                          condition:
+                            lambda: 'return id(dropdown_image).get_selected_text() == "Cookie IoT";'
+                          then:
+                            - script.execute: set_background_img
+              - label:
+                  x: 9
+                  y: 103
+                  text: "背景图片"
+                  text_font: chinese_font14
+              - button:
+                  id: btn_get_background_img
+                  align: CENTER
+                  y: 90
+                  width: 260
+                  height: 32
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "获取 Cookie IoT 背景图片"
+                  on_click:
+                    then:
+                      - lvgl.dropdown.update:
+                          id: dropdown_image
+                          selected_index: 1
+                      - script.execute: get_background_img
+              - label:
+                  text: "蜂鸣器"
+                  text_font: chinese_font14
+                  x: 9
+                  y: 213
+              - switch:
+                  id: switch_buzzer
+                  x: 230
+                  y: 208
+                  on_change:
+                    then:
+                      - lambda: global_preferences->sync();
 
     - id: system_setting_iot_page
       skip: true
@@ -437,7 +437,6 @@ lvgl:
             x: 30
             y: 35
             text: "${lemonade_version}\n用户名：N/A\nAPI版本：2\nWiFi数量：N/A\n设备描述：N/A\n获取时间：1970-01-01 00:00:00"
-
 
     - id: system_setting_network_page
       skip: true
@@ -520,7 +519,7 @@ lvgl:
                   text: "恢复默认网络配置"
             on_click:
               then:
-                - lambda: |- 
+                - lambda: |-
                     auto wifi = wifi::global_wifi_component;
                     if (wifi == nullptr) return;
                     wifi->clear_saved_wifi_stas();
@@ -576,7 +575,7 @@ lvgl:
             y: -25
             text: "加载中..."
             text_font: chinese_font14
-    
+
     - id: system_setting_storage_page
       skip: true
       on_load:
@@ -590,13 +589,13 @@ lvgl:
             if (ret != ESP_OK)
             {
               ESP_LOGE("LittleFS", "Failed to get LittleFS partition information (%s)", esp_err_to_name(ret));
-              std::string error_msg = std::string("无法获取 LittleFS 信息：") + std::string(esp_err_to_name(ret));
+              std::string error_msg = std::string("无法获取内部存储信息：") + std::string(esp_err_to_name(ret));
               lv_label_set_text(id(lbl_littlefs_info), error_msg.c_str());
             }
             else
             {
               ESP_LOGI("LittleFS", "Partition size: total: %d, used: %d", total, used);
-              std::string space = std::string("LittleFS:\n总空间：") + std::to_string(total / 1024) + std::string("KB\n已用空间：") + std::to_string(used / 1024) + "KB";
+              std::string space = std::string("内部存储:\n总空间：") + std::to_string(total / 1024) + std::string("KB\n已用空间：") + std::to_string(used / 1024) + "KB";
               lv_label_set_text(id(lbl_littlefs_info), space.c_str());
             }
 
@@ -651,7 +650,7 @@ lvgl:
               - label:
                   align: CENTER
                   y: 2
-                  text: "\uF2EA" # rotate-left
+                  text: "\uF2EA"  # rotate-left
             on_release:
               then:
                 - lvgl.page.show:
@@ -723,7 +722,6 @@ lvgl:
             text: "通知设置"
       on_unload:
         - lvgl.widget.hide: btn_back_setting
-
 
     - id: page_ota
       skip: true

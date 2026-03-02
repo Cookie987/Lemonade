@@ -10,7 +10,7 @@ interval:
 
 time:
   - id: !extend ntp_time
-    on_time_sync: 
+    on_time_sync:
       - script.execute: weather_update
 
 mapping:
@@ -33,72 +33,72 @@ mapping:
 
       # 雨（阵雨、小雨、中雨、大雨）
       300: c300_1x_black
-      301: c301_1x_black # 强阵雨
+      301: c301_1x_black  # 强阵雨
       350: c350_1x_black
-      351: c351_1x_black # 强阵雨 (夜)
-      399: c399_1x_black # 雨 (映射到中雨 14)
-      305: c305_1x_black # 小雨
-      309: c309_1x_black # 毛毛雨/细雨 (映射到小雨 13)
-      306: c306_1x_black # 中雨
-      307: c307_1x_black # 大雨
-      314: c314_1x_black # 小到中雨 (映射到中雨 14)
-      315: c315_1x_black # 中到大雨 (映射到大雨 15)
+      351: c351_1x_black  # 强阵雨 (夜)
+      399: c399_1x_black  # 雨 (映射到中雨 14)
+      305: c305_1x_black  # 小雨
+      309: c309_1x_black  # 毛毛雨/细雨 (映射到小雨 13)
+      306: c306_1x_black  # 中雨
+      307: c307_1x_black  # 大雨
+      314: c314_1x_black  # 小到中雨 (映射到中雨 14)
+      315: c315_1x_black  # 中到大雨 (映射到大雨 15)
 
       # 暴雨、极端降雨
-      310: c310_1x_black # 暴雨
-      316: c316_1x_black # 大到暴雨 (映射到暴雨 16)
-      311: c311_1x_black # 大暴雨
-      317: c317_1x_black # 暴雨到大暴雨 (映射到大暴雨 17)
-      312: c312_1x_black # 特大暴雨
-      308: c308_1x_black # 极端降雨 (映射到特大暴雨 18)
-      318: c318_1x_black # 大暴雨到特大暴雨 (映射到特大暴雨 18)
+      310: c310_1x_black  # 暴雨
+      316: c316_1x_black  # 大到暴雨 (映射到暴雨 16)
+      311: c311_1x_black  # 大暴雨
+      317: c317_1x_black  # 暴雨到大暴雨 (映射到大暴雨 17)
+      312: c312_1x_black  # 特大暴雨
+      308: c308_1x_black  # 极端降雨 (映射到特大暴雨 18)
+      318: c318_1x_black  # 大暴雨到特大暴雨 (映射到特大暴雨 18)
 
       # 雷雨、冻雨
-      302: c302_1x_black # 雷阵雨
-      303: c303_1x_black # 强雷阵雨 (映射到雷阵雨 11)
-      304: c304_1x_black # 雷阵雨伴有冰雹
-      313: c313_1x_black # 冻雨
+      302: c302_1x_black  # 雷阵雨
+      303: c303_1x_black  # 强雷阵雨 (映射到雷阵雨 11)
+      304: c304_1x_black  # 雷阵雨伴有冰雹
+      313: c313_1x_black  # 冻雨
 
       # 雪
-      499: c499_1x_black # 雪 (映射到中雪 23)
-      400: c400_1x_black # 小雪
-      401: c401_1x_black # 中雪
-      408: c408_1x_black # 小到中雪 (映射到中雪 23)
-      402: c402_1x_black # 大雪
-      409: c409_1x_black # 中到大雪 (映射到大雪 24)
-      403: c403_1x_black # 暴雪
-      410: c410_1x_black # 大到暴雪 (映射到暴雪 25)
+      499: c499_1x_black  # 雪 (映射到中雪 23)
+      400: c400_1x_black  # 小雪
+      401: c401_1x_black  # 中雪
+      408: c408_1x_black  # 小到中雪 (映射到中雪 23)
+      402: c402_1x_black  # 大雪
+      409: c409_1x_black  # 中到大雪 (映射到大雪 24)
+      403: c403_1x_black  # 暴雪
+      410: c410_1x_black  # 大到暴雪 (映射到暴雪 25)
 
       # 混合和阵雪
-      404: c404_1x_black # 雨夹雪
-      405: c405_1x_black # 雨雪天气 (映射到雨夹雪 20)
-      406: c406_1x_black # 阵雨夹雪 (映射到雨夹雪 20)
-      456: c456_1x_black # 阵雨夹雪 (夜) (映射到雨夹雪 20)
-      407: c407_1x_black # 阵雪
-      457: c457_1x_black # 阵雪 (夜)
+      404: c404_1x_black  # 雨夹雪
+      405: c405_1x_black  # 雨雪天气 (映射到雨夹雪 20)
+      406: c406_1x_black  # 阵雨夹雪 (映射到雨夹雪 20)
+      456: c456_1x_black  # 阵雨夹雪 (夜) (映射到雨夹雪 20)
+      407: c407_1x_black  # 阵雪
+      457: c457_1x_black  # 阵雪 (夜)
 
       # 沙尘天气
-      504: c504_1x_black # 浮尘
-      503: c503_1x_black # 扬沙
-      507: c507_1x_black # 沙尘暴
-      508: c508_1x_black # 强沙尘暴
+      504: c504_1x_black  # 浮尘
+      503: c503_1x_black  # 扬沙
+      507: c507_1x_black  # 沙尘暴
+      508: c508_1x_black  # 强沙尘暴
 
       # 雾霾
-      500: c500_1x_black # 薄雾 (映射到雾 30)
-      501: c501_1x_black # 雾
-      509: c509_1x_black # 浓雾 (映射到雾 30)
-      510: c510_1x_black # 强浓雾 (映射到雾 30)
-      514: c514_1x_black # 大雾 (映射到雾 30)
-      515: c515_1x_black # 特强浓雾 (映射到雾 30)
-      502: c502_1x_black # 霾
-      511: c511_1x_black # 中度霾 (映射到霾 31)
-      512: c512_1x_black # 重度霾 (映射到霾 31)
-      513: c513_1x_black # 严重霾 (映射到霾 31)
+      500: c500_1x_black  # 薄雾 (映射到雾 30)
+      501: c501_1x_black  # 雾
+      509: c509_1x_black  # 浓雾 (映射到雾 30)
+      510: c510_1x_black  # 强浓雾 (映射到雾 30)
+      514: c514_1x_black  # 大雾 (映射到雾 30)
+      515: c515_1x_black  # 特强浓雾 (映射到雾 30)
+      502: c502_1x_black  # 霾
+      511: c511_1x_black  # 中度霾 (映射到霾 31)
+      512: c512_1x_black  # 重度霾 (映射到霾 31)
+      513: c513_1x_black  # 严重霾 (映射到霾 31)
 
       # 温度/未知
-      900: c900_1x_black # 热
-      901: c901_1x_black # 冷
-      999: c999_1x_black # 未知
+      900: c900_1x_black  # 热
+      901: c901_1x_black  # 冷
+      999: c999_1x_black  # 未知
 
   - id: weather_icon_2x
     from: int
@@ -119,72 +119,72 @@ mapping:
 
       # 雨（阵雨、小雨、中雨、大雨）
       300: c300_2x_black
-      301: c301_2x_black # 强阵雨
+      301: c301_2x_black  # 强阵雨
       350: c350_2x_black
-      351: c351_2x_black # 强阵雨 (夜)
-      399: c399_2x_black # 雨 (映射到中雨 14)
-      305: c305_2x_black # 小雨
-      309: c309_2x_black # 毛毛雨/细雨 (映射到小雨 13)
-      306: c306_2x_black # 中雨
-      307: c307_2x_black # 大雨
-      314: c314_2x_black # 小到中雨 (映射到中雨 14)
-      315: c315_2x_black # 中到大雨 (映射到大雨 15)
+      351: c351_2x_black  # 强阵雨 (夜)
+      399: c399_2x_black  # 雨 (映射到中雨 14)
+      305: c305_2x_black  # 小雨
+      309: c309_2x_black  # 毛毛雨/细雨 (映射到小雨 13)
+      306: c306_2x_black  # 中雨
+      307: c307_2x_black  # 大雨
+      314: c314_2x_black  # 小到中雨 (映射到中雨 14)
+      315: c315_2x_black  # 中到大雨 (映射到大雨 15)
 
       # 暴雨、极端降雨
-      310: c310_2x_black # 暴雨
-      316: c316_2x_black # 大到暴雨 (映射到暴雨 16)
-      311: c311_2x_black # 大暴雨
-      317: c317_2x_black # 暴雨到大暴雨 (映射到大暴雨 17)
-      312: c312_2x_black # 特大暴雨
-      308: c308_2x_black # 极端降雨 (映射到特大暴雨 18)
-      318: c318_2x_black # 大暴雨到特大暴雨 (映射到特大暴雨 18)
+      310: c310_2x_black  # 暴雨
+      316: c316_2x_black  # 大到暴雨 (映射到暴雨 16)
+      311: c311_2x_black  # 大暴雨
+      317: c317_2x_black  # 暴雨到大暴雨 (映射到大暴雨 17)
+      312: c312_2x_black  # 特大暴雨
+      308: c308_2x_black  # 极端降雨 (映射到特大暴雨 18)
+      318: c318_2x_black  # 大暴雨到特大暴雨 (映射到特大暴雨 18)
 
       # 雷雨、冻雨
-      302: c302_2x_black # 雷阵雨
-      303: c303_2x_black # 强雷阵雨 (映射到雷阵雨 11)
-      304: c304_2x_black # 雷阵雨伴有冰雹
-      313: c313_2x_black # 冻雨
+      302: c302_2x_black  # 雷阵雨
+      303: c303_2x_black  # 强雷阵雨 (映射到雷阵雨 11)
+      304: c304_2x_black  # 雷阵雨伴有冰雹
+      313: c313_2x_black  # 冻雨
 
       # 雪
-      499: c499_2x_black # 雪 (映射到中雪 23)
-      400: c400_2x_black # 小雪
-      401: c401_2x_black # 中雪
-      408: c408_2x_black # 小到中雪 (映射到中雪 23)
-      402: c402_2x_black # 大雪
-      409: c409_2x_black # 中到大雪 (映射到大雪 24)
-      403: c403_2x_black # 暴雪
-      410: c410_2x_black # 大到暴雪 (映射到暴雪 25)
+      499: c499_2x_black  # 雪 (映射到中雪 23)
+      400: c400_2x_black  # 小雪
+      401: c401_2x_black  # 中雪
+      408: c408_2x_black  # 小到中雪 (映射到中雪 23)
+      402: c402_2x_black  # 大雪
+      409: c409_2x_black  # 中到大雪 (映射到大雪 24)
+      403: c403_2x_black  # 暴雪
+      410: c410_2x_black  # 大到暴雪 (映射到暴雪 25)
 
       # 混合和阵雪
-      404: c404_2x_black # 雨夹雪
-      405: c405_2x_black # 雨雪天气 (映射到雨夹雪 20)
-      406: c406_2x_black # 阵雨夹雪 (映射到雨夹雪 20)
-      456: c456_2x_black # 阵雨夹雪 (夜) (映射到雨夹雪 20)
-      407: c407_2x_black # 阵雪
-      457: c457_2x_black # 阵雪 (夜)
+      404: c404_2x_black  # 雨夹雪
+      405: c405_2x_black  # 雨雪天气 (映射到雨夹雪 20)
+      406: c406_2x_black  # 阵雨夹雪 (映射到雨夹雪 20)
+      456: c456_2x_black  # 阵雨夹雪 (夜) (映射到雨夹雪 20)
+      407: c407_2x_black  # 阵雪
+      457: c457_2x_black  # 阵雪 (夜)
 
       # 沙尘天气
-      504: c504_2x_black # 浮尘
-      503: c503_2x_black # 扬沙
-      507: c507_2x_black # 沙尘暴
-      508: c508_2x_black # 强沙尘暴
+      504: c504_2x_black  # 浮尘
+      503: c503_2x_black  # 扬沙
+      507: c507_2x_black  # 沙尘暴
+      508: c508_2x_black  # 强沙尘暴
 
       # 雾霾
-      500: c500_2x_black # 薄雾 (映射到雾 30)
-      501: c501_2x_black # 雾
-      509: c509_2x_black # 浓雾 (映射到雾 30)
-      510: c510_2x_black # 强浓雾 (映射到雾 30)
-      514: c514_2x_black # 大雾 (映射到雾 30)
-      515: c515_2x_black # 特强浓雾 (映射到雾 30)
-      502: c502_2x_black # 霾
-      511: c511_2x_black # 中度霾 (映射到霾 31)
-      512: c512_2x_black # 重度霾 (映射到霾 31)
-      513: c513_2x_black # 严重霾 (映射到霾 31)
+      500: c500_2x_black  # 薄雾 (映射到雾 30)
+      501: c501_2x_black  # 雾
+      509: c509_2x_black  # 浓雾 (映射到雾 30)
+      510: c510_2x_black  # 强浓雾 (映射到雾 30)
+      514: c514_2x_black  # 大雾 (映射到雾 30)
+      515: c515_2x_black  # 特强浓雾 (映射到雾 30)
+      502: c502_2x_black  # 霾
+      511: c511_2x_black  # 中度霾 (映射到霾 31)
+      512: c512_2x_black  # 重度霾 (映射到霾 31)
+      513: c513_2x_black  # 严重霾 (映射到霾 31)
 
       # 温度/未知
-      900: c900_2x_black # 热
-      901: c901_2x_black # 冷
-      999: c999_2x_black # 未知
+      900: c900_2x_black  # 热
+      901: c901_2x_black  # 冷
+      999: c999_2x_black  # 未知
 
 script:
   - id: weather_update
@@ -217,7 +217,7 @@ script:
                   lv_label_set_text(id(lbl_current_weather_text), text.c_str());
                   lv_label_set_text(id(lbl_current_weather_text_main), text.c_str());
                   std::string windDir = root["now"]["windDir"].as<std::string>();
-                  
+
                   // km/h转换成m/s，保留1位小数
                   char windSpeed_text[10];
                   float windSpeed = root["now"]["windSpeed"].as<float>() / 3.6;
@@ -245,7 +245,7 @@ script:
                   lv_img_set_src(id(img_forecast_day3_weather_icon), id(weather_icon_1x)[icon3]);
 
                   std::string tempMax1 = root["forecast"]["daily"][1]["tempMax"].as<std::string>();
-                  std::string tempMin1 = root["forecast"]["daily"][1]["tempMin"].as<std::string>(); 
+                  std::string tempMin1 = root["forecast"]["daily"][1]["tempMin"].as<std::string>();
                   std::string fxDate1 = root["forecast"]["daily"][1]["fxDate"].as<std::string>();
                   // 把2025-11-13转换成11.13
                   fxDate1 = fxDate1.substr(5, 5);
@@ -279,12 +279,12 @@ script:
                   lv_label_set_text(id(lbl_current_weather_max_min_temp), temp_text.c_str());
                 }
                 std::string alert_text;
-                if (root["alert"]) { 
+                if (root["alert"]) {
                   if(!root["alert"]["zeroResult"]){
                     alert_text = "  " + root["alert"]["headline"].as<std::string>();
                   }
                 }
-                if (root["minutely"]) { 
+                if (root["minutely"]) {
                   std::string rain_summary = root["minutely"]["summary"].as<std::string>() + alert_text;
                   lv_label_set_text(id(lbl_current_weather_rain_summary), rain_summary.c_str());
                 }

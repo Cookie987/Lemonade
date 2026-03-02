@@ -121,7 +121,7 @@ script:
               wifi->clear_saved_wifi_stas();
               JsonArray wifis = root["wifis"];
               int i = 0;
-              for (JsonObject item : wifis) { 
+              for (JsonObject item : wifis) {
                 wifi->append_wifi_sta(item["ssid"].as<std::string>(), item["password"].as<std::string>());
                 ESP_LOGI("CookieIoT", "Saved WiFi STA: %s", item["ssid"].as<std::string>().c_str());
                 i++;
@@ -130,7 +130,7 @@ script:
                                 std::string("保存了") +
                                 std::to_string(i) +
                                 std::string("个WiFi。请关闭并重新打开WiFi")).c_str());
-            }                    
+            }
             return true;
           });
 
@@ -199,7 +199,7 @@ script:
           // 4. 遍历并创建按钮
           for (const auto& wifi : wifis) {
               std::string display_text = wifi.line;
-              
+
               // 再次提取 SSID 用于比对，添加后缀
               size_t p = wifi.line.find_last_of(':');
               std::string current_ssid = (p != std::string::npos) ? wifi.line.substr(0, p) : wifi.line;
@@ -223,14 +223,14 @@ script:
 
               // 创建按钮
               lv_obj_t *btn = lv_list_add_btn(id(list_scanned_wifi), NULL, display_text.c_str());
-              
+
               // 事件回调
               lv_obj_add_event_cb(
                   btn,
                   [](lv_event_t *e) {
                     auto wifi = wifi::global_wifi_component;
                     lv_obj_t *target_btn = lv_event_get_target(e);
-                    lv_obj_t *list_obj = lv_obj_get_parent(target_btn); 
+                    lv_obj_t *list_obj = lv_obj_get_parent(target_btn);
                     const char *txt = lv_list_get_btn_text(list_obj, target_btn);
                     // 如果是已保存的 Wi-Fi，直接连接；否则进入输入密码界面
                     if(txt) ESP_LOGD("Setting", "Clicked Wi-Fi: %s", txt);

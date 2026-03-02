@@ -70,21 +70,21 @@ binary_sensor:
     filters:
       - settle: 20ms
     on_multi_click:
-    - timing:
-        - ON for at most 0.8s
-        - OFF for at least 0.1s
-      then:
-        - script.execute: sleep_button
+      - timing:
+          - ON for at most 0.8s
+          - OFF for at least 0.1s
+        then:
+          - script.execute: sleep_button
 
   - platform: gpio
     pin: GPIO0
     id: boot
     filters:
       - settle: 20ms
-    on_press: 
+    on_press:
       then:
         - script.execute: wakeup_button
-        - lvgl.page.show: 
+        - lvgl.page.show:
             id: page_main
             animation: FADE_IN
             time: 200ms
@@ -101,7 +101,7 @@ binary_sensor:
       then:
         - logger.log: Charger connected
         - script.execute: update_date
-    on_release: 
+    on_release:
       then:
         - logger.log: Charger disconnected
         - script.execute: update_date
@@ -130,33 +130,33 @@ sensor:
                       id: usb_voltage_text
                       text:
                         format: "%.2fV"
-                        args: [ 'x' ]
-          
+                        args: ['x']
+
   - platform: adc
     pin: GPIO2
     id: battery_voltage
     update_interval: 2s
     attenuation: auto
     filters:
-      - multiply: 5 
+      - multiply: 5
     on_value:
-    - if:
-        condition:
-          lambda: 'return !id(is_sleeping);'
-        then:
-          - script.execute: update_date
-          - if:
-              condition:
-                lvgl.page.is_showing: system_setting_power_page
-              then:
-                - lvgl.indicator.update:
-                    id: battery_voltage_indicator
-                    value: !lambda 'return id(battery_voltage).state * 10;'
-                - lvgl.label.update:
-                    id: battery_voltage_text
-                    text:
-                      format: "%.2fV"
-                      args: [ 'x' ]
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - script.execute: update_date
+            - if:
+                condition:
+                  lvgl.page.is_showing: system_setting_power_page
+                then:
+                  - lvgl.indicator.update:
+                      id: battery_voltage_indicator
+                      value: !lambda 'return id(battery_voltage).state * 10;'
+                  - lvgl.label.update:
+                      id: battery_voltage_text
+                      text:
+                        format: "%.2fV"
+                        args: ['x']
 
   - platform: sd_mmc_card
     type: used_space

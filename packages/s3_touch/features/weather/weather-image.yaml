@@ -41,174 +41,174 @@ image:
       transparency: alpha_channel
     - file: "imgs/weather/black1x/10@1x.png"
       id: c301_1x_black
-      transparency: alpha_channel # 强阵雨
+      transparency: alpha_channel  # 强阵雨
     - file: "imgs/weather/black1x/10@1x.png"
       id: c350_1x_black
       transparency: alpha_channel
     - file: "imgs/weather/black1x/10@1x.png"
       id: c351_1x_black
-      transparency: alpha_channel # 强阵雨 (夜)
+      transparency: alpha_channel  # 强阵雨 (夜)
     - file: "imgs/weather/black1x/14@1x.png"
       id: c399_1x_black
-      transparency: alpha_channel # 雨 (映射到中雨 14)
+      transparency: alpha_channel  # 雨 (映射到中雨 14)
     - file: "imgs/weather/black1x/13@1x.png"
       id: c305_1x_black
-      transparency: alpha_channel # 小雨
+      transparency: alpha_channel  # 小雨
     - file: "imgs/weather/black1x/13@1x.png"
       id: c309_1x_black
-      transparency: alpha_channel # 毛毛雨/细雨 (映射到小雨 13)
+      transparency: alpha_channel  # 毛毛雨/细雨 (映射到小雨 13)
     - file: "imgs/weather/black1x/14@1x.png"
       id: c306_1x_black
-      transparency: alpha_channel # 中雨
+      transparency: alpha_channel  # 中雨
     - file: "imgs/weather/black1x/15@1x.png"
       id: c307_1x_black
-      transparency: alpha_channel # 大雨
+      transparency: alpha_channel  # 大雨
     - file: "imgs/weather/black1x/14@1x.png"
       id: c314_1x_black
-      transparency: alpha_channel # 小到中雨 (映射到中雨 14)
+      transparency: alpha_channel  # 小到中雨 (映射到中雨 14)
     - file: "imgs/weather/black1x/15@1x.png"
       id: c315_1x_black
-      transparency: alpha_channel # 中到大雨 (映射到大雨 15)
+      transparency: alpha_channel  # 中到大雨 (映射到大雨 15)
 
     # 暴雨、极端降雨
     - file: "imgs/weather/black1x/16@1x.png"
       id: c310_1x_black
-      transparency: alpha_channel # 暴雨
+      transparency: alpha_channel  # 暴雨
     - file: "imgs/weather/black1x/16@1x.png"
       id: c316_1x_black
-      transparency: alpha_channel # 大到暴雨 (映射到暴雨 16)
+      transparency: alpha_channel  # 大到暴雨 (映射到暴雨 16)
     - file: "imgs/weather/black1x/17@1x.png"
       id: c311_1x_black
-      transparency: alpha_channel # 大暴雨
+      transparency: alpha_channel  # 大暴雨
     - file: "imgs/weather/black1x/17@1x.png"
       id: c317_1x_black
-      transparency: alpha_channel # 暴雨到大暴雨 (映射到大暴雨 17)
+      transparency: alpha_channel  # 暴雨到大暴雨 (映射到大暴雨 17)
     - file: "imgs/weather/black1x/18@1x.png"
       id: c312_1x_black
-      transparency: alpha_channel # 特大暴雨
+      transparency: alpha_channel  # 特大暴雨
     - file: "imgs/weather/black1x/18@1x.png"
       id: c308_1x_black
-      transparency: alpha_channel # 极端降雨 (映射到特大暴雨 18)
+      transparency: alpha_channel  # 极端降雨 (映射到特大暴雨 18)
     - file: "imgs/weather/black1x/18@1x.png"
       id: c318_1x_black
-      transparency: alpha_channel # 大暴雨到特大暴雨 (映射到特大暴雨 18)
+      transparency: alpha_channel  # 大暴雨到特大暴雨 (映射到特大暴雨 18)
 
     # 雷雨、冻雨
     - file: "imgs/weather/black1x/11@1x.png"
       id: c302_1x_black
-      transparency: alpha_channel # 雷阵雨
+      transparency: alpha_channel  # 雷阵雨
     - file: "imgs/weather/black1x/11@1x.png"
       id: c303_1x_black
-      transparency: alpha_channel # 强雷阵雨 (映射到雷阵雨 11)
+      transparency: alpha_channel  # 强雷阵雨 (映射到雷阵雨 11)
     - file: "imgs/weather/black1x/12@1x.png"
       id: c304_1x_black
-      transparency: alpha_channel # 雷阵雨伴有冰雹
+      transparency: alpha_channel  # 雷阵雨伴有冰雹
     - file: "imgs/weather/black1x/19@1x.png"
       id: c313_1x_black
-      transparency: alpha_channel # 冻雨
+      transparency: alpha_channel  # 冻雨
 
     # 雪
     - file: "imgs/weather/black1x/23@1x.png"
       id: c499_1x_black
-      transparency: alpha_channel # 雪 (映射到中雪 23)
+      transparency: alpha_channel  # 雪 (映射到中雪 23)
     - file: "imgs/weather/black1x/22@1x.png"
       id: c400_1x_black
-      transparency: alpha_channel # 小雪
+      transparency: alpha_channel  # 小雪
     - file: "imgs/weather/black1x/23@1x.png"
       id: c401_1x_black
-      transparency: alpha_channel # 中雪
+      transparency: alpha_channel  # 中雪
     - file: "imgs/weather/black1x/23@1x.png"
       id: c408_1x_black
-      transparency: alpha_channel # 小到中雪 (映射到中雪 23)
+      transparency: alpha_channel  # 小到中雪 (映射到中雪 23)
     - file: "imgs/weather/black1x/24@1x.png"
       id: c402_1x_black
-      transparency: alpha_channel # 大雪
+      transparency: alpha_channel  # 大雪
     - file: "imgs/weather/black1x/24@1x.png"
       id: c409_1x_black
-      transparency: alpha_channel # 中到大雪 (映射到大雪 24)
+      transparency: alpha_channel  # 中到大雪 (映射到大雪 24)
     - file: "imgs/weather/black1x/25@1x.png"
       id: c403_1x_black
-      transparency: alpha_channel # 暴雪
+      transparency: alpha_channel  # 暴雪
     - file: "imgs/weather/black1x/25@1x.png"
       id: c410_1x_black
-      transparency: alpha_channel # 大到暴雪 (映射到暴雪 25)
+      transparency: alpha_channel  # 大到暴雪 (映射到暴雪 25)
 
     # 混合和阵雪
     - file: "imgs/weather/black1x/20@1x.png"
       id: c404_1x_black
-      transparency: alpha_channel # 雨夹雪
+      transparency: alpha_channel  # 雨夹雪
     - file: "imgs/weather/black1x/20@1x.png"
       id: c405_1x_black
-      transparency: alpha_channel # 雨雪天气 (映射到雨夹雪 20)
+      transparency: alpha_channel  # 雨雪天气 (映射到雨夹雪 20)
     - file: "imgs/weather/black1x/20@1x.png"
       id: c406_1x_black
-      transparency: alpha_channel # 阵雨夹雪 (映射到雨夹雪 20)
+      transparency: alpha_channel  # 阵雨夹雪 (映射到雨夹雪 20)
     - file: "imgs/weather/black1x/20@1x.png"
       id: c456_1x_black
-      transparency: alpha_channel # 阵雨夹雪 (夜) (映射到雨夹雪 20)
+      transparency: alpha_channel  # 阵雨夹雪 (夜) (映射到雨夹雪 20)
     - file: "imgs/weather/black1x/21@1x.png"
       id: c407_1x_black
-      transparency: alpha_channel # 阵雪
+      transparency: alpha_channel  # 阵雪
     - file: "imgs/weather/black1x/21@1x.png"
       id: c457_1x_black
-      transparency: alpha_channel # 阵雪 (夜)
+      transparency: alpha_channel  # 阵雪 (夜)
 
     # 沙尘天气
     - file: "imgs/weather/black1x/26@1x.png"
       id: c504_1x_black
-      transparency: alpha_channel # 浮尘
+      transparency: alpha_channel  # 浮尘
     - file: "imgs/weather/black1x/27@1x.png"
       id: c503_1x_black
-      transparency: alpha_channel # 扬沙
+      transparency: alpha_channel  # 扬沙
     - file: "imgs/weather/black1x/28@1x.png"
       id: c507_1x_black
-      transparency: alpha_channel # 沙尘暴
+      transparency: alpha_channel  # 沙尘暴
     - file: "imgs/weather/black1x/29@1x.png"
       id: c508_1x_black
-      transparency: alpha_channel # 强沙尘暴
+      transparency: alpha_channel  # 强沙尘暴
 
     # 雾霾
     - file: "imgs/weather/black1x/30@1x.png"
       id: c500_1x_black
-      transparency: alpha_channel # 薄雾 (映射到雾 30)
+      transparency: alpha_channel  # 薄雾 (映射到雾 30)
     - file: "imgs/weather/black1x/30@1x.png"
       id: c501_1x_black
-      transparency: alpha_channel # 雾
+      transparency: alpha_channel  # 雾
     - file: "imgs/weather/black1x/30@1x.png"
       id: c509_1x_black
-      transparency: alpha_channel # 浓雾 (映射到雾 30)
+      transparency: alpha_channel  # 浓雾 (映射到雾 30)
     - file: "imgs/weather/black1x/30@1x.png"
       id: c510_1x_black
-      transparency: alpha_channel # 强浓雾 (映射到雾 30)
+      transparency: alpha_channel  # 强浓雾 (映射到雾 30)
     - file: "imgs/weather/black1x/30@1x.png"
       id: c514_1x_black
-      transparency: alpha_channel # 大雾 (映射到雾 30)
+      transparency: alpha_channel  # 大雾 (映射到雾 30)
     - file: "imgs/weather/black1x/30@1x.png"
       id: c515_1x_black
-      transparency: alpha_channel # 特强浓雾 (映射到雾 30)
+      transparency: alpha_channel  # 特强浓雾 (映射到雾 30)
     - file: "imgs/weather/black1x/31@1x.png"
       id: c502_1x_black
-      transparency: alpha_channel # 霾
+      transparency: alpha_channel  # 霾
     - file: "imgs/weather/black1x/31@1x.png"
       id: c511_1x_black
-      transparency: alpha_channel # 中度霾 (映射到霾 31)
+      transparency: alpha_channel  # 中度霾 (映射到霾 31)
     - file: "imgs/weather/black1x/31@1x.png"
       id: c512_1x_black
-      transparency: alpha_channel # 重度霾 (映射到霾 31)
+      transparency: alpha_channel  # 重度霾 (映射到霾 31)
     - file: "imgs/weather/black1x/31@1x.png"
       id: c513_1x_black
-      transparency: alpha_channel # 严重霾 (映射到霾 31)
+      transparency: alpha_channel  # 严重霾 (映射到霾 31)
 
     # 温度/未知
     - file: "imgs/weather/black1x/38@1x.png"
       id: c900_1x_black
-      transparency: alpha_channel # 热
+      transparency: alpha_channel  # 热
     - file: "imgs/weather/black1x/37@1x.png"
       id: c901_1x_black
-      transparency: alpha_channel # 冷
+      transparency: alpha_channel  # 冷
     - file: "imgs/weather/black1x/99@1x.png"
       id: c999_1x_black
-      transparency: alpha_channel # 未知
+      transparency: alpha_channel  # 未知
 
     - file: "imgs/weather/black2x/0@2x.png"
       id: c100_2x_black
@@ -246,171 +246,171 @@ image:
       transparency: alpha_channel
     - file: "imgs/weather/black2x/10@2x.png"
       id: c301_2x_black
-      transparency: alpha_channel # 强阵雨
+      transparency: alpha_channel  # 强阵雨
     - file: "imgs/weather/black2x/10@2x.png"
       id: c350_2x_black
       transparency: alpha_channel
     - file: "imgs/weather/black2x/10@2x.png"
       id: c351_2x_black
-      transparency: alpha_channel # 强阵雨 (夜)
+      transparency: alpha_channel  # 强阵雨 (夜)
     - file: "imgs/weather/black2x/14@2x.png"
       id: c399_2x_black
-      transparency: alpha_channel # 雨 (映射到中雨 14)
+      transparency: alpha_channel  # 雨 (映射到中雨 14)
     - file: "imgs/weather/black2x/13@2x.png"
       id: c305_2x_black
-      transparency: alpha_channel # 小雨
+      transparency: alpha_channel  # 小雨
     - file: "imgs/weather/black2x/13@2x.png"
       id: c309_2x_black
-      transparency: alpha_channel # 毛毛雨/细雨 (映射到小雨 13)
+      transparency: alpha_channel  # 毛毛雨/细雨 (映射到小雨 13)
     - file: "imgs/weather/black2x/14@2x.png"
       id: c306_2x_black
-      transparency: alpha_channel # 中雨
+      transparency: alpha_channel  # 中雨
     - file: "imgs/weather/black2x/15@2x.png"
       id: c307_2x_black
-      transparency: alpha_channel # 大雨
+      transparency: alpha_channel  # 大雨
     - file: "imgs/weather/black2x/14@2x.png"
       id: c314_2x_black
-      transparency: alpha_channel # 小到中雨 (映射到中雨 14)
+      transparency: alpha_channel  # 小到中雨 (映射到中雨 14)
     - file: "imgs/weather/black2x/15@2x.png"
       id: c315_2x_black
-      transparency: alpha_channel # 中到大雨 (映射到大雨 15)
+      transparency: alpha_channel  # 中到大雨 (映射到大雨 15)
 
     # 暴雨、极端降雨
     - file: "imgs/weather/black2x/16@2x.png"
       id: c310_2x_black
-      transparency: alpha_channel # 暴雨
+      transparency: alpha_channel  # 暴雨
     - file: "imgs/weather/black2x/16@2x.png"
       id: c316_2x_black
-      transparency: alpha_channel # 大到暴雨 (映射到暴雨 16)
+      transparency: alpha_channel  # 大到暴雨 (映射到暴雨 16)
     - file: "imgs/weather/black2x/17@2x.png"
       id: c311_2x_black
-      transparency: alpha_channel # 大暴雨
+      transparency: alpha_channel  # 大暴雨
     - file: "imgs/weather/black2x/17@2x.png"
       id: c317_2x_black
-      transparency: alpha_channel # 暴雨到大暴雨 (映射到大暴雨 17)
+      transparency: alpha_channel  # 暴雨到大暴雨 (映射到大暴雨 17)
     - file: "imgs/weather/black2x/18@2x.png"
       id: c312_2x_black
-      transparency: alpha_channel # 特大暴雨
+      transparency: alpha_channel  # 特大暴雨
     - file: "imgs/weather/black2x/18@2x.png"
       id: c308_2x_black
-      transparency: alpha_channel # 极端降雨 (映射到特大暴雨 18)
+      transparency: alpha_channel  # 极端降雨 (映射到特大暴雨 18)
     - file: "imgs/weather/black2x/18@2x.png"
       id: c318_2x_black
-      transparency: alpha_channel # 大暴雨到特大暴雨 (映射到特大暴雨 18)
+      transparency: alpha_channel  # 大暴雨到特大暴雨 (映射到特大暴雨 18)
 
     # 雷雨、冻雨
     - file: "imgs/weather/black2x/11@2x.png"
       id: c302_2x_black
-      transparency: alpha_channel # 雷阵雨
+      transparency: alpha_channel  # 雷阵雨
     - file: "imgs/weather/black2x/11@2x.png"
       id: c303_2x_black
-      transparency: alpha_channel # 强雷阵雨 (映射到雷阵雨 11)
+      transparency: alpha_channel  # 强雷阵雨 (映射到雷阵雨 11)
     - file: "imgs/weather/black2x/12@2x.png"
       id: c304_2x_black
-      transparency: alpha_channel # 雷阵雨伴有冰雹
+      transparency: alpha_channel  # 雷阵雨伴有冰雹
     - file: "imgs/weather/black2x/19@2x.png"
       id: c313_2x_black
-      transparency: alpha_channel # 冻雨
+      transparency: alpha_channel  # 冻雨
 
     # 雪
     - file: "imgs/weather/black2x/23@2x.png"
       id: c499_2x_black
-      transparency: alpha_channel # 雪 (映射到中雪 23)
+      transparency: alpha_channel  # 雪 (映射到中雪 23)
     - file: "imgs/weather/black2x/22@2x.png"
       id: c400_2x_black
-      transparency: alpha_channel # 小雪
+      transparency: alpha_channel  # 小雪
     - file: "imgs/weather/black2x/23@2x.png"
       id: c401_2x_black
-      transparency: alpha_channel # 中雪
+      transparency: alpha_channel  # 中雪
     - file: "imgs/weather/black2x/23@2x.png"
       id: c408_2x_black
-      transparency: alpha_channel # 小到中雪 (映射到中雪 23)
+      transparency: alpha_channel  # 小到中雪 (映射到中雪 23)
     - file: "imgs/weather/black2x/24@2x.png"
       id: c402_2x_black
-      transparency: alpha_channel # 大雪
+      transparency: alpha_channel  # 大雪
     - file: "imgs/weather/black2x/24@2x.png"
       id: c409_2x_black
-      transparency: alpha_channel # 中到大雪 (映射到大雪 24)
+      transparency: alpha_channel  # 中到大雪 (映射到大雪 24)
     - file: "imgs/weather/black2x/25@2x.png"
       id: c403_2x_black
-      transparency: alpha_channel # 暴雪
+      transparency: alpha_channel  # 暴雪
     - file: "imgs/weather/black2x/25@2x.png"
       id: c410_2x_black
-      transparency: alpha_channel # 大到暴雪 (映射到暴雪 25)
+      transparency: alpha_channel  # 大到暴雪 (映射到暴雪 25)
 
     # 混合和阵雪
     - file: "imgs/weather/black2x/20@2x.png"
       id: c404_2x_black
-      transparency: alpha_channel # 雨夹雪
+      transparency: alpha_channel  # 雨夹雪
     - file: "imgs/weather/black2x/20@2x.png"
       id: c405_2x_black
-      transparency: alpha_channel # 雨雪天气 (映射到雨夹雪 20)
+      transparency: alpha_channel  # 雨雪天气 (映射到雨夹雪 20)
     - file: "imgs/weather/black2x/20@2x.png"
       id: c406_2x_black
-      transparency: alpha_channel # 阵雨夹雪 (映射到雨夹雪 20)
+      transparency: alpha_channel  # 阵雨夹雪 (映射到雨夹雪 20)
     - file: "imgs/weather/black2x/20@2x.png"
       id: c456_2x_black
-      transparency: alpha_channel # 阵雨夹雪 (夜) (映射到雨夹雪 20)
+      transparency: alpha_channel  # 阵雨夹雪 (夜) (映射到雨夹雪 20)
     - file: "imgs/weather/black2x/21@2x.png"
       id: c407_2x_black
-      transparency: alpha_channel # 阵雪
+      transparency: alpha_channel  # 阵雪
     - file: "imgs/weather/black2x/21@2x.png"
       id: c457_2x_black
-      transparency: alpha_channel # 阵雪 (夜)
+      transparency: alpha_channel  # 阵雪 (夜)
 
     # 沙尘天气
     - file: "imgs/weather/black2x/26@2x.png"
       id: c504_2x_black
-      transparency: alpha_channel # 浮尘
+      transparency: alpha_channel  # 浮尘
     - file: "imgs/weather/black2x/27@2x.png"
       id: c503_2x_black
-      transparency: alpha_channel # 扬沙
+      transparency: alpha_channel  # 扬沙
     - file: "imgs/weather/black2x/28@2x.png"
       id: c507_2x_black
-      transparency: alpha_channel # 沙尘暴
+      transparency: alpha_channel  # 沙尘暴
     - file: "imgs/weather/black2x/29@2x.png"
       id: c508_2x_black
-      transparency: alpha_channel # 强沙尘暴
+      transparency: alpha_channel  # 强沙尘暴
 
     # 雾霾
     - file: "imgs/weather/black2x/30@2x.png"
       id: c500_2x_black
-      transparency: alpha_channel # 薄雾 (映射到雾 30)
+      transparency: alpha_channel  # 薄雾 (映射到雾 30)
     - file: "imgs/weather/black2x/30@2x.png"
       id: c501_2x_black
-      transparency: alpha_channel # 雾
+      transparency: alpha_channel  # 雾
     - file: "imgs/weather/black2x/30@2x.png"
       id: c509_2x_black
-      transparency: alpha_channel # 浓雾 (映射到雾 30)
+      transparency: alpha_channel  # 浓雾 (映射到雾 30)
     - file: "imgs/weather/black2x/30@2x.png"
       id: c510_2x_black
-      transparency: alpha_channel # 强浓雾 (映射到雾 30)
+      transparency: alpha_channel  # 强浓雾 (映射到雾 30)
     - file: "imgs/weather/black2x/30@2x.png"
       id: c514_2x_black
-      transparency: alpha_channel # 大雾 (映射到雾 30)
+      transparency: alpha_channel  # 大雾 (映射到雾 30)
     - file: "imgs/weather/black2x/30@2x.png"
       id: c515_2x_black
-      transparency: alpha_channel # 特强浓雾 (映射到雾 30)
+      transparency: alpha_channel  # 特强浓雾 (映射到雾 30)
     - file: "imgs/weather/black2x/31@2x.png"
       id: c502_2x_black
-      transparency: alpha_channel # 霾
+      transparency: alpha_channel  # 霾
     - file: "imgs/weather/black2x/31@2x.png"
       id: c511_2x_black
-      transparency: alpha_channel # 中度霾 (映射到霾 31)
+      transparency: alpha_channel  # 中度霾 (映射到霾 31)
     - file: "imgs/weather/black2x/31@2x.png"
       id: c512_2x_black
-      transparency: alpha_channel # 重度霾 (映射到霾 31)
+      transparency: alpha_channel  # 重度霾 (映射到霾 31)
     - file: "imgs/weather/black2x/31@2x.png"
       id: c513_2x_black
-      transparency: alpha_channel # 严重霾 (映射到霾 31)
+      transparency: alpha_channel  # 严重霾 (映射到霾 31)
 
     # 温度/未知
     - file: "imgs/weather/black2x/38@2x.png"
       id: c900_2x_black
-      transparency: alpha_channel # 热
+      transparency: alpha_channel  # 热
     - file: "imgs/weather/black2x/37@2x.png"
       id: c901_2x_black
-      transparency: alpha_channel # 冷
+      transparency: alpha_channel  # 冷
     - file: "imgs/weather/black2x/99@2x.png"
       id: c999_2x_black
-      transparency: alpha_channel # 未知
+      transparency: alpha_channel  # 未知

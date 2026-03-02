@@ -2,7 +2,7 @@ esphome:
   name: "${lemonade_device_name}"
   friendly_name: ${lemonade_device_friendly_name}
   platformio_options:
-    upload_speed: 921600
+    upload_speed: 1152000
   includes:
     - <esp_littlefs.h>
     - <mbedtls/base64.h>
@@ -168,7 +168,6 @@ globals:
     restore_value: no
     initial_value: '""'
 
-
 # Enable logging
 logger:
   level: DEBUG
@@ -200,7 +199,7 @@ ota:
             id: bar_ota_progress
             value: !lambda "return (int)x;"
         - lambda: "id(lvgl_1).loop();"
-    on_error: 
+    on_error:
       then:
         - logger.log: "Turn Off Lock"
         - lvgl.widget.hide: lbl_ota_prompt
@@ -228,7 +227,7 @@ ota:
             id: bar_ota_progress
             value: !lambda "return (int)x;"
         - lambda: "id(lvgl_1).loop();"
-    on_error: 
+    on_error:
       then:
         - logger.log: "Turn Off Lock"
         - lvgl.label.update:
@@ -256,7 +255,7 @@ wifi:
     then:
       - mqtt.disable:
       # - if:
-      #     condition: 
+      #     condition:
       #       lambda: 'return id(wifi_switch).state;'
       #     then:
       #       - logger.log: WiFi signal is too weak or not connected. Reconnecting...
@@ -279,7 +278,7 @@ switch:
       then:
         - logger.log: "Turn Off Lock"
         - power_management.release_lock:
-  
+
   - platform: template
     id: switch_powermanage_lock_apb
     optimistic: true
@@ -297,7 +296,7 @@ switch:
     id: wifi_switch
     widget: switch_wifi
     restore_mode: ALWAYS_ON
-    on_turn_on: 
+    on_turn_on:
       then:
         - wifi.enable
     on_turn_off:
@@ -352,7 +351,7 @@ mqtt:
     -----END CERTIFICATE-----
   log_topic:
     topic: null
-  on_connect: 
+  on_connect:
     then:
       - script.execute: keepalive
 
@@ -363,7 +362,7 @@ time:
     servers:
       - ntp.cookie987.top
       - cn.pool.ntp.org
-    on_time_sync: 
+    on_time_sync:
       then:
         - script.execute: update_date
         - script.execute: update_time
@@ -400,12 +399,12 @@ time:
               if (current_time < id(countdown_end_time)) {
                 // 计算剩余时间
                 unsigned long remaining = (id(countdown_end_time) - current_time) / 1000;
-                
+
                 // 计算小时、分钟、秒
                 int hours = remaining / 3600;
                 int minutes = (remaining % 3600) / 60;
                 int seconds = remaining % 60;
-                
+
                 // 更新roller显示
                 lv_roller_set_selected(id(roller_countdown_hours_tens).obj, hours / 10, LV_ANIM_ON);
                 lv_roller_set_selected(id(roller_countdown_hours_ones).obj, hours % 10, LV_ANIM_ON);
@@ -413,10 +412,10 @@ time:
                 lv_roller_set_selected(id(roller_countdown_minutes_ones).obj, minutes % 10, LV_ANIM_ON);
                 lv_roller_set_selected(id(roller_countdown_seconds_tens).obj, seconds / 10, LV_ANIM_ON);
                 lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, seconds % 10, LV_ANIM_ON);
-                
+
               }
             }
-    on_time: 
+    on_time:
       - seconds: '*'
         then:
           - script.execute: update_time
@@ -424,18 +423,18 @@ time:
         then:
           - script.execute: update_date
 
-sensor: 
+sensor:
   - platform: wifi_signal
     id: rssi
     update_interval: 4s
-    on_value: 
+    on_value:
       then:
         - script.execute: statusbar_update
 
   - platform: internal_temperature
     id: internal_temp
     update_interval: 2s
-    
+
   - platform: debug
     free:
       id: heap_free
@@ -473,7 +472,6 @@ http_request:
   useragent: "Lemonade/${lemonade_version} (https://cookie987.top)"
   watchdog_timeout: 10s
 
-
 text_sensor:
   - platform: wifi_info
     mac_address:
@@ -481,13 +479,13 @@ text_sensor:
   - platform: wifi_info
     ssid:
       id: ssid
-      on_value: 
+      on_value:
         then:
           - script.execute: refresh_wifi_list
   - platform: wifi_info
     scan_results:
       id: wifi_scan_results
-      on_value: 
+      on_value:
         then:
           - script.execute: refresh_wifi_list
   - platform: debug
@@ -510,4 +508,4 @@ select:
   - platform: lvgl
     widget: dropdown_image
     name: Background Select
-    restore_value: True
+    restore_value: true

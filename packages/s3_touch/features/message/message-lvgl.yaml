@@ -46,7 +46,7 @@ lvgl:
                       align: CENTER
                       scrollbar_mode: "OFF"
                       hidden: true
-                      bg_color: 0xFF0000 #ff0000
+                      bg_color: 0xFF0000   # #ff0000
                       opa: 100%
     - id: page_message
       scrollbar_mode: "OFF"
@@ -108,7 +108,7 @@ lvgl:
                         # 按钮类型项目
                         - text: "系统消息"
                           list_text: {}
-                        - text: "[系统] 聊天记录将保存至云端。" 
+                        - text: "[系统] 聊天记录将保存至云端。"
                           list_button: {}
                   - textarea:
                       id: textarea_message_friend_input
@@ -146,7 +146,7 @@ lvgl:
                         # 按钮类型项目
                         - text: "系统消息"
                           list_text: {}
-                        - text: "[系统] 聊天记录将保存至云端。" 
+                        - text: "[系统] 聊天记录将保存至云端。"
                           list_button: {}
                   - textarea:
                       id: textarea_message_public_input
@@ -217,7 +217,7 @@ script:
 
           // 2. 确保对象可见
           lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
-          
+
           // 高度动画回调
           auto anim_height_cb = [](void * var, int32_t v) { lv_obj_set_height((lv_obj_t *)var, v); };
 
@@ -228,7 +228,7 @@ script:
 
           // --- 键盘：强制从当前位置滑动到确定的 -2 ---
           lv_anim_set_var(&a, kb);
-          lv_anim_set_values(&a, lv_obj_get_y(kb), -2); 
+          lv_anim_set_values(&a, lv_obj_get_y(kb), -2);
           lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
           lv_anim_start(&a);
 
