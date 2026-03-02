@@ -73,6 +73,26 @@ void SdMmc::setup() {
   update_sensors();
 }
 
+void SdMmc::umount() {
+  if (this->card_ == nullptr) {
+    ESP_LOGW(TAG, "No SD card mounted to unmount");
+    return;
+  }
+
+  // 调用 ESP-IDF 的卸载函数
+  esp_err_t ret = esp_vfs_fat_sdcard_unmount(MOUNT_POINT.c_str(), this->card_);
+
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to unmount SD card: %s", esp_err_to_name(ret));
+    return;
+  }
+
+  // 释放 card 指针资源
+  this->card_ = nullptr;
+
+  ESP_LOGI(TAG, "SD card unmounted successfully");
+}
+
 void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
   std::string absolut_path = build_path(path);
   FILE *file = NULL;

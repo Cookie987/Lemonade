@@ -132,27 +132,6 @@ lvgl:
                       x: -10
                       recolor: true
                       text: "\U000F0091 -.--V" # start with mdi-battery-unknown
-                  - animimg:
-                      align: BOTTOM_RIGHT
-                      y: -3
-                      x: -50
-                      hidden: true
-                      auto_start: false
-                      id: ani_battery_charging
-                      src: [
-                        batt_empty,
-                        batt_10,
-                        batt_20,
-                        batt_30,
-                        batt_40,
-                        batt_50,
-                        batt_60,
-                        batt_70,
-                        batt_80,
-                        batt_90,
-                        batt_full
-                        ]
-                      duration: 2200ms
                   - label:
                       id: lbl_wifi_status
                       align: BOTTOM_LEFT

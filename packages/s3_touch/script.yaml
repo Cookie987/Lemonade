@@ -2,7 +2,12 @@ script:
   - id: halt
     then:
       - lvgl.widget.show: boot_screen
+      - lambda: |-
+          // umount filesystems to prevent corruption
+          esp_vfs_littlefs_unregister("littlefs");
+          id(sd)->umount();
       - lambda: global_preferences->sync();
+      - delay: 500ms
       - switch.turn_off: acc
 
   - id: wakeup_button
@@ -15,7 +20,6 @@ script:
                 id: backlight
                 transition_length: 0.5s
             - lambda: id(is_sleeping)=false;
-            - lvgl.animimg.start: ani_battery_charging
             - lvgl.resume:
                 lvgl_id: lvgl_1
             - switch.turn_on: switch_powermanage_lock_apb
@@ -28,7 +32,6 @@ script:
       - lambda: id(is_sleeping)=!id(is_sleeping);
       - lvgl.resume: 
           lvgl_id: lvgl_1
-      - lvgl.animimg.start: ani_battery_charging
       - if:
           condition:
             - lambda: 'return id(is_sleeping);'
@@ -36,8 +39,14 @@ script:
             - lvgl.pause:
                 show_snow: false
                 lvgl_id: lvgl_1
-            - lvgl.animimg.stop: ani_battery_charging
       - switch.toggle: switch_powermanage_lock_apb
+
+  - id: sdcard_init
+    mode: single
+    then:
+      - lambda: |-
+          for (auto const & file : id(sd)->list_directory("/", 3))
+            ESP_LOGI("SD", "File: %s\n", file.c_str());
 
   - id: littlefs_init
     mode: single
@@ -139,34 +148,35 @@ script:
                   if (percent < 0.0f) percent = 0.0f;
                   // 根据电量百分比选择 MDI 图标
                   std::string iconbat;
+                  iconbat = "mdi-battery";
+                  if (id(charge).state) {
+                      iconbat = "mdi-battery-charging";
+                  }
                   if (percent == 100.0f)
-                      iconbat = "\U000F0079"; // mdi-battery (full)
+                      iconbat += "";
                   else if (percent > 90)
-                      iconbat = "\U000F0082"; // mdi-battery-90
+                      iconbat += "-90";
                   else if (percent > 80)
-                      iconbat = "\U000F0081"; // mdi-battery-80
+                      iconbat += "-80";
                   else if (percent > 70)
-                      iconbat = "\U000F0080"; // mdi-battery-70
+                      iconbat += "-70";
                   else if (percent > 60)
-                      iconbat = "\U000F007F"; // mdi-battery-60
+                      iconbat += "-60";
                   else if (percent > 50)
-                      iconbat = "\U000F007E"; // mdi-battery-50
+                      iconbat += "-50";
                   else if (percent > 40)
-                      iconbat = "\U000F007D"; // mdi-battery-40
+                      iconbat += "-40";
                   else if (percent > 30)
-                      iconbat = "\U000F007C"; // mdi-battery-30
+                      iconbat += "-30";
                   else if (percent > 20)
-                      iconbat = "\U000F007B"; // mdi-battery-20
+                      iconbat += "-20";
                   else if (percent > 10)
-                      iconbat = "\U000F007A"; // mdi-battery-10
+                      iconbat += "-10";
                   else if (percent >= 0)
-                      iconbat = "\U000F008E"; // mdi-battery-outline
+                      iconbat += "-outline";
                   else
-                      iconbat = "\U000F0091"; // mdi-battery-unknown
-                  // if (id(usb_input_voltage).state > 4.5) {
-                  //     // 充电中图标隐藏
-                  //     iconbat = " "; 
-                  // }
+                      iconbat += "-unknow" ; // mdi-battery-unknown
+                  iconbat = id(mdi_icon_map)[iconbat];
                   // 格式化电压字符串
                   char bufbat[8];
                   sprintf(bufbat, "%.2f", rounded);
@@ -177,7 +187,56 @@ script:
                   else
                       batstr = iconbat + " " + bufbat + "V";
                   return icon + " " + batstr;
-
+            - lvgl.label.update:
+                id: lbl_battery_status
+                text: !lambda |-
+                  float v = id(battery_voltage).state;
+                  // 保留两位小数（四舍五入）
+                  float rounded = (int)(v * 100 + 0.5f) / 100.0f;
+                  // 电压映射到百分比
+                  // 4.15V = 100%，3.55V = 0%
+                  float percent = (rounded - 3.55f) / (4.15f - 3.55f) * 100.0f;
+                  if (percent > 100.0f) percent = 100.0f;
+                  if (percent < 0.0f) percent = 0.0f;
+                  // 根据电量百分比选择 MDI 图标
+                  std::string iconbat;
+                  iconbat = "mdi-battery";
+                  if (id(charge).state) {
+                      iconbat = "mdi-battery-charging";
+                  }
+                  if (percent == 100.0f)
+                      iconbat += "";
+                  else if (percent > 90)
+                      iconbat += "-90";
+                  else if (percent > 80)
+                      iconbat += "-80";
+                  else if (percent > 70)
+                      iconbat += "-70";
+                  else if (percent > 60)
+                      iconbat += "-60";
+                  else if (percent > 50)
+                      iconbat += "-50";
+                  else if (percent > 40)
+                      iconbat += "-40";
+                  else if (percent > 30)
+                      iconbat += "-30";
+                  else if (percent > 20)
+                      iconbat += "-20";
+                  else if (percent > 10)
+                      iconbat += "-10";
+                  else if (percent >= 0)
+                      iconbat += "-outline";
+                  else
+                      iconbat += "-unknow" ; // mdi-battery-unknown
+                  iconbat = id(mdi_icon_map)[iconbat];
+                  // 格式化电压字符串
+                  char buf[8];
+                  sprintf(buf, "%.2f", rounded);
+                  // 低电量红色警告（<3.4V）
+                  if (v < 3.55f || percent < 20.0f)
+                      return "#FF0000 " + iconbat + " " + buf + "V#";
+                  else
+                      return iconbat + " " + buf + "V";
             - lambda: |-
                 // 更新日期显示
                 auto t = id(ntp_time).now();

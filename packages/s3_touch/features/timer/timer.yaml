@@ -67,3 +67,10 @@ interval:
                       lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, 0, LV_ANIM_ON);
                     }
                   }
+
+image:
+  rgb565:
+    - file: "imgs/icon/app/timer-96x.png"
+      transparency: alpha_channel
+      id: timer_icon
+      resize: 96x96

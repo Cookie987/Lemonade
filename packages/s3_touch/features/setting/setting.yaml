@@ -2,3 +2,9 @@ packages:
   - !include setting-lvgl.yaml
   - !include setting-script.yaml
 
+image:
+  rgb565:
+    - file: "imgs/icon/app/settings-96x.png"
+      transparency: alpha_channel
+      id: settings_icon
+      resize: 96x96

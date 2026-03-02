@@ -3,7 +3,6 @@ esphome:
   friendly_name: ${lemonade_device_friendly_name}
   platformio_options:
     upload_speed: 921600
-  
   includes:
     - <esp_littlefs.h>
     - <mbedtls/base64.h>
@@ -15,6 +14,7 @@ esphome:
     - priority: 800
       then:
         - script.execute: littlefs_init
+        - script.execute: sdcard_init
     - priority: 400
       then:
         - script.execute: prase_iot_info
@@ -78,6 +78,9 @@ esp32:
         source: https://github.com/joltwallet/esp_littlefs.git
     advanced:
       execute_from_psram: yes
+      disable_vfs_support_termios: false
+      disable_vfs_support_select: false
+      disable_vfs_support_dir: false
     sdkconfig_options:
       CONFIG_PM_ENABLE: y
       CONFIG_PM_DFS_INIT_AUTO: y

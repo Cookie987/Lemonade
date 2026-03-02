@@ -78,6 +78,14 @@ async def to_code(config):
     cg.add(var.set_cmd_pin(config[CONF_CMD_PIN]))
     cg.add(var.set_data0_pin(config[CONF_DATA0_PIN]))
 
+    if CORE.is_esp32:
+        # Re-enable ESP-IDF's LCD driver (excluded by default to save compile time)
+        from esphome.components.esp32 import include_builtin_idf_component
+        
+        include_builtin_idf_component("fatfs")
+        include_builtin_idf_component("wear_levelling")
+        include_builtin_idf_component("spiffs")
+
     if (config[CONF_MODE_1BIT] == False):
         cg.add(var.set_data1_pin(config[CONF_DATA1_PIN]))
         cg.add(var.set_data2_pin(config[CONF_DATA2_PIN]))

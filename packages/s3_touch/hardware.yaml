@@ -96,27 +96,15 @@ binary_sensor:
       mode: INPUT_PULLUP
       inverted: true
     filters:
-      - settle: 20ms
+      - settle: 70ms
     on_press:
       then:
         - logger.log: Charger connected
+        - script.execute: update_date
     on_release: 
       then:
         - logger.log: Charger disconnected
-
-  - platform: gpio
-    pin:
-      number: GPIO48
-      mode: INPUT_PULLDOWN
-    id: sd_data3
-    filters:
-      - settle: 20ms
-    on_press:
-      then:
-        - logger.log: SD card injected
-    on_release: 
-      then:
-        - logger.log: SD card removed
+        - script.execute: update_date
 
 sensor:
   - platform: adc
@@ -159,15 +147,6 @@ sensor:
           - script.execute: update_date
           - if:
               condition:
-                lambda: 'return id(usb_input_voltage).state > 4.5;'
-              then:
-                - lvgl.widget.show: ani_battery_charging
-                - lvgl.animimg.start: ani_battery_charging
-              else:
-                - lvgl.widget.hide: ani_battery_charging
-                - lvgl.animimg.stop: ani_battery_charging
-          - if:
-              condition:
                 lvgl.page.is_showing: system_setting_power_page
               then:
                 - lvgl.indicator.update:
@@ -178,52 +157,21 @@ sensor:
                     text:
                       format: "%.2fV"
                       args: [ 'x' ]
-          - lvgl.label.update:
-              id: lbl_battery_status
-              text: !lambda |-
-                float v = id(battery_voltage).state;
-                // 保留两位小数（四舍五入）
-                float rounded = (int)(v * 100 + 0.5f) / 100.0f;
-                // 电压映射到百分比
-                // 4.15V = 100%，3.55V = 0%
-                float percent = (rounded - 3.55f) / (4.15f - 3.55f) * 100.0f;
-                if (percent > 100.0f) percent = 100.0f;
-                if (percent < 0.0f) percent = 0.0f;
-                // 根据电量百分比选择 MDI 图标
-                std::string icon;
-                if (percent == 100.0f)
-                    icon = "\U000F0079"; // mdi-battery (full)
-                else if (percent > 90)
-                    icon = "\U000F0082"; // mdi-battery-90
-                else if (percent > 80)
-                    icon = "\U000F0081"; // mdi-battery-80
-                else if (percent > 70)
-                    icon = "\U000F0080"; // mdi-battery-70
-                else if (percent > 60)
-                    icon = "\U000F007F"; // mdi-battery-60
-                else if (percent > 50)
-                    icon = "\U000F007E"; // mdi-battery-50
-                else if (percent > 40)
-                    icon = "\U000F007D"; // mdi-battery-40
-                else if (percent > 30)
-                    icon = "\U000F007C"; // mdi-battery-30
-                else if (percent > 20)
-                    icon = "\U000F007B"; // mdi-battery-20
-                else if (percent > 10)
-                    icon = "\U000F007A"; // mdi-battery-10
-                else if (percent >= 0)
-                    icon = "\U000F008E"; // mdi-battery-outline
-                else
-                    icon = "\U000F0091"; // mdi-battery-unknown
-                if (id(usb_input_voltage).state > 4.5) {
-                    // 充电中图标隐藏
-                    icon = " "; 
-                }
-                // 格式化电压字符串
-                char buf[8];
-                sprintf(buf, "%.2f", rounded);
-                // 低电量红色警告（<3.4V）
-                if (v < 3.55f || percent < 20.0f)
-                    return "#FF0000 " + icon + " " + buf + "V#";
-                else
-                    return icon + " " + buf + "V";
+
+  - platform: sd_mmc_card
+    type: used_space
+    id: sd_used_space
+
+  - platform: sd_mmc_card
+    type: free_space
+    id: sd_free_space
+
+sd_mmc_card:
+  id: sd
+  mode_1bit: true
+  clk_pin: GPIO21
+  cmd_pin: GPIO47
+  data0_pin: GPIO14
+  data1_pin: GPIO3
+  data2_pin: GPIO38
+  data3_pin: GPIO48
