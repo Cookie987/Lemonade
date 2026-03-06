@@ -32,6 +32,7 @@ lvgl:
                               time: 200ms
 
     - id: page_weather_forecast
+      skip: true
       on_load:
         - lvgl.label.update:
             id: lbl_topbar_title

@@ -1,6 +1,7 @@
 lvgl:
   pages:
     - id: page_timer
+      skip: true
       on_load:
         - lvgl.label.update:
             id: lbl_topbar_title

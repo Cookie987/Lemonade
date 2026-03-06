@@ -11,6 +11,7 @@
             text: "N/A"
 
     - id: page_weather_forecast
+      skip: true
       on_load:
         - lvgl.widget.show: tabview_weather
         - lvgl.label.update:

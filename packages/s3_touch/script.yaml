@@ -313,6 +313,9 @@ script:
                   //   return "\U000F0003 AP";
                   // }
                   auto x = id(rssi).state;
+                  if (isnan(x) || x >= 2147483647.0f) {
+                      return "\U000F092E -∞dBm";
+                  }
                   char buf[10];
                   if (x <= -100) {
                     sprintf(buf, "--dBm");

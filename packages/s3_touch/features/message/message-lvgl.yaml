@@ -49,6 +49,7 @@ lvgl:
                       bg_color: 0xFF0000   # #ff0000
                       opa: 100%
     - id: page_message
+      skip: true
       scrollbar_mode: "OFF"
       on_load:
         - lvgl.label.update:
