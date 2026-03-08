@@ -55,6 +55,7 @@ jobs:
           SHA256_HASH=$(sha256sum "./${FACTORY_BIN}" | awk '{ print $1 }')
           
           # 4. 生成附加到 Release 描述中的文本文件
+          mv changelog/${VERSION}-CHANGELOG.md release_notes.md
           echo "### 📦 固件校验和 (Checksums)" > release_notes.md
           echo "- **OTA 固件** (\`${OTA_BIN}\`)" >> release_notes.md
           echo "  - MD5: \`${MD5_HASH}\`" >> release_notes.md
