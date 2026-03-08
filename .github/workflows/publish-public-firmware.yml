@@ -1,4 +1,4 @@
-name: Build and Release ESPHome Firmware
+name: LemonadeOS Public 固件发布
 
 on:
   push:
@@ -25,6 +25,10 @@ jobs:
 
       - name: 安装 ESPHome
         run: pip install esphome
+
+      - name: 生成 secrets.yaml
+        run: |
+          echo "${{ secrets.ESPHOME_SECRETS }}" > secrets.yaml
 
       - name: 编译 ESPHome 固件
         run: esphome compile main-touch-public.yaml
