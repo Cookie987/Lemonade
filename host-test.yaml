@@ -27,3 +27,4 @@ packages:
   - !include packages/host-test/message-lvgl.yaml
   - !include packages/s3_touch/features/message/message-resource.yaml
   - !include packages/resources.yaml
+  - !include packages/s3_touch/games/limbus_prescript/prescript.yaml

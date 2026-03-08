@@ -47,6 +47,7 @@ packages:
   - !include packages/s3_touch/features/timer/timer.yaml
   # 游戏
   # - !include packages/games/game_core.yaml
+  - !include packages/s3_touch/games/limbus_prescript/prescript.yaml
   # 天气与日历
   - !include packages/s3_touch/features/weather/weather.yaml
   # 聊天
