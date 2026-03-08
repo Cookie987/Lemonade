@@ -8,6 +8,7 @@ image:
       id: limbus_prescript_icon
       resize: 96x96
     - file: "imgs/icon/prescript_logo.png"
+      transparency: alpha_channel
       id: prescript_logo
       resize: 85x100
 
