@@ -32,6 +32,10 @@ lvgl:
         - lvgl.canvas.fill:
             id: canvas_limbus_prescript_bg
             color: !lambda return lv_color_hex(0x000000);
+      on_unload:
+        - lvgl.label.update:
+            id: lbl_limbus_prescript_content
+            text: "#15dcff - Click to receive -#"
       widgets:
         - canvas:
             id: canvas_limbus_prescript_bg
@@ -55,7 +59,6 @@ lvgl:
             text: "#15dcff - Click to receive -#"
             text_color: !lambda return lv_color_hex(0x15dcff);
             align: CENTER
-            text_align: CENTER
             x: 0
             y: 60
             width: 280
