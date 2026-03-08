@@ -27,8 +27,11 @@ jobs:
         run: pip install esphome
 
       - name: 生成 secrets.yaml
+        env:
+          # 将 Secret 存入环境变量，避免 Shell 字符转义干扰
+          RAW_SECRETS: ${{ secrets.ESPHOME_SECRETS }}
         run: |
-          echo "${{ secrets.ESPHOME_SECRETS }}" > secrets.yaml
+          echo "$RAW_SECRETS" > secrets.yaml
 
       - name: 编译 ESPHome 固件
         run: esphome compile main-touch-public.yaml
