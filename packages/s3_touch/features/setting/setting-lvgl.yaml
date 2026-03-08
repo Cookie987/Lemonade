@@ -77,6 +77,10 @@ lvgl:
                           // 不知道为什么wifi->delete_wifi_stas不管用
                           // 所以这里需要先读取保存的wifi列表再“不添加”要删除的wifi
                           // 真的不是我故意这样写的😭
+
+                          // 2026/03/06 edit
+                          // 虽然我可能找到了删不掉和没法加的原因，是因为esphome限制了数量，现在我改了限制，可以用了
+                          // 但是我还是打算用这个，debug esphome本体有点麻烦（
                           id(delete_wifi_from_json)->execute(ssid);
                           id(prase_wifi_list)->execute();
                           id(refresh_wifi_list)->execute();

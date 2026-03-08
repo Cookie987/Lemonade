@@ -11,6 +11,7 @@ display:
     invert_colors: true
     auto_clear_enabled: false
     update_interval: never
+    pixel_mode: 16bit
     transform:
       swap_xy: true
       mirror_x: false
@@ -47,10 +48,10 @@ switch:
     id: acc
     restore_mode: ALWAYS_ON
 
-  # - platform: lvgl
-  #   id: bluetooth_switch
-  #   widget: switch_bluetooth
-  #   restore_mode: ALWAYS_ON
+    # - platform: lvgl
+    #   id: bluetooth_switch
+    #   widget: switch_bluetooth
+    #   restore_mode: ALWAYS_ON
 
 output:
   - platform: ledc

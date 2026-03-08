@@ -379,9 +379,7 @@ script:
               }
               if (root["wifis"]) {
                 JsonArray morewifi = root["wifis"];
-                for (JsonObject item : morewifi) {
-                  wifi_sum++;
-                }
+                wifi_sum += morewifi.size();
               }
               if (root["desc"]) {
                 desc = root["desc"].as<std::string>();
