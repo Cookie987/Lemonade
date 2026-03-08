@@ -23,6 +23,9 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: 安装 ESPHome
+        run: git+https://github.com/cookie987/esphome.git@release
+
       - name: 生成 secrets.yaml
         env:
           # 将 Secret 存入环境变量，避免 Shell 字符转义干扰
