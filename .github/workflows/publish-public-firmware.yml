@@ -24,7 +24,7 @@ jobs:
           cache: 'pip'
 
       - name: 安装 ESPHome
-        run: git+https://github.com/cookie987/esphome.git@release
+        run: pip install git+https://github.com/cookie987/esphome.git@release
 
       - name: 生成 secrets.yaml
         env:
