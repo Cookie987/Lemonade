@@ -5,7 +5,7 @@ image:
       resize: 320x240
 
 font:
-  - file: "fonts/MiSans-Medium.ttf"
+  - file: "fonts/SarasaUiSC-Regular.ttf"
     id: "chinese_font14"
     size: 14
     bpp: 4
@@ -67,6 +67,9 @@ font:
           "\uF054",
           "\uF00C",
         ]
+      # - file: "fonts/BJCree-Medium.ttf"
+      #   glyphs: ["ᓚᕙᕗᕐᑊᑌᑐᑕᑖᑗᓘᑙᑚᑛᑜᑝᑞᑟᑠᑡᑢᑣᑤᑥᑦᑫᑬᑭᑮᑯᑰᑱᑲᑳᑴᑵᑶᑷᑸᑹᑺᑻᑼᑽᑾᑿᒀᒁᒂᒃᒄᒉᒊᒋᒌᒍᒎᒏᒐᒑᒒᒓᒔᒕᒖᒗᒘᒙᒚᒛᒜᒝᒞᒟᒠᒡᒢᒣᒤᒥᒦᒧᒨᒩᒪᒫᒬᒭᒮᒯᒰᒱᒲᒳᒴᒵᒶᒷᒸᒹᒺ"
+      #   ]
 
   - file: "fonts/MiSans-Medium.ttf"
     id: "chinese_font36"
