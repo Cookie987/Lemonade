@@ -24,6 +24,9 @@ substitutions:
 ***REMOVED***
 esp32_ble_beacon: !remove
 
+external_components:
+  - source: components
+
 packages:
   # 核心组件
   - !include packages/s3_touch/lemonade.yaml
