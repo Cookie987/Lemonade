@@ -1,0 +1,74 @@
+name: Build and Release ESPHome Firmware
+
+on:
+  push:
+    tags:
+      - 'v*' # 触发条件：推送类似 v1.2.0 的 tag
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安装 ESPHome
+        run: pip install esphome
+
+      - name: 编译 ESPHome 固件
+        # 请确保这里的 yaml 文件名与你的实际情况一致
+        run: esphome compile lemonade-t.yaml
+
+      - name: 提取、重命名并计算校验和
+        id: process_firmware
+        run: |
+          # 1. 获取版本号 (从 tag 中移除前缀 'v'，例如 'v1.2.0' 变成 '1.2.0')
+          # 如果是手动触发，则默认使用分支名
+          VERSION=${GITHUB_REF_NAME#v}
+          
+          # 定义源目录和目标文件名
+          SRC_DIR=".esphome/build/lemonade-t/.pioenvs/lemonade-t"
+          OTA_BIN="firmware.ota.bin"
+          FACTORY_BIN="LemonadeOS-${VERSION}-SMCK-T-Public.bin"
+          
+          # 2. 复制并重命名文件
+          cp "${SRC_DIR}/firmware.ota.bin" "./${OTA_BIN}"
+          cp "${SRC_DIR}/firmware.factory.bin" "./${FACTORY_BIN}"
+          
+          # 3. 计算哈希值
+          # 使用 awk 提取哈希值部分，去掉后面的文件名
+          MD5_HASH=$(md5sum "./${OTA_BIN}" | awk '{ print $1 }')
+          SHA256_HASH=$(sha256sum "./${FACTORY_BIN}" | awk '{ print $1 }')
+          
+          # 4. 生成附加到 Release 描述中的文本文件
+          echo "### 📦 固件校验和 (Checksums)" > release_notes.md
+          echo "- **OTA 固件** (\`${OTA_BIN}\`)" >> release_notes.md
+          echo "  - MD5: \`${MD5_HASH}\`" >> release_notes.md
+          echo "- **Factory 固件** (\`${FACTORY_BIN}\`)" >> release_notes.md
+          echo "  - SHA256: \`${SHA256_HASH}\`" >> release_notes.md
+
+      - name: 发布到 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # 上传指定名称的固件
+          files: |
+            firmware.ota.bin
+            LemonadeOS-*-SMCK-T-Public.bin
+          # 自动生成代码变更记录
+          generate_release_notes: true
+          # 读取我们刚才生成的哈希值文件
+
+          body_path: release_notes.md
+          # 将哈希值追加到自动生成的变更记录后面，而不是覆盖它们
+          append_body: true
