@@ -119,42 +119,6 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
-  - id: is_slider_changing
-    type: bool
-    restore_value: no
-    initial_value: 'false'
-  - id: is_timer_running
-    type: bool
-    # restore_value: yes
-    initial_value: 'false'
-  - id: stopwatch_start_time
-    type: unsigned long
-    restore_value: yes
-    initial_value: '0'
-  - id: stopwatch_paused_time
-    type: unsigned long
-    restore_value: yes
-    initial_value: '0'
-  - id: is_countdown_running
-    type: bool
-    restore_value: yes
-    initial_value: 'false'
-  - id: countdown_end_time
-    type: unsigned long
-    restore_value: yes
-    initial_value: '0'
-  - id: countdown_hours
-    type: int
-    restore_value: yes
-    initial_value: '0'
-  - id: countdown_minutes
-    type: int
-    restore_value: yes
-    initial_value: '0'
-  - id: countdown_seconds
-    type: int
-    restore_value: yes
-    initial_value: '0'
   - id: iot_last_status
     type: std::string
     restore_value: yes
