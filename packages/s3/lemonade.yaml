@@ -18,7 +18,7 @@ esphome:
           id: backlight
           transition_length: 1s
       - script.execute: littlefs_init
-      - lambda: |-
+      - lambda: |
           float b = id(backlight).current_values.get_brightness();
           lv_slider_set_value(id(backlight_slider), b * 50.0, LV_ANIM_ON);
       - delay: 4s
@@ -253,7 +253,7 @@ time:
       then:
         - script.execute: update_date
         - script.execute: update_time
-        - lambda: |-
+        - lambda: |
             // 初始化秒表状态（仅在没有保存的状态时）
             static bool initialized = false;
             if (!initialized) {

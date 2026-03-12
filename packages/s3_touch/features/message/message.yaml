@@ -24,7 +24,7 @@ globals:
 script:
   - id: send_message
     then:
-      - lambda: |-
+      - lambda: |
           uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
           std::string targetuid = std::string(lv_textarea_get_text(textarea_message_username_input));
           ESP_LOGD("Chat", "Target UID: %s", targetuid.c_str());
@@ -99,7 +99,7 @@ script:
 
   - id: message_public_listen
     then:
-      - lambda: |-
+      - lambda: |
           id(mqtt_client).subscribe("smck/glousr", [=](const std::string &topic, const std::string &payload) {
               ESP_LOGD("Chat", "Got raw public chat message.");
               // 获取发送者

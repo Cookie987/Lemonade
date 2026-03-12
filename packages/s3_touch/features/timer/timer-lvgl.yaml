@@ -45,7 +45,7 @@ lvgl:
                             text: "开始"
                       on_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               if (!id(is_timer_running)) {
                                 // 开始计时 - 设置起始时间为当前时间减去暂停时间
                                 id(stopwatch_start_time) = millis() - id(stopwatch_paused_time);
@@ -73,7 +73,7 @@ lvgl:
                             text: "重置"
                       on_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               id(is_timer_running) = false;
                               lv_timer_pause(id(stopwatch_timer));
                               lv_label_set_text(id(lbl_stopwatch), "00:00:00.00");
@@ -180,7 +180,7 @@ lvgl:
                             text: "开始"
                       on_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               if (!id(is_countdown_running)) {
                                 // 检查是否是恢复倒计时
                                 if (id(countdown_end_time) > 0) {
@@ -242,7 +242,7 @@ lvgl:
                             text: "重置"
                       on_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               id(is_countdown_running) = false;
                               lv_timer_pause(id(countdown_timer));
                               id(countdown_end_time) = 0;

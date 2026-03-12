@@ -14,7 +14,7 @@ interval:
                   condition:
                     lvgl.page.is_showing: page_timer
                   then:
-                  - lambda: |-
+                  - lambda: |
                       // 秒表更新逻辑，精确到0.01秒
                       if (id(is_timer_running)) {
                         unsigned long elapsed = millis() - id(stopwatch_start_time);
@@ -36,7 +36,7 @@ interval:
                   condition:
                     lvgl.page.is_showing: page_timer
                   then:
-                  - lambda: |-
+                  - lambda: |
                       // 倒计时更新逻辑
                       if (id(is_countdown_running)) {
                         unsigned long current_time = millis();

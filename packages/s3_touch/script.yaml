@@ -2,7 +2,7 @@ script:
   - id: halt
     then:
       - lvgl.widget.show: boot_screen
-      - lambda: |-
+      - lambda: |
           // umount filesystems to prevent corruption
           esp_vfs_littlefs_unregister("littlefs");
           id(sd)->umount();
@@ -16,6 +16,8 @@ script:
           condition:
             lambda: 'return id(is_sleeping);'
           then:
+            # display on
+            - lambda: id(watchface)->set_command(0x29);
             - light.turn_on:
                 id: backlight
                 transition_length: 0.5s
@@ -36,22 +38,27 @@ script:
           condition:
             - lambda: 'return id(is_sleeping);'
           then:
+            # display off
+            - lambda: id(watchface)->set_command(0x28);
             - lvgl.pause:
                 show_snow: false
                 lvgl_id: lvgl_1
+          else:
+            # display on
+            - lambda: id(watchface)->set_command(0x29);
       - switch.toggle: switch_powermanage_lock_apb
 
   - id: sdcard_init
     mode: single
     then:
-      - lambda: |-
+      - lambda: |
           for (auto const & file : id(sd)->list_directory("/", 3))
             ESP_LOGI("SD", "File: %s\n", file.c_str());
 
   - id: littlefs_init
     mode: single
     then:
-      - lambda: |-
+      - lambda: |
           esp_vfs_littlefs_conf_t conf = {
             .base_path = "/data",
             .partition_label = "littlefs",
@@ -85,7 +92,7 @@ script:
   - id: set_background_img
     mode: single
     then:
-      - lambda: |-
+      - lambda: |
           ESP_LOGI("CookieIoT", "Selected Cookie IoT background image.");
           struct stat st;
           const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
@@ -100,7 +107,7 @@ script:
   - id: get_background_img
     mode: single
     then:
-      - lambda: |-
+      - lambda: |
           std::string mac = id(text_sensor_mac_address).state;
           id(mqtt_client).publish_json(
             "server/" + mac + "/request/background",
@@ -236,7 +243,7 @@ script:
                       return "#FF0000 " + iconbat + " " + buf + "V#";
                   else
                       return iconbat + " " + buf + "V";
-            - lambda: |-
+            - lambda: |
                 // 更新日期显示
                 auto t = id(ntp_time).now();
                 char date_buf[30];
@@ -274,7 +281,7 @@ script:
           condition:
             lambda: 'return !id(is_sleeping);'
           then:
-            - lambda: |-
+            - lambda: |
                 // 更新时间显示
                 auto t = id(ntp_time).now();
                 char buf[9];
@@ -283,7 +290,7 @@ script:
 
   - id: keepalive
     then:
-      - lambda: |-
+      - lambda: |
           std::string mac = id(text_sensor_mac_address).state;
           id(mqtt_client).publish_json((std::string("server/") +
                                             mac +
@@ -341,21 +348,21 @@ script:
 
   - id: get_iot_info
     then:
-      - lambda: |-
+      - lambda: |
           std::string mac = id(text_sensor_mac_address).state;
           id(mqtt_client).publish_json(
             "server/" + mac + "/request/config",
             [=](JsonObject root) {},
             1); // QoS 1
           ESP_LOGD("CookieIoT", "Requested config...");
-      - lambda: |-
+      - lambda: |
           // 获取时间日期
           auto t = id(ntp_time).now();
           id(iot_last_status) = t.strftime("%Y-%m-%d %H:%M:%S");
 
   - id: prase_iot_info
     then:
-      - lambda: |-
+      - lambda: |
           std::string config_json;
           // 读取文件
           ESP_LOGD("CookieIoT", "Started parsing cfg.json");
@@ -400,7 +407,7 @@ script:
 
   - id: refresh_info_page
     then:
-      - lambda: |-
+      - lambda: |
           using namespace esphome;
 
           // 获取 WiFi 全局对象
@@ -471,7 +478,7 @@ script:
   - id: wifi_list_update
     mode: single
     then:
-      - lambda: |-
+      - lambda: |
           std::string mac = id(text_sensor_mac_address).state;
           id(mqtt_client).publish_json(
             "server/" + mac + "/request/wifilist",
@@ -488,7 +495,7 @@ script:
       suffix: string
     mode: queued
     then:
-      - lambda: |-
+      - lambda: |
           lv_obj_t * screen = lv_disp_get_layer_top(lvgl_1->get_disp());
           lv_obj_t * target_bar = nullptr;
           const int32_t BAR_Y_HIDE = -45; // 隐藏时的 Y 坐标
@@ -604,7 +611,7 @@ script:
       notification_message: string
     mode: queued
     then:
-      - lambda: |-
+      - lambda: |
           lv_obj_t * screen = lv_disp_get_layer_top(lvgl_1->get_disp());
           lv_obj_t * target_bar = nullptr;
           std::string suffix = notification_message;

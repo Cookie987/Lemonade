@@ -215,7 +215,7 @@ lvgl:
                       align: CENTER
                       on_click:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               // 1. 创建背景框 (Parent)
                               lv_obj_t * obj_notification_bar = lv_obj_create(lv_disp_get_layer_top(lvgl_1->get_disp()));
                               lv_obj_set_size(obj_notification_bar, 240, 25);

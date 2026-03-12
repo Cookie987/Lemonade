@@ -5,7 +5,7 @@ script:
       ssid: string
       password: string
     then:
-      - lambda: |-
+      - lambda: |
           ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
           std::ifstream file("/data/wifilist.json");
           if (!file.is_open()) {
@@ -55,7 +55,7 @@ script:
     parameters:
       ssid: string
     then:
-      - lambda: |-
+      - lambda: |
           // 1. 解析原始字符串
           ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
           std::ifstream file("/data/wifilist.json");
@@ -100,7 +100,7 @@ script:
 
   - id: prase_wifi_list
     then:
-      - lambda: |-
+      - lambda: |
           // 读取Wi-Fi配置文件
           ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
           std::ifstream file("/data/wifilist.json");
@@ -136,7 +136,7 @@ script:
 
   - id: refresh_wifi_list
     then:
-      - lambda: |-
+      - lambda: |
           auto wifi = wifi::global_wifi_component;
           auto &saved_wifis = wifi->get_sta_list();
           for (const auto &ap : saved_wifis) {

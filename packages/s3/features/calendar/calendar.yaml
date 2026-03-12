@@ -132,7 +132,7 @@ lvgl:
                       return "zsv/sche/request";
                     payload: |-
                       root["mac"] = id(text_sensor_mac_address).state;
-                - lambda: |-
+                - lambda: |
                     ESP_LOGD("987IoT", "Started updating schedule");
                     std::string mac = id(text_sensor_mac_address).state;
                     id(mqtt_client).subscribe("zsv/sche/response/" + mac, [=](const std::string &topic, const std::string &payload) {
@@ -159,7 +159,7 @@ script:
   - id: prase_schedule
     mode: single
     then: 
-      - lambda: |-
+      - lambda: |
           std::string schedule_json;
           // 读取文件
           ESP_LOGD("987IoT", "Started parsing schedule.json");

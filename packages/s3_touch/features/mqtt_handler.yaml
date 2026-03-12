@@ -1,7 +1,7 @@
 script:
   - id: mqtt_response_handler
     then:
-      - lambda: |-
+      - lambda: |
           std::string mac = id(text_sensor_mac_address).state;
           id(mqtt_client).subscribe("device/" + mac + "/response/#", [=](const std::string &topic, const std::string &payload) {
               ESP_LOGI("CookieIoT", "Received from topic %s: %s", topic.c_str(), payload.c_str());

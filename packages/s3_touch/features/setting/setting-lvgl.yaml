@@ -55,7 +55,7 @@ lvgl:
           text: "好"
           on_click:
             then:
-              - lambda: |-
+              - lambda: |
                   auto wifi = wifi::global_wifi_component;
                   lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_wifi_message);
                   const char *txt = lv_label_get_text(msgbox_text);
@@ -523,7 +523,7 @@ lvgl:
                   text: "恢复默认网络配置"
             on_click:
               then:
-                - lambda: |-
+                - lambda: |
                     auto wifi = wifi::global_wifi_component;
                     if (wifi == nullptr) return;
                     wifi->clear_saved_wifi_stas();
@@ -587,7 +587,7 @@ lvgl:
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "存储设置"
-        - lambda: |-
+        - lambda: |
             size_t total = 0, used = 0;
             esp_err_t ret = esp_littlefs_info("littlefs", &total, &used);
             if (ret != ESP_OK)
@@ -669,7 +669,7 @@ lvgl:
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "添加Wi-Fi"
-        - lambda: |-
+        - lambda: |
             // 清空textarea，因为每次进入这个页面才会有新的SSID
             lv_textarea_set_text(txt_new_wifi_password, "");
       widgets:
@@ -695,7 +695,7 @@ lvgl:
             placeholder_text: "输入Wi-Fi密码"
             on_ready:
               then:
-                - lambda: |-
+                - lambda: |
                     // 需要同步到json文件统一操作
                     // ssid和密码
                     std::string ssid = lv_label_get_text(id(lbl_new_wifi_ssid));

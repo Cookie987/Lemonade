@@ -11,7 +11,7 @@ script:
       suffix: string
     mode: queued
     then:
-      - lambda: |-
+      - lambda: |
           lv_obj_t * screen = lv_disp_get_layer_top(lvgl_1->get_disp());
           lv_obj_t * target_bar = nullptr;
           const int32_t BAR_Y_HIDE = -45; // 隐藏时的 Y 坐标
@@ -124,7 +124,7 @@ script:
       notification_message: string
     mode: queued
     then:
-      - lambda: |-
+      - lambda: |
           lv_obj_t * screen = lv_disp_get_layer_top(lvgl_1->get_disp());
           lv_obj_t * target_bar = nullptr;
           std::string suffix = notification_message;

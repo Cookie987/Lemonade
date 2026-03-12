@@ -302,7 +302,7 @@ lvgl:
                             text: "开始"
                       on_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               if (!id(is_timer_running)) {
                                 // 开始计时 - 设置起始时间为当前时间减去暂停时间
                                 id(stopwatch_start_time) = millis() - id(stopwatch_paused_time);
@@ -328,7 +328,7 @@ lvgl:
                             text: "重置"
                       on_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               id(is_timer_running) = false;
                               lv_label_set_text(id(lbl_stopwatch), "00:00:00.00");
                               lv_label_set_text(id(lbl_btn_stopwatch), "开始");
@@ -440,7 +440,7 @@ lvgl:
                             text: "开始"
                       on_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               if (!id(is_countdown_running)) {
                                 // 检查是否是恢复倒计时
                                 if (id(countdown_end_time) > 0) {
@@ -499,7 +499,7 @@ lvgl:
                             text: "重置"
                       on_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               id(is_countdown_running) = false;
                               id(countdown_end_time) = 0;
                               id(countdown_hours) = 0;
@@ -821,13 +821,13 @@ lvgl:
               disabled: true
             on_change:
               then:
-                - lambda: |-
+                - lambda: |
                     id(is_slider_changing) = true;
                 - light.turn_on:
                     id: backlight
                     brightness: !lambda 'return lv_slider_get_value(id(backlight_slider)) / 50.0;'
                 - delay: 100ms
-                - lambda: |-
+                - lambda: |
                     id(is_slider_changing) = false;
         - roller:
             id: roller_image
@@ -980,7 +980,7 @@ lvgl:
                   text: "恢复默认网络配置"
             on_click:
               then:
-                - lambda: |- 
+                - lambda: | 
                     auto wifi = wifi::global_wifi_component;
                     if (wifi == nullptr) return;
                     wifi->clear_sta();
@@ -1046,7 +1046,7 @@ lvgl:
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "LittleFS 设置"
-        - lambda: |-
+        - lambda: |
             size_t total = 0, used = 0;
             esp_vfs_littlefs_conf_t conf = {
             .base_path = "/littlefs",

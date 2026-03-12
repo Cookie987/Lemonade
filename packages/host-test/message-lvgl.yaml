@@ -1,6 +1,6 @@
 lvgl:
   on_boot:
-    lambda: |-
+    lambda: |
       lv_obj_t * kb = keyboard_message_input->obj;
       lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_IME_CHN);
       lv_obj_t * list = id(obj_message_candidate_list);
@@ -108,7 +108,7 @@ lvgl:
                       placeholder_text: "单击输入消息，长按进入全屏输入"
                       on_long_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               lv_obj_set_size(id(textarea_message_friend_input), 320, 95);
                               lv_textarea_set_placeholder_text(textarea_message_friend_input, "收起键盘退出全屏输入");
                           - script.execute: keyboard_message_show
@@ -146,7 +146,7 @@ lvgl:
                       placeholder_text: "单击输入消息，长按进入全屏输入"
                       on_long_press:
                         then:
-                          - lambda: |-
+                          - lambda: |
                               lv_obj_set_size(id(textarea_message_public_input), 320, 95);
                               lv_textarea_set_placeholder_text(textarea_message_public_input, "收起键盘退出全屏输入");
                           - script.execute: keyboard_message_show
@@ -187,7 +187,7 @@ lvgl:
 script:
   - id: keyboard_message_show
     then:
-      - lambda: |-
+      - lambda: |
           auto kb = id(keyboard_message_input)->obj;
           auto pub_input = id(textarea_message_public_input);
           auto pub_list = id(list_message_public);
@@ -244,7 +244,7 @@ script:
 
   - id: keyboard_message_hide
     then:
-      - lambda: |-
+      - lambda: |
           auto kb = id(keyboard_message_input)->obj;
           auto pub_input = id(textarea_message_public_input);
           auto pub_list = id(list_message_public);

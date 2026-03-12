@@ -64,7 +64,7 @@ lvgl:
             width: 280
             height: 120
             on_click:
-              - lambda: |-
+              - lambda: |
                   static const char mask_chars[] = "$%&*@?!<>/";
                   uint32_t speed_ms = 80;
                   // 3. 使用结构体存储动画状态（Lambda 无法直接持有非静态局部变量的长生命周期引用）

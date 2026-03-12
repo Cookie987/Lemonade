@@ -53,7 +53,7 @@ globals:
 script:
   - id: countdown_init
     then:
-      - lambda: |-
+      - lambda: |
           // 创建每 1s 执行一次的定时器
           id(countdown_timer) = lv_timer_create([](lv_timer_t * t) {
               unsigned long current_time = millis();
@@ -89,7 +89,7 @@ script:
 
   - id: stopwatch_init
     then:
-      - lambda: |-
+      - lambda: |
           id(stopwatch_timer) = lv_timer_create([](lv_timer_t * t) {
             if (page_timer->is_showing() && !id(is_sleeping)) {
               unsigned long elapsed = millis() - id(stopwatch_start_time);
@@ -106,7 +106,7 @@ script:
 
   - id: !extend sleep_button
     then:
-      - lambda: |-
+      - lambda: |
           if (id(is_sleeping)) {
             lv_timer_pause(id(stopwatch_timer));
             lv_timer_pause(id(countdown_timer));
@@ -122,7 +122,7 @@ script:
 
   - id: !extend wakeup_button
     then:
-      - lambda: |-
+      - lambda: |
           if (id(is_sleeping)) {
             lv_timer_pause(id(stopwatch_timer));
             lv_timer_pause(id(countdown_timer));
