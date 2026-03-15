@@ -214,7 +214,8 @@ wifi:
   on_connect:
     then:
       - mqtt.enable:
-
+  cooldown_off_attempts: 6
+  cooldown_off_time: 5min
   on_disconnect:
     then:
       - mqtt.disable:
@@ -391,9 +392,6 @@ sensor:
   - platform: wifi_signal
     id: rssi
     update_interval: 4s
-    on_value:
-      then:
-        - script.execute: statusbar_update
 
   - platform: internal_temperature
     id: internal_temp
