@@ -320,6 +320,7 @@ script:
                   //   return "\U000F0003 AP";
                   // }
                   auto x = id(rssi).state;
+                  auto ssid_val = id(ssid).state;
                   if (isnan(x) || x >= 2147483647.0f) {
                       return "\U000F092E -∞dBm";
                   }
@@ -343,6 +344,9 @@ script:
                     icon = "\U000F091F"; // mdi-wifi-strength-1
                   } else {
                     icon = "\U000F092E"; // mdi-wifi-strength-off-outline
+                  }
+                  if (ssid_val == "") {
+                    return "\U000F092F -∞dBm"; // mdi-wifi-strength-outline
                   }
                   return std::string(icon) + " " + std::string(buf);
 
