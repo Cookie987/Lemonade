@@ -12,6 +12,8 @@ display:
     auto_clear_enabled: false
     update_interval: never
     pixel_mode: 16bit
+    double_buffer: false
+    use_dma: true
     transform:
       swap_xy: true
       mirror_x: false

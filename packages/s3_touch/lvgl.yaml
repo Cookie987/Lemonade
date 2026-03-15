@@ -1,9 +1,11 @@
 lvgl:
   id: lvgl_1
   log_level: WARN
+  double_buffer: false
+  use_dma: true
   touchscreens:
     touchscreen_id: touch_panel
-  buffer_size: 100%
+  buffer_size: 50%
   color_depth: 16
   resume_on_input: false
   top_layer:
