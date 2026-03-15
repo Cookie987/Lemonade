@@ -134,7 +134,7 @@ lvgl:
                           - lvgl.keyboard.update:
                               id: keyboard_message_input
                               textarea: textarea_message_friend_input
-              - name: 频道
+              - name: 广场
                 scrollable: false
                 widgets:
                   - list:
