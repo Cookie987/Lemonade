@@ -20,8 +20,8 @@ substitutions:
   lemonade_ibeacon_measured_power: "-59"
   lemonade_ota_md5_url: ***REMOVED***lemonade/s3-touch/canary/lemonade.md5
   lemonade_ota_url: ***REMOVED***lemonade/s3-touch/canary/firmware.ota.bin
+***REMOVED***  log_level: DEBUG
 
-***REMOVED***
 external_components:
   - source: components
 
