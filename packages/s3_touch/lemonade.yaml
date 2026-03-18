@@ -52,7 +52,6 @@ esphome:
         - lambda: |
             float b = id(backlight).current_values.get_brightness();
             lv_slider_set_value(id(backlight_slider), b * 100.0, LV_ANIM_ON);
-        - switch.turn_on: switch_powermanage_lock_apb
         - light.turn_on:
             id: backlight
             transition_length: 1s
@@ -131,10 +130,26 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: battery_soc
+    type: float
+    restore_value: yes
+    initial_value: '50.0f'
+  - id: battery_soc_initialized
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: battery_raw_percent
+    type: float
+    restore_value: no
+    initial_value: '0.0f'
+  - id: battery_raw_valid
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 # Enable logging
 logger:
-  level: DEBUG
+  level: ${log_level}
   on_message:
     level: ERROR
     then:
@@ -156,7 +171,11 @@ ota:
       - output.set_level:
           id: backlight_pin
           level: 100%
-      - delay: 1s
+      - lambda: |
+          // umount filesystems to prevent corruption
+          esp_vfs_littlefs_unregister("littlefs");
+          id(sd)->umount();
+      - lambda: global_preferences->sync();
     on_progress:
       then:
         - lvgl.bar.update:
@@ -214,8 +233,8 @@ wifi:
   on_connect:
     then:
       - mqtt.enable:
-  cooldown_off_attempts: 6
-  cooldown_off_time: 5min
+  cooldown_off_attempts: 2
+  cooldown_off_time: 2min
   on_disconnect:
     then:
       - mqtt.disable:
@@ -247,15 +266,23 @@ switch:
   - platform: template
     id: switch_powermanage_lock_apb
     optimistic: true
-    restore_mode: ALWAYS_OFF
+    restore_mode: ALWAYS_ON
     turn_on_action:
       then:
-        - logger.log: "Turn On Lock"
-        - power_management.acquire_lock: APB
+        if:
+          condition:
+            lambda: 'return !id(switch_powermanage_lock_apb).state;'
+          then:
+            - logger.log: "Turning on APB Lock"
+            - power_management.acquire_lock: APB
     turn_off_action:
       then:
-        - logger.log: "Turn Off Lock"
-        - power_management.release_lock: APB
+        if:
+          condition:
+            lambda: 'return id(switch_powermanage_lock_apb).state;'
+          then:
+            - logger.log: "Turning off APB Lock"
+            - power_management.release_lock: APB
 
   - platform: lvgl
     id: wifi_switch
@@ -391,11 +418,11 @@ time:
 sensor:
   - platform: wifi_signal
     id: rssi
-    update_interval: 4s
+    update_interval: 10s
 
   - platform: internal_temperature
     id: internal_temp
-    update_interval: 2s
+    update_interval: 20s
 
   - platform: debug
     free:

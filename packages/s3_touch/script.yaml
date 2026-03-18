@@ -16,37 +16,51 @@ script:
           condition:
             lambda: 'return id(is_sleeping);'
           then:
-            # display on
-            - lambda: id(watchface)->set_command(0x29);
-            - light.turn_on:
-                id: backlight
-                transition_length: 0.5s
-            - lambda: id(is_sleeping)=false;
-            - lvgl.resume:
-                lvgl_id: lvgl_1
-            - switch.turn_on: switch_powermanage_lock_apb
+            - script.execute: wakeup_script
 
   - id: sleep_button
     then:
-      - light.toggle:
-          id: backlight
-          transition_length: 0.5s
-      - lambda: id(is_sleeping)=!id(is_sleeping);
-      - lvgl.resume:
-          lvgl_id: lvgl_1
       - if:
           condition:
             - lambda: 'return id(is_sleeping);'
           then:
-            # display off
-            - lambda: id(watchface)->set_command(0x28);
-            - lvgl.pause:
-                show_snow: false
-                lvgl_id: lvgl_1
+            - script.execute: wakeup_script
           else:
-            # display on
-            - lambda: id(watchface)->set_command(0x29);
-      - switch.toggle: switch_powermanage_lock_apb
+            - script.execute: sleep_script
+
+  - id: sleep_script
+    then:
+      - lambda: id(is_sleeping)=true;
+      - lvgl.pause:
+          show_snow: false
+          lvgl_id: lvgl_1
+      - light.turn_off:
+          id: backlight
+          transition_length: 0.5s
+      # display off
+      - lambda: id(watchface)->set_command(0x28);
+      # sleep in
+      - lambda: id(watchface)->set_command(0x10);
+      # slow down main loop
+      - lambda: App.set_loop_interval(150);
+      - switch.turn_off: switch_powermanage_lock_apb
+
+  - id: wakeup_script
+    then:
+      - switch.turn_on: switch_powermanage_lock_apb
+      - lambda: id(is_sleeping)=false;
+      - light.turn_on:
+          id: backlight
+          transition_length: 0.5s
+      # sleep out
+      - lambda: id(watchface)->set_command(0x11);
+      - delay: 120ms
+      # display on
+      - lambda: id(watchface)->set_command(0x29);
+      # normalize main loop
+      - lambda: App.set_loop_interval(16);
+      - lvgl.resume:
+          lvgl_id: lvgl_1
 
   - id: sdcard_init
     mode: single
@@ -144,14 +158,10 @@ script:
                   if (ssid_val == "") {
                     icon = "\U000F092F"; // mdi-wifi-strength-outline
                   }
-                  float v = id(battery_voltage).state;
-                  // 保留两位小数（四舍五入）
-                  float rounded = (int)(v * 100 + 0.5f) / 100.0f;
-                  // 电压映射到百分比
-                  // 4.15V = 100%，3.55V = 0%
-                  float percent = (rounded - 3.55f) / (4.15f - 3.55f) * 100.0f;
+                  float percent = id(battery_soc);
                   if (percent > 100.0f) percent = 100.0f;
                   if (percent < 0.0f) percent = 0.0f;
+                  int pct = (int)(percent + 0.5f);
                   // 根据电量百分比选择 MDI 图标
                   std::string iconbat;
                   iconbat = "mdi-battery";
@@ -183,27 +193,23 @@ script:
                   else
                       iconbat += "-unknow" ; // mdi-battery-unknown
                   iconbat = id(mdi_icon_map)[iconbat];
-                  // 格式化电压字符串
+                  // 格式化电量字符串
                   char bufbat[8];
-                  sprintf(bufbat, "%.2f", rounded);
-                  // 低电量红色警告（<3.4V）
+                  sprintf(bufbat, "%d", pct);
+                  // 低电量红色警告
                   std::string batstr;
-                  if (v < 3.55f or percent < 20.0f)
-                      batstr = "#FF0000 " + iconbat + " " + bufbat + "V#";
+                  if (percent < 20.0f)
+                      batstr = "#FF0000 " + iconbat + " " + bufbat + "%#";
                   else
-                      batstr = iconbat + " " + bufbat + "V";
+                      batstr = iconbat + " " + bufbat + "%";
                   return icon + " " + batstr;
             - lvgl.label.update:
                 id: lbl_battery_status
                 text: !lambda |-
-                  float v = id(battery_voltage).state;
-                  // 保留两位小数（四舍五入）
-                  float rounded = (int)(v * 100 + 0.5f) / 100.0f;
-                  // 电压映射到百分比
-                  // 4.15V = 100%，3.55V = 0%
-                  float percent = (rounded - 3.55f) / (4.15f - 3.55f) * 100.0f;
+                  float percent = id(battery_soc);
                   if (percent > 100.0f) percent = 100.0f;
                   if (percent < 0.0f) percent = 0.0f;
+                  int pct = (int)(percent + 0.5f);
                   // 根据电量百分比选择 MDI 图标
                   std::string iconbat;
                   iconbat = "mdi-battery";
@@ -235,14 +241,14 @@ script:
                   else
                       iconbat += "-unknow" ; // mdi-battery-unknown
                   iconbat = id(mdi_icon_map)[iconbat];
-                  // 格式化电压字符串
+                  // 格式化电量字符串
                   char buf[8];
-                  sprintf(buf, "%.2f", rounded);
-                  // 低电量红色警告（<3.4V）
-                  if (v < 3.55f || percent < 20.0f)
-                      return "#FF0000 " + iconbat + " " + buf + "V#";
+                  sprintf(buf, "%d", pct);
+                  // 低电量红色警告
+                  if (percent < 20.0f)
+                      return "#FF0000 " + iconbat + " " + buf + "%#";
                   else
-                      return iconbat + " " + buf + "V";
+                      return iconbat + " " + buf + "%";
             - lambda: |
                 // 更新日期显示
                 auto t = id(ntp_time).now();
