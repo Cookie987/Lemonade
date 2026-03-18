@@ -32,6 +32,13 @@ touchscreen:
       swap_xy: true
       mirror_x: true
       mirror_y: false
+    on_touch:
+      then:
+        - if:
+            condition:
+              lambda: 'return !id(is_sleeping);'
+            then:
+              - switch.turn_on: switch_powermanage_lock_apb
 
 i2c:
   sda: GPIO11
@@ -113,7 +120,7 @@ sensor:
   - platform: adc
     pin: GPIO1
     id: usb_input_voltage
-    update_interval: 2s
+    update_interval: 5s
     attenuation: auto
     filters:
       - multiply: 5
@@ -138,7 +145,7 @@ sensor:
   - platform: adc
     pin: GPIO2
     id: battery_voltage
-    update_interval: 2s
+    update_interval: 5s
     attenuation: auto
     filters:
       - multiply: 5
@@ -147,6 +154,70 @@ sensor:
           condition:
             lambda: 'return !id(is_sleeping);'
           then:
+            - lambda: |-
+                float v = id(battery_voltage).state;
+                float usb_v = id(usb_input_voltage).state;
+                bool charging = id(charge).state;
+                // TP4056: charging voltage is inflated; compensate while charging (taper near full)
+                float v_est = v;
+                if (charging) {
+                  float comp = 0.25f;
+                  if (v > 4.05f) comp -= (v - 4.05f) * 0.6f; // taper: 0.12 -> ~0.03 at 4.20V
+                  if (comp < 0.03f) comp = 0.03f;
+                  v_est = v - comp;
+                }
+                if (v_est < 3.20f) v_est = 3.20f;
+                // Voltage to raw percent (tuneable curve)
+                float p = 0.0f;
+                if (v_est >= 4.20f) p = 100.0f;
+                else if (v_est >= 4.10f) p = 90.0f + (v_est - 4.10f) * (10.0f / 0.10f);
+                else if (v_est >= 4.00f) p = 80.0f + (v_est - 4.00f) * (10.0f / 0.10f);
+                else if (v_est >= 3.92f) p = 70.0f + (v_est - 3.92f) * (10.0f / 0.08f);
+                else if (v_est >= 3.85f) p = 60.0f + (v_est - 3.85f) * (10.0f / 0.07f);
+                else if (v_est >= 3.80f) p = 50.0f + (v_est - 3.80f) * (10.0f / 0.05f);
+                else if (v_est >= 3.75f) p = 40.0f + (v_est - 3.75f) * (10.0f / 0.05f);
+                else if (v_est >= 3.70f) p = 30.0f + (v_est - 3.70f) * (10.0f / 0.05f);
+                else if (v_est >= 3.65f) p = 20.0f + (v_est - 3.65f) * (10.0f / 0.05f);
+                else if (v_est >= 3.60f) p = 10.0f + (v_est - 3.60f) * (10.0f / 0.05f);
+                else if (v_est >= 3.50f) p = (v_est - 3.50f) * (10.0f / 0.10f);
+                else p = 0.0f;
+
+                if (p < 0.0f) p = 0.0f;
+                if (p > 100.0f) p = 100.0f;
+
+                // Smooth raw percent to reduce short voltage dips/spikes
+                if (!id(battery_raw_valid)) {
+                  id(battery_raw_percent) = p;
+                  id(battery_raw_valid) = true;
+                } else {
+                  const float alpha = 0.15f;
+                  id(battery_raw_percent) = id(battery_raw_percent) * (1.0f - alpha) + p * alpha;
+                }
+
+                // Full lock: USB present, battery high, and charger not active
+                if (usb_v > 4.5f && v > 4.14f && !id(charge).state) {
+                  id(battery_soc) = 100.0f;
+                  id(battery_soc_initialized) = true;
+                  id(battery_raw_percent) = 100.0f;
+                  id(battery_raw_valid) = true;
+                  return;
+                }
+
+                // SOC monotonic constraint: do not increase when not charging
+                if (!id(battery_soc_initialized)) {
+                  id(battery_soc) = id(battery_raw_percent);
+                  id(battery_soc_initialized) = true;
+                } else {
+                  float target = id(battery_raw_percent);
+                  if (!charging && target > id(battery_soc)) {
+                    target = id(battery_soc);
+                  }
+                  float max_step = charging ? 1.0f : 0.5f;
+                  float delta = target - id(battery_soc);
+                  if (delta > max_step) delta = max_step;
+                  if (delta < -max_step) delta = -max_step;
+                  id(battery_soc) += delta;
+                }
             - script.execute: update_date
             - if:
                 condition:

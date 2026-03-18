@@ -3,9 +3,14 @@ lvgl:
   log_level: WARN
   double_buffer: false
   use_dma: true
+  use_psram: true
   touchscreens:
     touchscreen_id: touch_panel
-  buffer_size: 50%
+  buffer_size: 100%
+  on_idle:
+    - timeout: 30s
+      then:
+        - switch.turn_off: switch_powermanage_lock_apb
   color_depth: 16
   resume_on_input: false
   top_layer:
@@ -133,7 +138,7 @@ lvgl:
                       y: -3
                       x: -10
                       recolor: true
-                      text: "\U000F0091 -.--V"  # start with mdi-battery-unknown
+                      text: "\U000F0091 --%"  # start with mdi-battery-unknown
                   - label:
                       id: lbl_wifi_status
                       align: BOTTOM_LEFT
