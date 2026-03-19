@@ -305,6 +305,71 @@ script:
                 root["version"] = "${lemonade_version}";
               });
 
+  - id: update_battery_soc
+    then:
+      - lambda: |
+          float v = id(battery_voltage).state;
+          float usb_v = id(usb_input_voltage).state;
+          bool charging = id(charge).state;
+
+          // 1. 充电电压补偿 (TP4056 逻辑)
+          float v_est = v;
+          if (charging) {
+            float comp = 0.21f;
+            if (v > 4.05f) comp -= (v - 4.05f) * 0.6f;
+            v_est = v - (comp < 0.03f ? 0.03f : comp);
+          }
+          v_est = std::max(3.50f, std::min(4.20f, v_est));
+
+          // 2. 线性插值查表法 (精简 if-else)
+          static const float v_table[] = {4.20, 4.10, 4.00, 3.92, 3.85, 3.80, 3.75, 3.70, 3.65, 3.60, 3.50};
+          static const float p_table[] = {100,  90,   80,   70,   60,   50,   40,   30,   20,   10,   0};
+          float p = 0.0f;
+          for (int i = 0; i < 10; i++) {
+            if (v_est >= v_table[i+1]) {
+              p = p_table[i+1] + (v_est - v_table[i+1]) * (p_table[i] - p_table[i+1]) / (v_table[i] - v_table[i+1]);
+              break;
+            }
+          }
+
+          // 3. 原始百分比平滑 (Alpha 滤波)
+          // 充电时灵敏度高(0.15)，不充电时平滑以抵消 Wi-Fi 跳变
+          float alpha = charging ? 0.15f : 0.05f;
+          if (!id(battery_raw_valid)) {
+            id(battery_raw_percent) = p;
+            id(battery_raw_valid) = true;
+          } else {
+            id(battery_raw_percent) += (p - id(battery_raw_percent)) * alpha;
+          }
+
+          // 4. 强制满电锁定逻辑
+          if (usb_v > 4.5f && v > 4.10f && !charging) {
+            id(battery_soc) = 100.0f;
+            id(battery_raw_percent) = 100.0f;
+            id(battery_soc_initialized) = true;
+            return;
+          }
+
+          // 5. SOC 单向约束与步进更新
+          if (!id(battery_soc_initialized)) {
+            id(battery_soc) = id(battery_raw_percent);
+            id(battery_soc_initialized) = true;
+          } else {
+            float target = id(battery_raw_percent);
+
+            if (!charging) {
+              // 【关键】放电时：如果目标比当前高，强制等于当前，实现“绝对不上升”
+              if (target > id(battery_soc)) {
+                target = id(battery_soc);
+              }
+            }
+
+            float delta = target - id(battery_soc);
+            // 限制步进，防止数值跳动
+            float max_s = charging ? 0.5f : 0.1f;
+            id(battery_soc) += std::max(-max_s, std::min(max_s, delta));
+          }
+
   - id: statusbar_update
     then:
       - if:

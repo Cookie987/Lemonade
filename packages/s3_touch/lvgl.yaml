@@ -3,10 +3,10 @@ lvgl:
   log_level: WARN
   double_buffer: false
   use_dma: true
-  use_psram: true
+  use_psram: false
   touchscreens:
     touchscreen_id: touch_panel
-  buffer_size: 100%
+  buffer_size: 30%
   on_idle:
     - timeout: 30s
       then:
