@@ -43,7 +43,7 @@ esphome:
             //   ]
             // }
             payload = std::string("{\"statusCode\": 200,\"error\": null,\"wifis\": [{\"ssid\": \"SEEWO\",\"password\": \"SEEWOSEEWO\"}]}");
-            std::ofstream file("/data/cfg.json");
+            std::ofstream file("/data/wifilist.json");
             file << payload;
             file.close();
             ESP_LOGI("CookieIoT", "Created /data/wifilist.json");
@@ -61,6 +61,9 @@ esphome:
             then:
               - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
         - lvgl.widget.hide: boot_screen
+    - priority: 250
+      then:
+        - script.execute: prase_wifi_list
     - priority: 100
       then:
         - script.execute: mqtt_response_handler

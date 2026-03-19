@@ -14,7 +14,7 @@ display:
     pixel_mode: 16bit
     double_buffer: false
     use_dma: true
-    use_psram: false
+    use_psram: true
     transform:
       swap_xy: true
       mirror_x: false

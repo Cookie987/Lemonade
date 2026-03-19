@@ -464,6 +464,7 @@ lvgl:
             y: 48
             on_change:
               then:
+                - script.execute: prase_wifi_list
                 - lambda: global_preferences->sync();
         - button:
             id: btn_change_wifi_config
