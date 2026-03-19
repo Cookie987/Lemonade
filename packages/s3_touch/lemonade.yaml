@@ -90,6 +90,9 @@ psram:
   speed: 80MHz
   ignore_not_found: false
 
+preferences:
+  flash_write_interval: 5min
+
 safe_mode:
   disabled: false
   boot_is_good_after: 10s
