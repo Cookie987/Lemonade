@@ -151,11 +151,11 @@ sensor:
     filters:
       - multiply: 5
     on_value:
+      - script.execute: update_battery_soc
       - if:
           condition:
             lambda: 'return !id(is_sleeping);'
           then:
-            - script.execute: update_battery_soc
             - script.execute: update_date
             - if:
                 condition:
