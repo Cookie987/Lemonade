@@ -312,17 +312,16 @@ script:
           float usb_v = id(usb_input_voltage).state;
           bool charging = id(charge).state;
 
-          // 1. 充电电压补偿 (TP4056 逻辑)
+          // 充电电压补偿
           float v_est = v;
           if (charging) {
             float comp = 0.21f;
-            if (v > 4.05f) comp -= (v - 4.05f) * 0.6f;
+            if (v > 4.05f) comp -= (v - 4.05f) * 0.8f;
             v_est = v - (comp < 0.03f ? 0.03f : comp);
           }
           v_est = std::max(3.50f, std::min(4.20f, v_est));
 
-          // 2. 线性插值查表法 (精简 if-else)
-          static const float v_table[] = {4.20, 4.10, 4.00, 3.92, 3.85, 3.80, 3.75, 3.70, 3.65, 3.60, 3.50};
+          static const float v_table[] = {4.14, 4.08, 4.00, 3.92, 3.87, 3.82, 3.79, 3.75, 3.71, 3.65, 3.30};
           static const float p_table[] = {100,  90,   80,   70,   60,   50,   40,   30,   20,   10,   0};
           float p = 0.0f;
           for (int i = 0; i < 10; i++) {
@@ -343,7 +342,7 @@ script:
           }
 
           // 4. 强制满电锁定逻辑
-          if (usb_v > 4.5f && v > 4.10f && !charging) {
+          if (usb_v > 4.5f && v > 4.12f && !charging) {
             id(battery_soc) = 100.0f;
             id(battery_raw_percent) = 100.0f;
             id(battery_soc_initialized) = true;
