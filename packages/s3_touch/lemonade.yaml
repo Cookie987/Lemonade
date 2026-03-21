@@ -240,7 +240,7 @@ wifi:
     then:
       - mqtt.enable:
   cooldown_off_attempts: 2
-  cooldown_off_time: 2min
+  cooldown_off_time: 1min
   on_disconnect:
     then:
       - mqtt.disable:
