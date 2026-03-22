@@ -1,0 +1,15 @@
+substitutions:
+  yes_text: 好
+  no_text: 不
+  system_setting_text: 系统设置
+  storage_setting_text: 存储设置
+  battery_low_prompt_text: 电池电量过低，请连接电源通电
+  message_title_text: 消息
+  lbl_message_username_id_prompt_text: 私聊用户名：
+  textarea_message_username_input_placeholder_text: 请输入私聊的用户名
+  shutdown_msgbox_text: 设备将关闭。
+  restore_default_network_msgbox_text: 此操作将删除当前WiFi配置。
+  delete_wifi_msgbox_text: 你确定删除这个WiFi吗？
+  update_msgbox_text: 将更新至新系统，系统将暂时无响应(~60s)，请确保电量充足，网络连接稳定，请勿关机。系统将自动重启。
+  update_page_text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"
+  loading_text: 加载中...
