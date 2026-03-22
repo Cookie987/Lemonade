@@ -680,11 +680,10 @@ script:
           }, LV_EVENT_CLICKED, NULL);
       - if:
           condition:
-            lambda: 'if (delay_ms > 0) return true;'
+            lambda: 'if (delay_ms > 0) return true; else return false;'
           then:
             - delay: !lambda 'return delay_ms;'
             - lambda: id(close_notification)->execute(notification_message);
-            - lambda: 'return;'
   # 关闭通知
   # para1: 要关闭的通知消息的后缀
   - id: close_notification

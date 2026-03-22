@@ -57,7 +57,7 @@ esphome:
             transition_length: 1s
         - if:
             condition:
-              lambda: 'return id(switch_buzzer).state;'
+              lambda: 'return id(buzzer_switch).state && id(buzzer_startup_switch).state;'
             then:
               - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
         - lvgl.widget.hide: boot_screen
@@ -305,6 +305,21 @@ switch:
     id: buzzer_switch
     widget: switch_buzzer
     restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: lvgl
+    id: buzzer_startup_switch
+    widget: switch_buzzer_startup
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: lvgl
+    id: buzzer_notification_switch
+    widget: switch_buzzer_notification
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: lvgl
+    id: buzzer_alarm_switch
+    widget: switch_buzzer_alarm
+    restore_mode: RESTORE_DEFAULT_ON
 
 mqtt:
   id: mqtt_client
