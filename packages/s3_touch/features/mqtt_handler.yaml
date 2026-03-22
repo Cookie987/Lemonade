@@ -97,6 +97,7 @@ script:
 
                     if (ret != 0) {
                         ESP_LOGE("CookieIoT", "Base64 decode failed with code %d!", ret);
+                        id(show_notification)->execute("获取图片失败：无法解码", "", 5000);
                         return false;
                     }
 
@@ -108,6 +109,7 @@ script:
                     std::ofstream file(LOCAL_FILE_PATH, std::ios::binary);
                     if (!file.is_open()) {
                         ESP_LOGE("CookieIoT", "Failed to open file %s for writing!", LOCAL_FILE_PATH);
+                        id(show_notification)->execute("获取图片失败：无法写入", "", 5000);
                         return false;
                     }
                     // 写入实际解码的数据
@@ -116,6 +118,7 @@ script:
                     if (!file.good()) {
                         ESP_LOGE("CookieIoT", "File write failed. Expected %zu bytes.", decoded_len);
                         file.close();
+                        id(show_notification)->execute("获取图片失败：无法写入", "", 5000);
                         return false;
                     }
                     file.close();
@@ -127,9 +130,11 @@ script:
                     }
                     lv_img_set_src(id(background_image), LVGL_FILE_PATH);
                     ESP_LOGI("CookieIoT", "Image source updated.");
+                    id(show_notification)->execute("获取背景图片成功", "", 5000);
                     return true;
                   }
                   else{
+                    id(show_notification)->execute("获取图片失败：状态码错误", "", 5000);
                     return false;
                   }
                 });
