@@ -1,7 +1,6 @@
 packages:
   - !include message-lvgl.yaml
   - !include message-resource.yaml
-  - !include message-shortcode.yaml
   - !include message-mqtt_handler.yaml
 
 esphome:
@@ -40,27 +39,6 @@ script:
             default:
               break;
           }
-          // 处理短代码
-          // eg /hd/ 将被替换为好的
-          std::string text = message_content;
-          size_t pos = 0;
-          while (pos < text.length()) {
-              size_t start = text.find('/', pos);
-              if (start == std::string::npos) break;
-              size_t end = text.find('/', start + 1);
-              if (end == std::string::npos) break;
-              // 提取 "/abc/"
-              std::string shortcode = text.substr(start, end - start + 1);
-              std::string value = id(message_shortcode)[shortcode];
-              if (!value.empty()) {
-                  text.replace(start, shortcode.length(), value);
-                  pos = start + value.length();
-              } else {
-                  // 不认识的 shortcode，跳过这个 '/'
-                  pos = start + 1;
-              }
-          }
-          message_content = text;
           std::string mac = id(text_sensor_mac_address).state;
           auto t = id(ntp_time).now();
           switch (tab_act) {
