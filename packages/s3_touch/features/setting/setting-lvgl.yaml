@@ -38,6 +38,31 @@ lvgl:
             then:
               - script.execute: halt
 
+    - id: msgbox_restore_network_message
+      close_button: false
+      title: 恢复默认网络配置
+      body:
+        text: "此操作将删除当前Wi-Fi配置。"
+      buttons:
+        - id: btn_restore_network_close
+          text: "不"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_restore_network_message
+        - id: btn_restore_network_ok
+          text: "好"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_restore_network_message
+              - lambda: |
+                    auto wifi = wifi::global_wifi_component;
+                    if (wifi == nullptr) return;
+                    std::string payload = std::string("{\"statusCode\": 200,\"error\": null,\"wifis\": [{\"ssid\": \"SEEWO\",\"password\": \"SEEWOSEEWO\"}]}");
+                    std::ofstream file("/data/wifilist.json");
+                    file << payload;
+                    file.close();
+                    id(prase_wifi_list)->execute();
+
     - id: msgbox_delete_wifi_message
       close_button: false
       title: 删除Wi-Fi
@@ -524,14 +549,7 @@ lvgl:
                   text: "恢复默认网络配置"
             on_click:
               then:
-                - lambda: |
-                    auto wifi = wifi::global_wifi_component;
-                    if (wifi == nullptr) return;
-                    std::string payload = std::string("{\"statusCode\": 200,\"error\": null,\"wifis\": [{\"ssid\": \"SEEWO\",\"password\": \"SEEWOSEEWO\"}]}");
-                    std::ofstream file("/data/wifilist.json");
-                    file << payload;
-                    file.close();
-                    id(prase_wifi_list)->execute();
+                - lvgl.widget.show: msgbox_restore_network_message
 
     - id: system_setting_system_page
       skip: true
@@ -708,6 +726,7 @@ lvgl:
                     global_preferences->sync();
                     wifi::global_wifi_component->start_scanning();
                     id(lvgl_1)->show_page(system_setting_wifi_config_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+                    id(show_notification)->execute("建议重启 Wi-Fi 以获得最佳效果", "", 5000);
 
         - keyboard:
             id: keyboard_new_wifi_password
