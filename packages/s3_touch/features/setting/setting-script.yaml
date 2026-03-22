@@ -126,6 +126,7 @@ script:
                 ESP_LOGI("CookieIoT", "Saved WiFi STA: %s", item["ssid"].as<std::string>().c_str());
                 i++;
               }
+              global_preferences->sync();
               lv_label_set_text(lbl_wifi_get_info,(
                                 std::string("保存了") +
                                 std::to_string(i) +

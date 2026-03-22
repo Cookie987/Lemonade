@@ -527,9 +527,11 @@ lvgl:
                 - lambda: |
                     auto wifi = wifi::global_wifi_component;
                     if (wifi == nullptr) return;
-                    wifi->clear_saved_wifi_stas();
-                    ESP_LOGI("CookieIoT", "Cleared user saved WiFi STA");
-                    wifi->append_wifi_sta("SEEWO", "SEEWOSEEWO");
+                    std::string payload = std::string("{\"statusCode\": 200,\"error\": null,\"wifis\": [{\"ssid\": \"SEEWO\",\"password\": \"SEEWOSEEWO\"}]}");
+                    std::ofstream file("/data/wifilist.json");
+                    file << payload;
+                    file.close();
+                    id(prase_wifi_list)->execute();
 
     - id: system_setting_system_page
       skip: true

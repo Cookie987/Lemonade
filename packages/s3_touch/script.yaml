@@ -563,10 +563,12 @@ script:
   # 创建或修改通知
   # para1: 新的通知内容
   # para2: （若非空）要修改的通知消息的后缀
+  # para3: （若非0）在该毫秒数后关闭该通知
   - id: show_notification
     parameters:
       notification_message: string
       suffix: string
+      delay_ms: int
     mode: queued
     then:
       - lambda: |
@@ -676,7 +678,13 @@ script:
             });
             lv_anim_start(&a);
           }, LV_EVENT_CLICKED, NULL);
-
+      - if:
+          condition:
+            lambda: 'if (delay_ms > 0) return true;'
+          then:
+            - delay: !lambda 'return delay_ms;'
+            - lambda: id(close_notification)->execute(notification_message);
+            - lambda: 'return;'
   # 关闭通知
   # para1: 要关闭的通知消息的后缀
   - id: close_notification

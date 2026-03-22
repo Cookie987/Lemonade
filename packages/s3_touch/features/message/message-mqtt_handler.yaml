@@ -45,10 +45,10 @@ script:
                           id(show_notification)->execute(
                             std::string("收到 ") +
                             std::to_string(id(unread_messages_amount_private)) +
-                            std::string(" 条私聊消息"), std::string("条私聊消息"));
+                            std::string(" 条私聊消息"), std::string("条私聊消息"), 0);
                         }
                         else{
-                          id(show_notification)->execute(std::string("收到 255+ 条私聊消息"), std::string("条私聊消息"));
+                          id(show_notification)->execute(std::string("收到 255+ 条私聊消息"), std::string("条私聊消息"), 0);
                         }
                       }
                       lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, content.c_str());

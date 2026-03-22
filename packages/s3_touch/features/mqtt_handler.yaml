@@ -25,11 +25,14 @@ script:
                     file.close();
                     ESP_LOGD("CookieIoT", "Wifilist response saved.");
                     id(prase_wifi_list)->execute();
+                    id(show_notification)->execute("成功获取 WiFi 列表", "", 5000);
                   }
                   else{
                     lv_label_set_text(lbl_wifi_get_info,(
                                       std::string("获取WiFi信息失败：") +
                                       root["error"].as<std::string>()).c_str());
+                    id(show_notification)->execute(std::string("获取WiFi信息失败：") +
+                                      root["error"].as<std::string>(), "", 5000);
                   }
                   return true;
                 });

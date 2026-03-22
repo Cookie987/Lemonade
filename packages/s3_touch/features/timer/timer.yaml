@@ -79,7 +79,7 @@ script:
                 lv_label_set_text(id(lbl_countdown_button), "开始");
                 // 只有当 end_time 不为 0 时才发送通知，防止定时器空转时反复弹窗
                 if (end_time != 0) {
-                  id(show_notification)->execute("倒计时已结束", "");
+                  id(show_notification)->execute("倒计时已结束", "", 0);
                   lv_roller_set_selected(id(roller_countdown_seconds_ones).obj, 0, LV_ANIM_ON);
                   id(countdown_end_time) = 0; // 清除结束时间防止重复触发
                 }
