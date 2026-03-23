@@ -132,7 +132,7 @@ script:
                 std::string name = txt;
                 if (name.rfind("* ", 0) == 0) name = name.substr(2);
                 id(contacts_open_chat)->execute(name);
-              }, LV_EVENT_CLICKED, list);
+              }, LV_EVENT_SHORT_CLICKED, list);
 
               // Long press to delete
               lv_obj_add_event_cb(btn, [](lv_event_t * e) {
