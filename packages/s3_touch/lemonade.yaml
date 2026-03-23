@@ -87,6 +87,7 @@ esp32:
       CONFIG_PM_ENABLE: y
       CONFIG_PM_DFS_INIT_AUTO: y
       CONFIG_FATFS_LFN_STACK: y
+      CONFIG_SPIRAM_USE_MALLOC: y
 
 psram:
   mode: octal
@@ -239,7 +240,8 @@ wifi:
   on_connect:
     then:
       - mqtt.enable:
-  cooldown_off_attempts: 2
+  cooldown_off_attempts: 3
+  use_psram: true
   cooldown_off_time: 1min
   on_disconnect:
     then:

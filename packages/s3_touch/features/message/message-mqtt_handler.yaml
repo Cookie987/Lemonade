@@ -29,15 +29,15 @@ script:
                     std::string from_name = root["from"]["name"] | "匿名用户";
                     std::string format = root["payload"]["fmt"] | "text";  // "text", "image"
                     std::string content = root["payload"]["content"] | "";
+
                     if (sub_type == "p2p"){
-                      lv_list_add_text(id(list_message_friend),
-                                        (
-                                          std::string(esp_time.strftime("%Y-%m-%d %H:%M:%S")) +
-                                          std::string(" · ") +
-                                          from_name // +
-                                          // std::string(": ")
-                                        ).c_str()
-                                      );
+                      bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
+                      std::string active_contact = id(current_contact_uid);
+                      bool is_active_contact = chat_open && !active_contact.empty() && (from_name == active_contact);
+
+                      std::string time_str = esp_time.strftime("%Y-%m-%d %H:%M:%S");
+                      if(from_name != id(uid)) id(chat_private_append)->execute(from_name, from_name, content, time_str);
+
                       if(!id(page_message).is_showing()) {
                         lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
                         if (id(unread_messages_amount_private) < 255) {
@@ -51,15 +51,24 @@ script:
                           id(show_notification)->execute(std::string("收到 255+ 条私聊消息"), std::string("条私聊消息"), 0);
                         }
                       }
-                      lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, content.c_str());
-                      // 只保留最近的100条
-                      uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
-                      if (children_count > 100) {
-                        for (uint32_t i = 0; i < children_count - 100; i++) {
-                          lv_obj_del(lv_obj_get_child(list_message_friend, 0));
+                      if (is_active_contact || from_name == id(uid)) {
+                        lv_list_add_text(id(list_message_friend),
+                                          (
+                                            time_str +
+                                            std::string(" - ") +
+                                            from_name
+                                          ).c_str()
+                                        );
+                        lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, content.c_str());
+                        // 只保留最近的100条
+                        uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
+                        if (children_count > 100) {
+                          for (uint32_t i = 0; i < children_count - 100; i++) {
+                            lv_obj_del(lv_obj_get_child(list_message_friend, 0));
+                          }
                         }
+                        lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
                       }
-                      lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
                     }
                   }
                   return true;

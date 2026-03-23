@@ -58,6 +58,7 @@ font:
           "\U000F092B",  # mdi-wifi-strength-alert-outline
           "\U000F092E",  # mdi-wifi-strength-off-outline
           "\U000F0003",  # mdi-access-point
+          "\U000F0415",  # mdi-plus
         ]
       - file: "fonts/Font Awesome 5 Free-Solid-900.otf"
         glyphs: [
@@ -83,6 +84,11 @@ font:
     size: 18
     bpp: 4
     glyphs: [星期一二三四五六日东南西北风雨雾冰雪转多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知度 ~℃N%.km/shA-|0123456789]
+    extras:
+      - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
+        glyphs: [
+          "+",
+        ]   # arrow-left, arrow-right, rotate-left
 
   - file: "fonts/JetBrainsMono-Bold-7.ttf"
     id: "clock24"

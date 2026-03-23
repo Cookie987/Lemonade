@@ -7,6 +7,30 @@ lvgl:
       lv_keyboard_set_candidate_list(kb, list);
       lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, 0);
       lv_obj_clear_flag(list, LV_OBJ_FLAG_CLICKABLE);
+
+  msgboxes:
+    - id: msgbox_delete_contact
+      close_button: false
+      title: 删除联系人
+      text_font: chinese_font14
+      body:
+        text: "确定删除该联系人吗？"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_delete_contact_cancel
+          text: "不"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_delete_contact
+        - id: btn_delete_contact_ok
+          text: "好"
+          on_click:
+            then:
+              - script.execute:
+                  id: contacts_delete
+                  contact: !lambda 'return id(pending_delete_contact);'
+              - lvgl.widget.hide: msgbox_delete_contact
+
   pages:
     - id: !extend page_main
       scrollable: false
@@ -26,12 +50,6 @@ lvgl:
                       align: CENTER
                       on_click:
                         then:
-                          - lambda: id(unread_messages_amount_private) = 0;
-                          - lambda: id(unread_messages_amount_public) = 0;
-                          - lambda: lv_obj_add_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
-                          - script.execute:
-                              id: close_notification
-                              notification_message: "消息"
                           - lvgl.page.show:
                               id: page_message
                               animation: FADE_IN
@@ -48,16 +66,29 @@ lvgl:
                       hidden: true
                       bg_color: 0xFF0000   # #ff0000
                       opa: 100%
+
     - id: page_message
       skip: true
-      scrollbar_mode: "OFF"
+      scrollable: false
       on_load:
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "消息"
+        - lambda: id(unread_messages_amount_private) = 0;
+        - lambda: id(unread_messages_amount_public) = 0;
+        - lambda: lv_obj_add_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
+        - lambda: |
+            bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
+            if (chat_open) lv_label_set_text(lbl_topbar_title, id(current_contact_uid).c_str());
+        - script.execute:
+            id: close_notification
+            notification_message: "消息"
         - script.execute:
             id: close_notification
             notification_message: "条新消息"
+        - script.execute: contacts_refresh_list
+        # - script.execute: chat_public_load
+        # - script.execute: contacts_close_chat
       widgets:
         - tabview:
             id: tabview_message
@@ -73,67 +104,15 @@ lvgl:
                     lv_keyboard_reset_ime(keyboard_message_input->obj);
             size: 15%
             tabs:
-              - name: 聊天设置
-                widgets:
-                  - label:
-                      id: lbl_message_username_id_prompt
-                      x: -80
-                      y: 5
-                      align: TOP_MID
-                      text: "私聊用户名："
-                  - textarea:
-                      id: textarea_message_username_input
-                      x: 0
-                      y: -25
-                      align: CENTER
-                      width: 200
-                      height: 40
-                      placeholder_text: "输入私聊的用户名"
-                      one_line: true
-                      on_click:
-                        then:
-                          - script.execute: keyboard_message_show
-                          - lvgl.keyboard.update:
-                              id: keyboard_message_input
-                              textarea: textarea_message_username_input
-              - name: 私聊
+              - name: 联系人
                 scrollable: false
                 widgets:
                   - list:
-                      id: list_message_friend
+                      id: list_message_contacts
                       align: TOP_MID
                       y: -15
                       width: 320
-                      height: 155
-                      items:
-                        # 按钮类型项目
-                        - text: "系统消息"
-                          list_text: {}
-                        - text: "[系统] 聊天记录将保存至云端。"
-                          list_button: {}
-                  - textarea:
-                      id: textarea_message_friend_input
-                      x: 0
-                      y: 15
-                      align: BOTTOM_MID
-                      width: 320
-                      height: 40
-                      placeholder_text: "单击输入消息，长按进入全屏输入"
-                      on_long_press:
-                        then:
-                          - lambda: |
-                              lv_obj_set_size(id(textarea_message_friend_input), 320, 95);
-                              lv_textarea_set_placeholder_text(textarea_message_friend_input, "收起键盘退出全屏输入");
-                          - script.execute: keyboard_message_show
-                          - lvgl.keyboard.update:
-                              id: keyboard_message_input
-                              textarea: textarea_message_friend_input
-                      on_short_click:
-                        then:
-                          - script.execute: keyboard_message_show
-                          - lvgl.keyboard.update:
-                              id: keyboard_message_input
-                              textarea: textarea_message_friend_input
+                      height: 195
               - name: 广场
                 scrollable: false
                 widgets:
@@ -144,7 +123,6 @@ lvgl:
                       width: 320
                       height: 155
                       items:
-                        # 按钮类型项目
                         - text: "系统消息"
                           list_text: {}
                         - text: "[系统] 聊天记录将保存至云端。"
@@ -166,12 +144,148 @@ lvgl:
                           - lvgl.keyboard.update:
                               id: keyboard_message_input
                               textarea: textarea_message_public_input
-                      on_short_click:
+                      on_click:
                         then:
                           - script.execute: keyboard_message_show
                           - lvgl.keyboard.update:
                               id: keyboard_message_input
                               textarea: textarea_message_public_input
+        - obj:
+            id: obj_message_private_container
+            hidden: true
+            scrollable: false
+            x: 0
+            y: 18
+            width: 320
+            height: 222
+            widgets:
+              - list:
+                  id: list_message_friend
+                  align: TOP_MID
+                  y: 0
+                  width: 320
+                  height: 168
+                  items:
+              - button:
+                  id: btn_message_private_back
+                  width: 48
+                  height: 24
+                  x: -6
+                  y: -8
+                  align: TOP_LEFT
+                  bg_color: !lambda return lv_color_hex(0x1f95f6);
+                  widgets:
+                    - label:
+                        align: CENTER
+                        y: 2
+                        text: "\uF2EA"  # rotate-left
+                  on_click:
+                    then:
+                      - script.execute: contacts_close_chat
+                      - lambda: |
+                          lv_obj_t * list = id(list_message_friend);
+                          if (list == nullptr) return;
+                          lv_obj_clean(list);
+              - textarea:
+                  id: textarea_message_friend_input
+                  x: 0
+                  y: 15
+                  align: BOTTOM_MID
+                  width: 320
+                  height: 40
+                  placeholder_text: "单击输入消息，长按进入全屏输入"
+                  on_long_press:
+                    then:
+                      - lambda: |
+                          lv_obj_set_size(id(textarea_message_friend_input), 320, 120);
+                          lv_textarea_set_placeholder_text(textarea_message_friend_input, "收起键盘退出全屏输入");
+                      - script.execute: keyboard_message_show
+                      - lvgl.keyboard.update:
+                          id: keyboard_message_input
+                          textarea: textarea_message_friend_input
+                  on_click:
+                    then:
+                      - script.execute: keyboard_message_show
+                      - lvgl.keyboard.update:
+                          id: keyboard_message_input
+                          textarea: textarea_message_friend_input
+        - obj:
+            id: obj_contact_add_overlay
+            hidden: true
+            align: CENTER
+            width: 320
+            height: 240
+            border_width: 0
+            bg_color: 0x000000
+            bg_opa: 60%
+            radius: 0
+            widgets:
+              - obj:
+                  id: obj_contact_add_dialog
+                  width: 260
+                  height: 150
+                  align: CENTER
+                  bg_color: 0xFFFFFF
+                  radius: 8
+                  pad_all: 8
+                  widgets:
+                    - label:
+                        align: TOP_MID
+                        y: 5
+                        text: "添加联系人"
+                    - textarea:
+                        id: textarea_contact_add_input
+                        align: CENTER
+                        y: -5
+                        width: 220
+                        height: 40
+                        one_line: true
+                        placeholder_text: "输入用户名"
+                        on_click:
+                          then:
+                            - script.execute: keyboard_message_show
+                            - lvgl.keyboard.update:
+                                id: keyboard_message_input
+                                textarea: textarea_contact_add_input
+                    - button:
+                        id: btn_contact_add_cancel
+                        width: 90
+                        height: 28
+                        align: BOTTOM_LEFT
+                        x: 10
+                        y: -10
+                        bg_color: !lambda return lv_color_hex(0x7A7A7A);
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "取消"
+                        on_click:
+                          then:
+                            - lvgl.widget.hide: obj_contact_add_overlay
+                            - lambda: |
+                                lv_textarea_set_text(id(textarea_contact_add_input), "");
+                            - script.execute: keyboard_message_hide
+                    - button:
+                        id: btn_contact_add_ok
+                        width: 90
+                        height: 28
+                        align: BOTTOM_RIGHT
+                        x: -10
+                        y: -10
+                        bg_color: !lambda return lv_color_hex(0x1f95f6);
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "确定"
+                        on_click:
+                          then:
+                            - script.execute:
+                                id: contacts_add
+                                contact: !lambda 'return std::string(lv_textarea_get_text(id(textarea_contact_add_input)));'
+                            - lambda: |
+                                lv_textarea_set_text(id(textarea_contact_add_input), "");
+                            - lvgl.widget.hide: obj_contact_add_overlay
+                            - script.execute: keyboard_message_hide
         - obj:
             id: obj_message_candidate_list
             scrollable: true
@@ -203,6 +317,8 @@ script:
   - id: keyboard_message_show
     then:
       - lambda: |
+          if (id(keyboard_showing)) return;
+          lv_obj_move_foreground(id(obj_message_candidate_list));
           auto kb = id(keyboard_message_input)->obj;
           auto pub_input = id(textarea_message_public_input);
           auto pub_list = id(list_message_public);
@@ -218,6 +334,8 @@ script:
 
           // 2. 确保对象可见
           lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
+          // ensure keyboard is above overlays
+          lv_obj_move_foreground(kb);
 
           // 高度动画回调
           auto anim_height_cb = [](void * var, int32_t v) { lv_obj_set_height((lv_obj_t *)var, v); };
@@ -251,15 +369,17 @@ script:
           lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
           lv_anim_start(&a);
 
-          // --- Friend 列表：高度收缩到确定的 60 ---
+          // --- Friend 列表：高度收缩到确定的 70 ---
           lv_anim_set_var(&a, fri_list);
-          lv_anim_set_values(&a, lv_obj_get_height(fri_list), 60);
+          lv_anim_set_values(&a, lv_obj_get_height(fri_list), 73);
           lv_anim_set_exec_cb(&a, anim_height_cb);
           lv_anim_start(&a);
+          id(keyboard_showing) = true;
 
   - id: keyboard_message_hide
     then:
       - lambda: |
+          if (!id(keyboard_showing)) return;
           auto kb = id(keyboard_message_input)->obj;
           auto pub_input = id(textarea_message_public_input);
           auto pub_list = id(list_message_public);
@@ -293,9 +413,10 @@ script:
           lv_obj_set_size(pub_input, 320, 40);
 
           lv_obj_set_y(fri_input, 15);
-          lv_obj_set_height(fri_list, 155);
+          lv_obj_set_height(fri_list, 168);
           lv_obj_set_size(fri_input, 320, 40);
 
           // 4. 重置其他属性
           lv_textarea_set_placeholder_text(pub_input, "单击输入消息，长按进入全屏输入");
           lv_textarea_set_placeholder_text(fri_input, "单击输入消息，长按进入全屏输入");
+          id(keyboard_showing) = false;
