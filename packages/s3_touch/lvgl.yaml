@@ -71,6 +71,19 @@ lvgl:
           on_press:
             - lvgl.widget.hide: boot_screen
   msgboxes:
+    - id: msgbox_general_info
+      close_button: false
+      title: ""
+      text_font: chinese_font14
+      body:
+        text: ""
+        text_font: chinese_font14
+      buttons:
+        - id: btn_general_info_ok
+          text: "好"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_general_info
     - id: msgbox_battery_low
       close_button: false
       title: 警告

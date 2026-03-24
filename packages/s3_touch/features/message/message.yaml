@@ -144,8 +144,12 @@ script:
                 std::string name = txt;
                 if (name.rfind("* ", 0) == 0) name = name.substr(2);
                 id(pending_delete_contact) = name;
+
                 lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_contact);
                 lv_label_set_text(msgbox_text, (std::string("确定删除 ") + name + " 吗？").c_str());
+                if (name == "cookie987" && id(uid) == "srr321" || name == "srr321" && id(uid) == "cookie987") {
+                  lv_label_set_text(msgbox_text, (std::string("不要删掉我 T_T\n") + std::string("确定删除 ") + name + " 吗？").c_str());
+                }
                 lv_obj_clear_flag(msgbox_delete_contact_outer, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_move_foreground(msgbox_delete_contact_outer);
               }, LV_EVENT_LONG_PRESSED, list);
@@ -249,6 +253,10 @@ script:
       - lambda: |
           std::string target = contact;
           if (target.empty()) return;
+          if (target == "cookie987" && id(uid) == "srr321" || target == "srr321" && id(uid) == "cookie987") {
+            id(show_notification)->execute("你~删~不~掉~我~哦~~", "", 2000);
+            return;
+          }
 
           std::ifstream file("/data/contacts.json");
           std::string config_json;
@@ -361,9 +369,21 @@ script:
           std::string name = contact;
           if (name.empty()) return;
 
-          std::ifstream file("/data/chat_private.json");
+          auto make_contact_path = [](const std::string &n) -> std::string {
+            uint32_t h = 2166136261u;
+            for (unsigned char c : n) {
+              h ^= c;
+              h *= 16777619u;
+            }
+            char buf[64];
+            snprintf(buf, sizeof(buf), "/data/chat_private_%08X.json", (unsigned)h);
+            return std::string(buf);
+          };
+
+          std::string path = make_contact_path(name);
+
+          std::ifstream file(path.c_str());
           std::string json_str;
-          ESP_LOGD("Chat", "Loadaded chat_private.json: %s", json_str.c_str());
           if (file.is_open()) {
             std::string line;
             while (std::getline(file, line)) json_str += line + "";
@@ -374,29 +394,24 @@ script:
           if (!json_str.empty()) {
             DeserializationError error = deserializeJson(doc, json_str);
             if (error) {
-              ESP_LOGW("Chat", "Failed to parse chat_private.json: %s", error.c_str());
+              ESP_LOGW("Chat", "Failed to parse %s: %s", path.c_str(), error.c_str());
               doc.clear();
             }
           }
 
-          JsonObject contacts = doc["contacts"].as<JsonObject>();
-          if (contacts.isNull()) {
-            contacts = doc["contacts"].to<JsonObject>();
+          JsonArray arr = doc["messages"].as<JsonArray>();
+          if (arr.isNull()) {
+            arr = doc["messages"].to<JsonArray>();
           }
 
-          JsonArray arr = contacts[name.c_str()].as<JsonArray>();
-          if (arr.isNull()) {
-            arr = contacts[name.c_str()].to<JsonArray>();
-          }
           JsonObject item = arr.add<JsonObject>();
           item["time"] = time;
           item["from"] = from;
           item["content"] = content;
 
-          // keep last 100
           while (arr.size() > 100) arr.remove(0);
-          ESP_LOGD("Chat", "Array size: %u", (unsigned)arr.size());
-          std::ofstream file1("/data/chat_private.json", std::ios::trunc);
+
+          std::ofstream file1(path.c_str());
           serializeJson(doc, file1);
           file1.close();
 
@@ -452,50 +467,102 @@ script:
           lv_obj_t * list = id(list_message_friend);
           if (list == nullptr) return;
 
-          std::ifstream file("/data/chat_private.json");
-          std::string json_str;
-          if (file.is_open()) {
-            std::string line;
-            while (std::getline(file, line)) json_str += line + "";
-            file.close();
-          }
-          ESP_LOGD("Chat", "Loadaded chat_private.json: %s", json_str.c_str());
+          auto make_contact_path = [](const std::string &n) -> std::string {
+            uint32_t h = 2166136261u;
+            for (unsigned char c : n) {
+              h ^= c;
+              h *= 16777619u;
+            }
+            char buf[64];
+            snprintf(buf, sizeof(buf), "/data/chat_private_%08X.json", (unsigned)h);
+            return std::string(buf);
+          };
 
-          if (json_str.empty()) return;
-          JsonDocument doc;
-          DeserializationError error = deserializeJson(doc, json_str);
-          if (error) {
-            ESP_LOGW("Chat", "Failed to parse chat_private.json: %s", error.c_str());
-            return;
+          auto render_messages = [&](JsonArray arr) {
+            bool modified = false;
+            while (arr.size() > 100) {
+              arr.remove(0);
+              modified = true;
+            }
+
+            lv_obj_t * last_btn = nullptr;
+            for (JsonVariant item : arr) {
+              std::string time_s = item["time"] | "";
+              std::string from_s = item["from"] | "";
+              std::string content_s = item["content"] | "";
+              if (time_s.empty() && from_s.empty() && content_s.empty()) continue;
+              lv_list_add_text(list, (time_s + " - " + from_s).c_str());
+              last_btn = lv_list_add_btn(list, NULL, content_s.c_str());
+            }
+            if (last_btn) lv_obj_scroll_to_view(last_btn, LV_ANIM_ON);
+            return modified;
+          };
+
+          std::string path = make_contact_path(name);
+
+          // Try per-contact file
+          {
+            std::ifstream file(path.c_str());
+            std::string json_str;
+            if (file.is_open()) {
+              std::string line;
+              while (std::getline(file, line)) json_str += line + "";
+              file.close();
+            }
+            if (!json_str.empty()) {
+              JsonDocument doc;
+              DeserializationError error = deserializeJson(doc, json_str);
+              if (!error) {
+                JsonArray arr = doc["messages"].as<JsonArray>();
+                if (!arr.isNull()) {
+                  bool modified = render_messages(arr);
+                  if (modified) {
+                    std::ofstream file1(path.c_str());
+                    serializeJson(doc, file1);
+                    file1.close();
+                  }
+                  return;
+                }
+              }
+            }
           }
 
-          JsonObject contacts = doc["contacts"].as<JsonObject>();
-          if (contacts.isNull()) return;
-          JsonArray arr = contacts[name.c_str()].as<JsonArray>();
-          if (arr.isNull()) return;
+          // Migrate from legacy /data/chat_private.json if exists
+          {
+            std::ifstream file("/data/chat_private.json");
+            std::string json_str;
+            if (file.is_open()) {
+              std::string line;
+              while (std::getline(file, line)) json_str += line + "";
+              file.close();
+            }
+            if (json_str.empty()) return;
 
-          bool modified = false;
-          while (arr.size() > 100) {
-            arr.remove(0);
-            modified = true;
-          }
-          if (modified) {
-            ESP_LOGD("Chat", "Array size: %u", (unsigned)arr.size());
-            std::ofstream file1("/data/chat_private.json", std::ios::trunc);
-            serializeJson(doc, file1);
+            JsonDocument doc_old;
+            DeserializationError error = deserializeJson(doc_old, json_str);
+            if (error) return;
+
+            JsonObject contacts = doc_old["contacts"].as<JsonObject>();
+            if (contacts.isNull()) return;
+            JsonArray arr_old = contacts[name.c_str()].as<JsonArray>();
+            if (arr_old.isNull()) return;
+
+            JsonDocument doc_new;
+            JsonArray arr_new = doc_new["messages"].to<JsonArray>();
+            for (JsonVariant item : arr_old) {
+              JsonObject it = arr_new.add<JsonObject>();
+              it["time"] = item["time"] | "";
+              it["from"] = item["from"] | "";
+              it["content"] = item["content"] | "";
+            }
+            while (arr_new.size() > 100) arr_new.remove(0);
+
+            std::ofstream file1(path.c_str());
+            serializeJson(doc_new, file1);
             file1.close();
-          }
 
-          lv_obj_t * last_btn = nullptr;
-          for (JsonVariant item : arr) {
-            std::string time_s = item["time"] | "";
-            std::string from_s = item["from"] | "";
-            std::string content_s = item["content"] | "";
-            if (time_s.empty() && from_s.empty() && content_s.empty()) continue;
-            lv_list_add_text(list, (time_s + " - " + from_s).c_str());
-            last_btn = lv_list_add_btn(list, NULL, content_s.c_str());
+            render_messages(arr_new);
           }
-          if (last_btn) lv_obj_scroll_to_view(last_btn, LV_ANIM_ON);
 
   - id: chat_public_load
     mode: queued
