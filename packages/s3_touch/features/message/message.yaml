@@ -148,7 +148,7 @@ script:
                 lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_contact);
                 lv_label_set_text(msgbox_text, (std::string("确定删除 ") + name + " 吗？").c_str());
                 if (name == "cookie987" && id(uid) == "srr321" || name == "srr321" && id(uid) == "cookie987") {
-                  lv_label_set_text(msgbox_text, (std::string("不要删掉我 T_T\n") + std::string("确定删除 ") + name + " 吗？").c_str());
+                  lv_label_set_text(msgbox_text, (std::string("不要删掉我 QAQ\n") + std::string("确定删除 ") + name + " 吗？").c_str());
                 }
                 lv_obj_clear_flag(msgbox_delete_contact_outer, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_move_foreground(msgbox_delete_contact_outer);
@@ -254,7 +254,7 @@ script:
           std::string target = contact;
           if (target.empty()) return;
           if (target == "cookie987" && id(uid) == "srr321" || target == "srr321" && id(uid) == "cookie987") {
-            id(show_notification)->execute("你~删~不~掉~我~哦~~", "", 2000);
+            id(show_notification)->execute("你~删~不~掉~我~哦~~ :)", "", 2000);
             return;
           }
 
