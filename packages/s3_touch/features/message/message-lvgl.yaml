@@ -177,7 +177,7 @@ lvgl:
                   widgets:
                     - label:
                         align: CENTER
-                        y: 2
+                        y: 0
                         text: "\uF2EA"  # rotate-left
                   on_click:
                     then:
