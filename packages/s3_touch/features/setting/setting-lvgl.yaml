@@ -118,7 +118,7 @@ lvgl:
       title: 系统更新
       text_font: chinese_font14
       body:
-        text: "将更新至新系统，系统将暂时无响应(~60s)，请确保电量充足，网络连接稳定，请勿关机。系统将自动重启。"
+        text: "将更新至新系统，系统将暂时无响应(~60s)，请确保电量充足，网络连接稳定。系统将自动重启。"
         text_font: chinese_font14
       buttons:
         - id: btn_update_system_close
@@ -864,4 +864,4 @@ lvgl:
             y: 80
             recolor: true
             text_align: CENTER
-            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"
+            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要1~2分钟。#"
