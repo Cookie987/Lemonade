@@ -48,7 +48,7 @@ script:
                             std::string(" 条私聊消息"), std::string("条私聊消息"), 0);
                         }
                         else{
-                          id(show_notification)->execute(std::string("收到 255+ 条私聊消息"), std::string("条私聊消息"), 0);
+                          id(show_notification)->execute("收到 255+ 条私聊消息", "条私聊消息", 0);
                         }
                       }
                       if (is_active_contact || from_name == id(uid)) {
