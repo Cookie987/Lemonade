@@ -13,8 +13,8 @@ display:
     update_interval: never
     pixel_mode: 16bit
     double_buffer: false
-    use_dma: false
-    use_psram: false
+    use_dma: true
+    use_psram: true
     transform:
       swap_xy: true
       mirror_x: false
