@@ -366,12 +366,16 @@ script:
       time: string
     then:
       - lambda: |
-          std::string name = contact;
-          if (name.empty()) return;
-
-          auto make_contact_path = [](const std::string &n) -> std::string {
+          if (contact.empty()) return;
+          struct PsramAllocator : ArduinoJson::Allocator{
+            void* allocate(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
+            void deallocate(void* p) { heap_caps_free(p); }
+            void* reallocate(void* p, size_t n) { return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM); }
+          } psram_allocator;
+          // 1. 路径生成优化：直接引用参数，不创建新的 string name = contact
+          auto get_path = [&]() -> std::string {
             uint32_t h = 2166136261u;
-            for (unsigned char c : n) {
+            for (unsigned char c : contact) { // 直接遍历参数
               h ^= c;
               h *= 16777619u;
             }
@@ -380,40 +384,42 @@ script:
             return std::string(buf);
           };
 
-          std::string path = make_contact_path(name);
+          std::string path = get_path();
+          JsonDocument doc(&psram_allocator);
 
-          std::ifstream file(path.c_str());
-          std::string json_str;
-          if (file.is_open()) {
-            std::string line;
-            while (std::getline(file, line)) json_str += line + "";
-            file.close();
+          // 3. 文件读取优化：【最关键改动】
+          // 删除了原来的 while(getline) 和 json_str += line
+          // 直接从文件流解析，节省了存放整个 JSON 字符串的 RAM 空间
+          std::ifstream is(path);
+          if (is.is_open()) {
+              deserializeJson(doc, is); // 直接对接流，无中间拷贝
+              is.close();
           }
 
-          JsonDocument doc;
-          if (!json_str.empty()) {
-            DeserializationError error = deserializeJson(doc, json_str);
-            if (error) {
-              ESP_LOGW("Chat", "Failed to parse %s: %s", path.c_str(), error.c_str());
-              doc.clear();
-            }
-          }
-
+          // 4. JSON 操作
           JsonArray arr = doc["messages"].as<JsonArray>();
           if (arr.isNull()) {
-            arr = doc["messages"].to<JsonArray>();
+              arr = doc.to<JsonObject>().createNestedArray("messages");
           }
 
-          JsonObject item = arr.add<JsonObject>();
+          // 5. 写入数据：直接赋值，ArduinoJson 会处理内部存储
+          JsonObject item = arr.createNestedObject();
           item["time"] = time;
           item["from"] = from;
           item["content"] = content;
 
-          while (arr.size() > 100) arr.remove(0);
+          // 6. 长度控制
+          while (arr.size() > 100) {
+              arr.remove(0);
+          }
 
-          std::ofstream file1(path.c_str());
-          serializeJson(doc, file1);
-          file1.close();
+          // 7. 文件保存优化
+          // 使用 std::ios::trunc 覆盖写入，直接序列化到文件流
+          std::ofstream os(path, std::ios::trunc);
+          if (os.is_open()) {
+              serializeJson(doc, os); // 直接写磁盘，不产生临时大字符串
+              os.close();
+          }
 
   - id: chat_public_append
     mode: queued
@@ -423,38 +429,50 @@ script:
       time: string
     then:
       - lambda: |
-          std::ifstream file("/data/chat_public.json");
-          std::string json_str;
-          if (file.is_open()) {
-            std::string line;
-            while (std::getline(file, line)) json_str += line + "";
-            file.close();
+          const char* path = "/data/chat_public.json";
+          struct PsramAllocator : ArduinoJson::Allocator{
+            void* allocate(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
+            void deallocate(void* p) { heap_caps_free(p); }
+            void* reallocate(void* p, size_t n) { return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM); }
+          } psram_allocator;
+          // 1. 自动管理 JsonDocument 内存
+          // 对于 100 条记录，建议预设 8KB - 16KB 左右
+          JsonDocument doc(&psram_allocator);
+
+          // 2. 直接从文件流解析 (不再使用 json_str += line)
+          // 这种方式直接读取 Flash/SD 卡数据进入 JSON 树，省去中间字符串副本
+          {
+              std::ifstream file(path);
+              if (file.is_open()) {
+                  deserializeJson(doc, file);
+                  file.close();
+              }
           }
 
-          JsonDocument doc;
-          if (!json_str.empty()) {
-            DeserializationError error = deserializeJson(doc, json_str);
-            if (error) {
-              ESP_LOGW("Chat", "Failed to parse chat_public.json: %s", error.c_str());
-              doc.clear();
-            }
-          }
-
+          // 3. 结构化处理
           JsonArray arr = doc["messages"].as<JsonArray>();
           if (arr.isNull()) {
-            arr = doc["messages"].to<JsonArray>();
+              arr = doc["messages"].to<JsonArray>();
           }
 
+          // 4. 添加新消息
           JsonObject item = arr.add<JsonObject>();
           item["time"] = time;
           item["from"] = from;
           item["content"] = content;
 
-          while (arr.size() > 100) arr.remove(0);
+          // 5. 队列修剪：公共频道消息多，严格控制 100 条
+          while (arr.size() > 100) {
+              arr.remove(0);
+          }
 
-          std::ofstream file1("/data/chat_public.json", std::ios::trunc);
-          serializeJson(doc, file1);
-          file1.close();
+          // 6. 直接序列化到文件流
+          // 使用 std::ios::trunc 确保覆盖旧文件
+          std::ofstream file1(path, std::ios::trunc);
+          if (file1.is_open()) {
+              serializeJson(doc, file1);
+              file1.close();
+          }
 
   - id: chat_private_load
     mode: queued
@@ -462,6 +480,11 @@ script:
       contact: string
     then:
       - lambda: |
+          struct PsramAllocator : ArduinoJson::Allocator{
+            void* allocate(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
+            void deallocate(void* p) { heap_caps_free(p); }
+            void* reallocate(void* p, size_t n) { return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM); }
+          } psram_allocator;
           std::string name = contact;
           if (name.empty()) return;
           lv_obj_t * list = id(list_message_friend);
@@ -510,7 +533,7 @@ script:
               file.close();
             }
             if (!json_str.empty()) {
-              JsonDocument doc;
+              JsonDocument doc(&psram_allocator);
               DeserializationError error = deserializeJson(doc, json_str);
               if (!error) {
                 JsonArray arr = doc["messages"].as<JsonArray>();
@@ -538,7 +561,7 @@ script:
             }
             if (json_str.empty()) return;
 
-            JsonDocument doc_old;
+            JsonDocument doc_old(&psram_allocator);
             DeserializationError error = deserializeJson(doc_old, json_str);
             if (error) return;
 
@@ -547,7 +570,7 @@ script:
             JsonArray arr_old = contacts[name.c_str()].as<JsonArray>();
             if (arr_old.isNull()) return;
 
-            JsonDocument doc_new;
+            JsonDocument doc_new(&psram_allocator);
             JsonArray arr_new = doc_new["messages"].to<JsonArray>();
             for (JsonVariant item : arr_old) {
               JsonObject it = arr_new.add<JsonObject>();
@@ -568,6 +591,11 @@ script:
     mode: queued
     then:
       - lambda: |
+          struct PsramAllocator : ArduinoJson::Allocator{
+            void* allocate(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
+            void deallocate(void* p) { heap_caps_free(p); }
+            void* reallocate(void* p, size_t n) { return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM); }
+          } psram_allocator;
           lv_obj_t * list = id(list_message_public);
           if (list == nullptr) return;
           lv_obj_clean(list);
@@ -581,7 +609,7 @@ script:
           }
 
           if (json_str.empty()) return;
-          JsonDocument doc;
+          JsonDocument doc(&psram_allocator);
           DeserializationError error = deserializeJson(doc, json_str);
           if (error) {
             ESP_LOGW("Chat", "Failed to parse chat_public.json: %s", error.c_str());
