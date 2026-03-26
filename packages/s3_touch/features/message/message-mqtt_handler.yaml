@@ -37,8 +37,8 @@ script:
                       bool is_active_contact = chat_open && !active_contact.empty() && (from_name == active_contact);
 
                       std::string time_str = esp_time.strftime("%Y-%m-%d %H:%M:%S");
-
-                      id(chat_private_append)->execute(to_name, from_name, content, time_str);
+                      if (from_name == id(uid)) id(chat_private_append)->execute(to_name, from_name, content, time_str);
+                      else if (to_name == id(uid)) id(chat_private_append)->execute(from_name, to_name, content, time_str);
 
                       if(!id(page_message).is_showing()) {
                         lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
