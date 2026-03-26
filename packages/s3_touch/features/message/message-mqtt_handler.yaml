@@ -21,11 +21,25 @@ script:
                 json::parse_json(payload, [&](JsonVariant root) -> bool {
                   std::string type = root["type"] | "chat";  // "chat", "ack", "system"
                   std::string sub_type = root["sub_type"] | "p2p";  // "p2p", "channel"
-                  std::string msg_id = root["msg_id"] | "";
+                  uint32_t msg_id = root["msg_id"] | 0;
                   time_t timestamp = root["timestamp"] | 0;
                   // timestamp 转为时间
                   esphome::ESPTime esp_time = esphome::ESPTime::from_epoch_local(timestamp);
                   if (type == "chat"){
+                    // Simple de-dupe across devices using msg_id (no STL containers required)
+                    if (msg_id != 0) {
+                      static uint32_t recent_ids[64] = {0};
+                      static uint8_t recent_count = 0;
+                      static uint8_t recent_pos = 0;
+                      bool seen = false;
+                      for (uint8_t i = 0; i < recent_count; i++) {
+                        if (recent_ids[i] == msg_id) { seen = true; break; }
+                      }
+                      if (seen) return true;
+                      recent_ids[recent_pos] = msg_id;
+                      recent_pos = (recent_pos + 1) % 64;
+                      if (recent_count < 64) recent_count++;
+                    }
                     std::string from_name = root["from"]["name"] | "匿名用户";
                     std::string to_name = root["to"]["name"] | "未知用户";
                     std::string format = root["payload"]["fmt"] | "text";  // "text", "image"
@@ -37,8 +51,11 @@ script:
                       bool is_active_contact = chat_open && !active_contact.empty() && (from_name == active_contact);
 
                       std::string time_str = esp_time.strftime("%Y-%m-%d %H:%M:%S");
-                      if (from_name == id(uid)) id(chat_private_append)->execute(to_name, from_name, content, time_str);
-                      else if (to_name == id(uid)) id(chat_private_append)->execute(from_name, to_name, content, time_str);
+                      if (from_name == id(uid)) {
+                        id(chat_private_append)->execute(to_name, from_name, content, time_str);
+                      } else if (to_name == id(uid)) {
+                        id(chat_private_append)->execute(from_name, from_name, content, time_str);
+                      }
 
                       if(!id(page_message).is_showing()) {
                         lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
@@ -53,7 +70,7 @@ script:
                           id(show_notification)->execute("收到 255+ 条私聊消息", "条私聊消息", 0);
                         }
                       }
-                      if (is_active_contact || from_name == id(uid)) {
+                      if (is_active_contact) {
                         lv_list_add_text(id(list_message_friend),
                                           (
                                             time_str +
