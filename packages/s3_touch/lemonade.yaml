@@ -376,6 +376,8 @@ mqtt:
     topic: null
   on_connect:
     then:
+      - lambda: |
+          id(show_notification)->execute("MQTT 连接成功", "MQTT", 5000);
       - script.execute: keepalive
 
 time:
