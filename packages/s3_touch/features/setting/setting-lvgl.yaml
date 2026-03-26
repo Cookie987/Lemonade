@@ -838,7 +838,7 @@ lvgl:
         - lvgl.widget.hide: msgbox_update_message
         - lvgl.label.update:
             id: lbl_ota_prompt
-            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要一两分钟。请勿关闭设备。#"
+            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要 1~2 分钟。#"
       on_unload:
         - lvgl.widget.show: [lbl_wifi_status, lbl_battery_status, lbl_topbar_date, lbl_topbar_time]
       widgets:
@@ -864,4 +864,4 @@ lvgl:
             y: 80
             recolor: true
             text_align: CENTER
-            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要1~2分钟。#"
+            text: "#ffffff Lemonade OS 系统更新#\n #ffffff 这可能需要 1~2 分钟。#"
