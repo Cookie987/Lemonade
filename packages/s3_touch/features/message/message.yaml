@@ -345,17 +345,7 @@ script:
   - id: chat_storage_init
     then:
       - lambda: |
-          struct stat st;
-          if (stat("/data/chat_private.json", &st) != 0) {
-            std::ofstream f1("/data/chat_private.json");
-            f1 << "{\"contacts\":{}}";
-            f1.close();
-          }
-          if (stat("/data/chat_public.mpk", &st) != 0) {
-            std::ofstream f2("/data/chat_public.mpk");
-            f2 << "{\"messages\":[]}";
-            f2.close();
-          }
+          return;
 
   - id: chat_private_append
     mode: queued
