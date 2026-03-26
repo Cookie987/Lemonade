@@ -48,7 +48,7 @@ script:
                     if (sub_type == "p2p"){
                       bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
                       std::string active_contact = id(current_contact_uid);
-                      bool is_active_contact = chat_open && !active_contact.empty() && (from_name == active_contact);
+                      bool is_active_contact = chat_open && !active_contact.empty() && (from_name == active_contact || from_name == id(uid));
 
                       std::string time_str = esp_time.strftime("%Y-%m-%d %H:%M:%S");
                       if (from_name == id(uid)) {
@@ -79,10 +79,10 @@ script:
                                           ).c_str()
                                         );
                         lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, content.c_str());
-                        // 只保留最近的100条
+                        // 只保留最近的100条，但是名称标签也算，所以是200
                         uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
-                        if (children_count > 100) {
-                          for (uint32_t i = 0; i < children_count - 100; i++) {
+                        if (children_count > 200) {
+                          for (uint32_t i = 0; i < children_count - 200; i++) {
                             lv_obj_del(lv_obj_get_child(list_message_friend, 0));
                           }
                         }

@@ -97,7 +97,7 @@ script:
             doc.clear();
             doc["contacts"].to<JsonObject>();
             std::ofstream file_fix("/data/contacts.json", std::ios::trunc);
-            serializeJson(doc, file_fix);
+            serializeMsgPack(doc, file_fix);
             file_fix.close();
           }
 
@@ -351,8 +351,8 @@ script:
             f1 << "{\"contacts\":{}}";
             f1.close();
           }
-          if (stat("/data/chat_public.json", &st) != 0) {
-            std::ofstream f2("/data/chat_public.json");
+          if (stat("/data/chat_public.mpk", &st) != 0) {
+            std::ofstream f2("/data/chat_public.mpk");
             f2 << "{\"messages\":[]}";
             f2.close();
           }
@@ -380,7 +380,7 @@ script:
               h *= 16777619u;
             }
             char buf[64];
-            snprintf(buf, sizeof(buf), "/data/chat_private_%08X.json", (unsigned)h);
+            snprintf(buf, sizeof(buf), "/data/chat_private_%08X.mpk", (unsigned)h);
             return std::string(buf);
           };
 
@@ -392,7 +392,7 @@ script:
           // 直接从文件流解析，节省了存放整个 JSON 字符串的 RAM 空间
           std::ifstream is(path);
           if (is.is_open()) {
-              deserializeJson(doc, is); // 直接对接流，无中间拷贝
+              deserializeMsgPack(doc, is); // 直接对接流，无中间拷贝
               is.close();
           }
 
@@ -404,9 +404,9 @@ script:
 
           // 5. 写入数据：直接赋值，ArduinoJson 会处理内部存储
           JsonObject item = arr.add<JsonObject>();
-          item["time"] = time;
-          item["from"] = from;
-          item["content"] = content;
+          item["t"] = time;
+          item["f"] = from;
+          item["c"] = content;
 
           // 6. 长度控制
           while (arr.size() > 100) {
@@ -417,7 +417,7 @@ script:
           // 使用 std::ios::trunc 覆盖写入，直接序列化到文件流
           std::ofstream os(path, std::ios::trunc);
           if (os.is_open()) {
-              serializeJson(doc, os); // 直接写磁盘，不产生临时大字符串
+              serializeMsgPack(doc, os); // 直接写磁盘，不产生临时大字符串
               os.close();
           }
 
@@ -429,7 +429,7 @@ script:
       time: string
     then:
       - lambda: |
-          const char* path = "/data/chat_public.json";
+          const char* path = "/data/chat_public.mpk";
           struct PsramAllocator : ArduinoJson::Allocator{
             void* allocate(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
             void deallocate(void* p) { heap_caps_free(p); }
@@ -444,7 +444,7 @@ script:
           {
               std::ifstream file(path);
               if (file.is_open()) {
-                  deserializeJson(doc, file);
+                  deserializeMsgPack(doc, file);
                   file.close();
               }
           }
@@ -457,9 +457,9 @@ script:
 
           // 4. 添加新消息
           JsonObject item = arr.add<JsonObject>();
-          item["time"] = time;
-          item["from"] = from;
-          item["content"] = content;
+          item["t"] = time;
+          item["f"] = from;
+          item["c"] = content;
 
           // 5. 队列修剪：公共频道消息多，严格控制 100 条
           while (arr.size() > 100) {
@@ -470,7 +470,7 @@ script:
           // 使用 std::ios::trunc 确保覆盖旧文件
           std::ofstream file1(path, std::ios::trunc);
           if (file1.is_open()) {
-              serializeJson(doc, file1);
+              serializeMsgPack(doc, file1);
               file1.close();
           }
 
@@ -480,111 +480,82 @@ script:
       contact: string
     then:
       - lambda: |
-          struct PsramAllocator : ArduinoJson::Allocator{
-            void* allocate(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
-            void deallocate(void* p) { heap_caps_free(p); }
-            void* reallocate(void* p, size_t n) { return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM); }
-          } psram_allocator;
-          std::string name = contact;
-          if (name.empty()) return;
-          lv_obj_t * list = id(list_message_friend);
-          if (list == nullptr) return;
+          struct PsramAllocator : ArduinoJson::Allocator {
+            void* allocate(size_t n) override { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
+            void deallocate(void* p) override { heap_caps_free(p); }
+            void* reallocate(void* p, size_t n) override { return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM); }
+          } psram_alloc;
 
-          auto make_contact_path = [](const std::string &n) -> std::string {
+          if (contact.empty()) return;
+          lv_obj_t *list = id(list_message_friend);
+          if (!list) return;
+
+          // 1. 哈希函数封装：计算文件名
+          auto get_path = [](const std::string &n) {
             uint32_t h = 2166136261u;
-            for (unsigned char c : n) {
-              h ^= c;
-              h *= 16777619u;
-            }
-            char buf[64];
-            snprintf(buf, sizeof(buf), "/data/chat_private_%08X.json", (unsigned)h);
+            for (uint8_t c : n) { h = (h ^ c) * 16777619u; }
+            char buf[48];
+            snprintf(buf, sizeof(buf), "/data/chat_private_%08X.mpk", h);
             return std::string(buf);
           };
 
-          auto render_messages = [&](JsonArray arr) {
+          // 2. 渲染函数优化：减少冗余判断
+          auto render_and_trim = [&](JsonArray arr) -> bool {
             bool modified = false;
-            while (arr.size() > 100) {
-              arr.remove(0);
-              modified = true;
-            }
+            while (arr.size() > 100) { arr.remove(0); modified = true; }
 
-            lv_obj_t * last_btn = nullptr;
-            for (JsonVariant item : arr) {
-              std::string time_s = item["time"] | "";
-              std::string from_s = item["from"] | "";
-              std::string content_s = item["content"] | "";
-              if (time_s.empty() && from_s.empty() && content_s.empty()) continue;
-              lv_list_add_text(list, (time_s + " - " + from_s).c_str());
-              last_btn = lv_list_add_btn(list, NULL, content_s.c_str());
+            lv_obj_clean(list); // 渲染前通常需要清空旧视图，如不需要请删除此行
+            lv_obj_t *last_btn = nullptr;
+            for (JsonObject item : arr) {
+              const char* time_s = item["t"] | "";
+              const char* from_s = item["f"] | "";
+              const char* content_s = item["c"] | "";
+              if (!*content_s && !*from_s) continue;
+
+              lv_list_add_text(list, (std::string(time_s) + " - " + from_s).c_str());
+              last_btn = lv_list_add_btn(list, nullptr, content_s);
             }
             if (last_btn) lv_obj_scroll_to_view(last_btn, LV_ANIM_ON);
             return modified;
           };
 
-          std::string path = make_contact_path(name);
+          std::string path = get_path(contact);
+          JsonDocument doc(&psram_alloc);
 
-          // Try per-contact file
-          {
-            std::ifstream file(path.c_str());
-            std::string json_str;
-            if (file.is_open()) {
-              std::string line;
-              while (std::getline(file, line)) json_str += line + "";
-              file.close();
-            }
-            if (!json_str.empty()) {
-              JsonDocument doc(&psram_allocator);
-              DeserializationError error = deserializeJson(doc, json_str);
-              if (!error) {
-                JsonArray arr = doc["messages"].as<JsonArray>();
-                if (!arr.isNull()) {
-                  bool modified = render_messages(arr);
-                  if (modified) {
-                    std::ofstream file1(path.c_str());
-                    serializeJson(doc, file1);
-                    file1.close();
-                  }
-                  return;
-                }
+          // 优先加载独立文件
+          std::ifstream file(path);
+          if (file.is_open()) {
+            DeserializationError err = deserializeMsgPack(doc, file);
+            file.close();
+            if (!err && doc["messages"].is<JsonArray>()) {
+              if (render_and_trim(doc["messages"].as<JsonArray>())) {
+                std::ofstream out(path);
+                serializeMsgPack(doc, out);
               }
+              return;
             }
           }
 
-          // Migrate from legacy /data/chat_private.json if exists
-          {
-            std::ifstream file("/data/chat_private.json");
-            std::string json_str;
-            if (file.is_open()) {
-              std::string line;
-              while (std::getline(file, line)) json_str += line + "";
-              file.close();
+          // 备选逻辑：从 legacy 迁移
+          std::ifstream legacy_file("/data/chat_private.json");
+          if (legacy_file.is_open()) {
+            JsonDocument legacy_doc(&psram_alloc);
+            if (!deserializeMsgPack(legacy_doc, legacy_file)) {
+              JsonArray old_arr = legacy_doc["contacts"][contact.c_str()];
+              if (old_arr) {
+                doc.clear();
+                JsonArray new_arr = doc["messages"].to<JsonArray>();
+                for (JsonVariant v : old_arr) new_arr.add(v); // 深度拷贝
+
+                render_and_trim(new_arr);
+
+                std::ofstream out(path);
+                serializeMsgPack(doc, out);
+                out.close();
+                // 注意：此处未删除 legacy 文件中的条目以防万一，仅生成新文件
+              }
             }
-            if (json_str.empty()) return;
-
-            JsonDocument doc_old(&psram_allocator);
-            DeserializationError error = deserializeJson(doc_old, json_str);
-            if (error) return;
-
-            JsonObject contacts = doc_old["contacts"].as<JsonObject>();
-            if (contacts.isNull()) return;
-            JsonArray arr_old = contacts[name.c_str()].as<JsonArray>();
-            if (arr_old.isNull()) return;
-
-            JsonDocument doc_new(&psram_allocator);
-            JsonArray arr_new = doc_new["messages"].to<JsonArray>();
-            for (JsonVariant item : arr_old) {
-              JsonObject it = arr_new.add<JsonObject>();
-              it["time"] = item["time"] | "";
-              it["from"] = item["from"] | "";
-              it["content"] = item["content"] | "";
-            }
-            while (arr_new.size() > 100) arr_new.remove(0);
-
-            std::ofstream file1(path.c_str());
-            serializeJson(doc_new, file1);
-            file1.close();
-
-            render_messages(arr_new);
+            legacy_file.close();
           }
 
   - id: chat_public_load
@@ -600,7 +571,7 @@ script:
           if (list == nullptr) return;
           lv_obj_clean(list);
 
-          std::ifstream file("/data/chat_public.json");
+          std::ifstream file("/data/chat_public.mpk");
           std::string json_str;
           if (file.is_open()) {
             std::string line;
@@ -610,9 +581,9 @@ script:
 
           if (json_str.empty()) return;
           JsonDocument doc(&psram_allocator);
-          DeserializationError error = deserializeJson(doc, json_str);
+          DeserializationError error = deserializeMsgPack(doc, json_str);
           if (error) {
-            ESP_LOGW("Chat", "Failed to parse chat_public.json: %s", error.c_str());
+            ESP_LOGW("Chat", "Failed to parse chat_public.mpk: %s", error.c_str());
             return;
           }
 
@@ -621,9 +592,9 @@ script:
 
           lv_obj_t * last_btn = nullptr;
           for (JsonVariant item : arr) {
-            std::string time_s = item["time"] | "";
-            std::string from_s = item["from"] | "";
-            std::string content_s = item["content"] | "";
+            std::string time_s = item["t"] | "";
+            std::string from_s = item["f"] | "";
+            std::string content_s = item["c"] | "";
             if (time_s.empty() && from_s.empty() && content_s.empty()) continue;
             lv_list_add_text(list, (time_s + " - " + from_s).c_str());
             last_btn = lv_list_add_btn(list, NULL, content_s.c_str());
@@ -658,8 +629,8 @@ script:
               root["msg_id"] = esp_random();
             });
             uint32_t children_count = lv_obj_get_child_cnt(id(list_message_friend));
-            if (children_count > 100) {
-              for (uint32_t i = 0; i < children_count - 100; i++) {
+            if (children_count > 200) {
+              for (uint32_t i = 0; i < children_count - 200; i++) {
                 lv_obj_del(lv_obj_get_child(id(list_message_friend), 0));
               }
             }
@@ -686,8 +657,8 @@ script:
           std::string time_str = t.strftime("%Y-%m-%d %H:%M:%S");
           std::string sender = id(uid);
           uint32_t children_count = lv_obj_get_child_cnt(id(list_message_public));
-          if (children_count > 100) {
-            for (uint32_t i = 0; i < children_count - 100; i++) {
+          if (children_count > 200) {
+            for (uint32_t i = 0; i < children_count - 200; i++) {
               lv_obj_del(lv_obj_get_child(id(list_message_public), 0));
             }
           }
@@ -735,10 +706,10 @@ script:
                     std::string("收到 255+ 条频道消息"), std::string("条频道消息"), 0);
                 }
               }
-              // 只保留最近的100条
+              // 只保留最近的100条，但是名称标签也算子对象
               uint32_t children_count = lv_obj_get_child_cnt(list_message_public);
-              if (children_count > 100) {
-                for (uint32_t i = 0; i < children_count - 100; i++) {
+              if (children_count > 200) {
+                for (uint32_t i = 0; i < children_count - 200; i++) {
                   lv_obj_del(lv_obj_get_child(list_message_public, 0));
                 }
               }
