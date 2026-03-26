@@ -399,11 +399,11 @@ script:
           // 4. JSON 操作
           JsonArray arr = doc["messages"].as<JsonArray>();
           if (arr.isNull()) {
-              arr = doc.to<JsonObject>().createNestedArray("messages");
+              arr = doc["messages"].to<JsonArray>();
           }
 
           // 5. 写入数据：直接赋值，ArduinoJson 会处理内部存储
-          JsonObject item = arr.createNestedObject();
+          JsonObject item = arr.add<JsonObject>();
           item["time"] = time;
           item["from"] = from;
           item["content"] = content;
