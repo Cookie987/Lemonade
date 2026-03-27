@@ -25,6 +25,10 @@ globals:
     type: uint8_t
     restore_value: no
     initial_value: '0'
+  - id: unread_messages_public_badge
+    type: uint8_t
+    restore_value: no
+    initial_value: '0'
   - id: current_contact_uid
     type: std::string
     restore_value: no
@@ -115,11 +119,20 @@ script:
               std::string contact = kv.key().c_str();
               if (contact.empty()) continue;
               bool favorite = kv.value()["favorite"] | false;
+              uint8_t unread = kv.value()["unread"] | 0;
               std::string label = contact;
               if (favorite) {
                 label = std::string("* ") + contact;
               }
               lv_obj_t * btn = lv_list_add_btn(list, NULL, label.c_str());
+              if (unread > 0) {
+                lv_obj_t * dot = lv_obj_create(btn);
+                lv_obj_set_size(dot, 8, 8);
+                lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
+                lv_obj_set_style_bg_color(dot, lv_color_hex(0xFF0000), 0);
+                lv_obj_set_style_border_width(dot, 0, 0);
+                lv_obj_align(dot, LV_ALIGN_RIGHT_MID, -6, 0);
+              }
 
               // Click to open chat
               lv_obj_add_event_cb(btn, [](lv_event_t * e) {
@@ -177,6 +190,7 @@ script:
           lv_obj_move_foreground(float_btn);
           lv_obj_update_layout(list);
           ESP_LOGD("Chat", "contacts list children: %u", (unsigned)lv_obj_get_child_cnt(list));
+          id(message_update_unread_indicators)->execute();
 
   - id: contacts_add
     mode: queued
@@ -226,6 +240,7 @@ script:
             JsonObject contacts_obj = doc["contacts"].to<JsonObject>();
             for (auto &n : names) {
               contacts_obj[n.c_str()]["favorite"] = false;
+              contacts_obj[n.c_str()]["unread"] = 0;
             }
           }
 
@@ -238,6 +253,7 @@ script:
             return;
           }
           contacts[name.c_str()]["favorite"] = false;
+          contacts[name.c_str()]["unread"] = 0;
 
           std::ofstream file1("/data/contacts.json", std::ios::trunc);
           serializeJson(doc, file1);
@@ -317,6 +333,7 @@ script:
           if (name.empty()) return;
           id(current_contact_uid) = name;
           lv_label_set_text(lbl_topbar_title, name.c_str());
+          id(contacts_clear_unread)->execute(name);
 
           lv_obj_add_flag(id(tabview_message), LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
@@ -339,8 +356,180 @@ script:
           lv_obj_add_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(id(tabview_message), LV_OBJ_FLAG_HIDDEN);
           lv_obj_move_foreground(id(tabview_message));
+          lv_tabview_set_act(tabview_message, 0, LV_ANIM_OFF);
           id(current_contact_uid).clear();
           id(keyboard_message_hide)->execute();
+          id(message_update_unread_indicators)->execute();
+
+  - id: contacts_increment_unread
+    mode: queued
+    parameters:
+      contact: string
+    then:
+      - lambda: |
+          std::string name = contact;
+          if (name.empty()) return;
+          std::ifstream file("/data/contacts.json");
+          std::string config_json;
+          if (file.is_open()) {
+            std::string line;
+            while (std::getline(file, line)) config_json += line + "";
+            file.close();
+          }
+
+          JsonDocument doc;
+          if (!config_json.empty()) {
+            DeserializationError error = deserializeJson(doc, config_json);
+            if (error) {
+              ESP_LOGW("Chat", "Failed to parse contacts.json: %s", error.c_str());
+              doc.clear();
+            }
+          }
+
+          if (doc["contacts"].is<JsonArray>()) {
+            std::vector<std::string> names;
+            for (JsonVariant item : doc["contacts"].as<JsonArray>()) {
+              std::string n = item.as<std::string>();
+              if (!n.empty()) names.push_back(n);
+            }
+            doc.clear();
+            JsonObject contacts_obj = doc["contacts"].to<JsonObject>();
+            for (auto &n : names) {
+              contacts_obj[n.c_str()]["favorite"] = false;
+              contacts_obj[n.c_str()]["unread"] = 0;
+            }
+          }
+
+          JsonObject contacts = doc["contacts"].as<JsonObject>();
+          if (contacts.isNull()) {
+            contacts = doc["contacts"].to<JsonObject>();
+          }
+          if (contacts[name.c_str()].isNull()) {
+            contacts[name.c_str()]["favorite"] = false;
+            contacts[name.c_str()]["unread"] = 0;
+          }
+          uint8_t unread = contacts[name.c_str()]["unread"] | 0;
+          if (unread < 255) unread++;
+          contacts[name.c_str()]["unread"] = unread;
+
+          std::ofstream file1("/data/contacts.json", std::ios::trunc);
+          serializeJson(doc, file1);
+          file1.close();
+
+          id(contacts_refresh_list)->execute();
+          id(message_update_unread_indicators)->execute();
+
+  - id: contacts_clear_unread
+    mode: queued
+    parameters:
+      contact: string
+    then:
+      - lambda: |
+          std::string name = contact;
+          if (name.empty()) return;
+          std::ifstream file("/data/contacts.json");
+          std::string config_json;
+          if (file.is_open()) {
+            std::string line;
+            while (std::getline(file, line)) config_json += line + "";
+            file.close();
+          }
+
+          JsonDocument doc;
+          if (!config_json.empty()) {
+            DeserializationError error = deserializeJson(doc, config_json);
+            if (error) {
+              ESP_LOGW("Chat", "Failed to parse contacts.json: %s", error.c_str());
+              return;
+            }
+          }
+
+          bool changed = false;
+          JsonObject contacts = doc["contacts"].as<JsonObject>();
+          if (!contacts.isNull() && !contacts[name.c_str()].isNull()) {
+            uint8_t unread = contacts[name.c_str()]["unread"] | 0;
+            if (unread != 0) {
+              contacts[name.c_str()]["unread"] = 0;
+              changed = true;
+            }
+          }
+
+          if (changed) {
+            std::ofstream file1("/data/contacts.json", std::ios::trunc);
+            serializeJson(doc, file1);
+            file1.close();
+          }
+
+          id(contacts_refresh_list)->execute();
+          id(message_update_unread_indicators)->execute();
+
+  - id: message_init_unread_dots
+    then:
+      - lambda: |
+          lv_obj_t * tab_btns = lv_tabview_get_tab_btns(tabview_message);
+          if (tab_btns) {
+            lv_obj_set_parent(id(dot_tab_contacts), tab_btns);
+            lv_obj_set_parent(id(dot_tab_public), tab_btns);
+            lv_coord_t w = lv_obj_get_width(tab_btns);
+            lv_coord_t tab_w = w / 2;
+            lv_obj_align(id(dot_tab_contacts), LV_ALIGN_TOP_LEFT, tab_w - 14, 6);
+            lv_obj_align(id(dot_tab_public), LV_ALIGN_TOP_LEFT, (tab_w * 2) - 14, 6);
+          }
+
+  - id: message_update_unread_indicators
+    mode: queued
+    then:
+      - lambda: |
+          bool any_private = false;
+          bool other_private = false;
+          bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
+          std::string active = id(current_contact_uid);
+
+          std::ifstream file("/data/contacts.json");
+          std::string config_json;
+          if (file.is_open()) {
+            std::string line;
+            while (std::getline(file, line)) config_json += line + "";
+            file.close();
+          }
+          if (!config_json.empty()) {
+            JsonDocument doc;
+            DeserializationError error = deserializeJson(doc, config_json);
+            if (!error) {
+              JsonObject contacts = doc["contacts"].as<JsonObject>();
+              if (!contacts.isNull()) {
+                for (JsonPair kv : contacts) {
+                  std::string contact = kv.key().c_str();
+                  uint8_t unread = kv.value()["unread"] | 0;
+                  if (unread > 0) {
+                    any_private = true;
+                    if (!(chat_open && !active.empty() && contact == active)) {
+                      other_private = true;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          if (any_private) {
+            lv_obj_clear_flag(id(dot_tab_contacts), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(dot_tab_contacts), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          if (id(unread_messages_public_badge) > 0) {
+            lv_obj_clear_flag(id(dot_tab_public), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(dot_tab_public), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          bool show_back = chat_open && (other_private || (id(unread_messages_public_badge) > 0));
+          if (show_back) {
+            lv_obj_clear_flag(id(dot_back_unread), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(dot_back_unread), LV_OBJ_FLAG_HIDDEN);
+          }
 
   - id: chat_storage_init
     then:
@@ -682,7 +871,21 @@ script:
                               );
               id(chat_public_append)->execute(sender, content, time_str);
               lv_obj_t * list_btn = lv_list_add_btn(list_message_public, NULL, content.c_str());
-              if(!id(page_message).is_showing()) {
+              bool page_show = id(page_message).is_showing();
+              bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
+              bool on_public_tab = page_show && !chat_open && (lv_tabview_get_tab_act(tabview_message) == 1);
+
+              if (!on_public_tab) {
+                if (id(unread_messages_public_badge) < 255) {
+                  id(unread_messages_public_badge)++;
+                }
+                id(message_update_unread_indicators)->execute();
+              } else if (id(unread_messages_public_badge) > 0) {
+                id(unread_messages_public_badge) = 0;
+                id(message_update_unread_indicators)->execute();
+              }
+
+              if(!page_show) {
                 lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
                 if (id(unread_messages_amount_public) < 255) {
                   id(unread_messages_amount_public)++;

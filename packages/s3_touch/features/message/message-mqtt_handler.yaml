@@ -57,6 +57,14 @@ script:
                         id(chat_private_append)->execute(from_name, from_name, content, time_str);
                       }
 
+                      if (to_name == id(uid) && from_name != id(uid)) {
+                        if (is_active_contact) {
+                          id(contacts_clear_unread)->execute(from_name);
+                        } else {
+                          id(contacts_increment_unread)->execute(from_name);
+                        }
+                      }
+
                       if(!id(page_message).is_showing()) {
                         lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
                         if (id(unread_messages_amount_private) < 255) {

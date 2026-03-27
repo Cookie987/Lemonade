@@ -87,6 +87,8 @@ lvgl:
             id: close_notification
             notification_message: "条新消息"
         - script.execute: contacts_refresh_list
+        - script.execute: message_init_unread_dots
+        - script.execute: message_update_unread_indicators
         # - script.execute: chat_public_load
         # - script.execute: contacts_close_chat
       widgets:
@@ -102,6 +104,11 @@ lvgl:
                 - script.execute: keyboard_message_hide
                 - lambda: |
                     lv_keyboard_reset_ime(keyboard_message_input->obj);
+                    uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
+                    if (tab_act == 1) {
+                      id(unread_messages_public_badge) = 0;
+                    }
+                    id(message_update_unread_indicators)->execute();
             size: 15%
             tabs:
               - name: 联系人
@@ -151,6 +158,22 @@ lvgl:
                               id: keyboard_message_input
                               textarea: textarea_message_public_input
         - obj:
+            id: dot_tab_contacts
+            width: 8
+            height: 8
+            hidden: true
+            bg_color: 0xFF0000
+            border_width: 0
+            radius: 8
+        - obj:
+            id: dot_tab_public
+            width: 8
+            height: 8
+            hidden: true
+            bg_color: 0xFF0000
+            border_width: 0
+            radius: 8
+        - obj:
             id: obj_message_private_container
             hidden: true
             scrollable: false
@@ -179,6 +202,17 @@ lvgl:
                         align: CENTER
                         y: 0
                         text: "\uF2EA"  # rotate-left
+                    - obj:
+                        id: dot_back_unread
+                        width: 8
+                        height: 8
+                        align: TOP_RIGHT
+                        x: -2
+                        y: 2
+                        hidden: true
+                        bg_color: 0xFF0000
+                        border_width: 0
+                        radius: 8
                   on_click:
                     then:
                       - script.execute: contacts_close_chat
