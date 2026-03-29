@@ -66,7 +66,7 @@ script:
     mode: single
     then:
       - lambda: |
-          for (auto const & file : id(sd)->list_directory("/sdcard", 3))
+          for (auto const & file : id(sd)->list_directory("/lemonade", 3))
             ESP_LOGI("SD", "File: %s\n", file.c_str());
 
   - id: littlefs_init

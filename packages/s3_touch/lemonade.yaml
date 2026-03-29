@@ -73,7 +73,7 @@ esphome:
       then:
         - script.execute: prase_wifi_list
         - lambda: |
-            id(lua).run_file("/sdcard/hello.lua");
+            id(lua).run_file_async("/sdcard/hello.lua");
     - priority: 100
       then:
         - script.execute: mqtt_response_handler
