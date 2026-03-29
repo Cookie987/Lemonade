@@ -72,6 +72,8 @@ esphome:
     - priority: 250
       then:
         - script.execute: prase_wifi_list
+        - lambda: |
+            id(lua).run_file("/sdcard/hello.lua");
     - priority: 100
       then:
         - script.execute: mqtt_response_handler
@@ -173,6 +175,11 @@ logger:
             return "logs/" + id(text_sensor_mac_address).state;
           payload: !lambda |-
             return message;
+
+lua_runtime:
+  id: lua
+  enable_stub: false
+  force_32bit: true
 
 ota:
   - platform: esphome
