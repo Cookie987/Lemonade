@@ -321,6 +321,87 @@ lvgl:
                             - lvgl.widget.hide: obj_contact_add_overlay
                             - script.execute: keyboard_message_hide
         - obj:
+            id: obj_contact_action_overlay
+            hidden: true
+            align: CENTER
+            width: 320
+            height: 240
+            border_width: 0
+            bg_color: 0x000000
+            bg_opa: 60%
+            radius: 0
+            widgets:
+              - obj:
+                  id: obj_contact_action_dialog
+                  width: 260
+                  height: 170
+                  align: CENTER
+                  bg_color: 0xFFFFFF
+                  radius: 8
+                  pad_all: 10
+                  widgets:
+                    - label:
+                        align: TOP_MID
+                        y: 5
+                        text: "联系人操作"
+                    - button:
+                        id: btn_contact_action_favorite
+                        width: 200
+                        height: 32
+                        align: TOP_MID
+                        y: 35
+                        bg_color: !lambda return lv_color_hex(0x1f95f6);
+                        widgets:
+                          - label:
+                              id: lbl_contact_action_favorite
+                              align: CENTER
+                              text: "特别关心"
+                        on_click:
+                          then:
+                            - script.execute:
+                                id: contacts_toggle_favorite
+                                contact: !lambda 'return id(pending_action_contact);'
+                            - lvgl.widget.hide: obj_contact_action_overlay
+                    - button:
+                        id: btn_contact_action_delete
+                        width: 200
+                        height: 32
+                        align: TOP_MID
+                        y: 75
+                        bg_color: !lambda return lv_color_hex(0xE35D5D);
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "删除联系人"
+                        on_click:
+                          then:
+                            - lambda: |
+                                std::string name = id(pending_action_contact);
+                                id(pending_delete_contact) = name;
+                                lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_contact);
+                                lv_label_set_text(msgbox_text, (std::string("确定删除 ") + name + " 吗？").c_str());
+                                if (name == "cookie987" && id(uid) == "srr321" || name == "srr321" && id(uid) == "cookie987") {
+                                  lv_label_set_text(msgbox_text, (std::string("不要删掉我 QAQ\n") + std::string("确定删除 ") + name + " 吗？").c_str());
+                                }
+                                lv_obj_clear_flag(msgbox_delete_contact_outer, LV_OBJ_FLAG_HIDDEN);
+                                lv_obj_move_foreground(msgbox_delete_contact_outer);
+                            - lvgl.widget.hide: obj_contact_action_overlay
+                    - button:
+                        id: btn_contact_action_cancel
+                        width: 200
+                        height: 32
+                        align: TOP_MID
+                        y: 115
+                        bg_color: !lambda return lv_color_hex(0x7A7A7A);
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "取消"
+                        on_click:
+                          then:
+                            - lvgl.widget.hide: obj_contact_action_overlay
+
+        - obj:
             id: obj_message_candidate_list
             scrollable: true
             scroll_dir: HOR

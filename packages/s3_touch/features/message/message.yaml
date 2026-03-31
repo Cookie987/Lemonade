@@ -37,6 +37,10 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  - id: pending_action_contact
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: keyboard_showing
     type: bool
     restore_value: no
@@ -122,9 +126,14 @@ script:
               uint8_t unread = kv.value()["unread"] | 0;
               std::string label = contact;
               if (favorite) {
-                label = std::string("* ") + contact;
+                label = contact + std::string(" \uF005");  // Fontawesome star
               }
               lv_obj_t * btn = lv_list_add_btn(list, NULL, label.c_str());
+              if (favorite) {
+                lv_obj_set_style_bg_color(btn, lv_color_hex(0x664cbe), 0);
+                lv_obj_set_style_bg_opa(btn, LV_OPA_50, 0);
+                lv_obj_set_style_text_color(btn, lv_color_hex(0xffffff), 0);
+              }
               if (unread > 0) {
                 lv_obj_t * dot = lv_obj_create(btn);
                 lv_obj_set_size(dot, 8, 8);
@@ -143,11 +152,14 @@ script:
                 if (!txt) return;
                 // remove favorite prefix if present
                 std::string name = txt;
-                if (name.rfind("* ", 0) == 0) name = name.substr(2);
+                std::string fav_suffix = std::string(" \uF005");
+                if (name.size() >= fav_suffix.size() && name.rfind(fav_suffix) == name.size() - fav_suffix.size()) {
+                  name = name.substr(0, name.size() - fav_suffix.size());
+                }
                 id(contacts_open_chat)->execute(name);
               }, LV_EVENT_SHORT_CLICKED, list);
 
-              // Long press to delete
+              // Long press to open actions
               lv_obj_add_event_cb(btn, [](lv_event_t * e) {
                 lv_obj_t * target_btn = lv_event_get_target(e);
                 lv_obj_t * list_obj = (lv_obj_t *) lv_event_get_user_data(e);
@@ -155,16 +167,19 @@ script:
                 const char * txt = lv_list_get_btn_text(list_obj, target_btn);
                 if (!txt) return;
                 std::string name = txt;
-                if (name.rfind("* ", 0) == 0) name = name.substr(2);
-                id(pending_delete_contact) = name;
-
-                lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_contact);
-                lv_label_set_text(msgbox_text, (std::string("确定删除 ") + name + " 吗？").c_str());
-                if (name == "cookie987" && id(uid) == "srr321" || name == "srr321" && id(uid) == "cookie987") {
-                  lv_label_set_text(msgbox_text, (std::string("不要删掉我 QAQ\n") + std::string("确定删除 ") + name + " 吗？").c_str());
+                bool favorite = false;
+                std::string fav_suffix = std::string(" \uF005");
+                if (name.size() >= fav_suffix.size() && name.rfind(fav_suffix) == name.size() - fav_suffix.size()) {
+                  favorite = true;
+                  name = name.substr(0, name.size() - fav_suffix.size());
                 }
-                lv_obj_clear_flag(msgbox_delete_contact_outer, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_move_foreground(msgbox_delete_contact_outer);
+                id(pending_action_contact) = name;
+                lv_label_set_text(id(lbl_contact_action_favorite), favorite ? "取消关心" : "特别关心");
+                lv_obj_set_style_bg_color(id(btn_contact_action_favorite),
+                                          favorite ? lv_color_hex(0x1f95f6) : lv_color_hex(0xFFCA26),
+                                          0);
+                lv_obj_clear_flag(id(obj_contact_action_overlay), LV_OBJ_FLAG_HIDDEN);
+                lv_obj_move_foreground(id(obj_contact_action_overlay));
               }, LV_EVENT_LONG_PRESSED, list);
             }
           }
@@ -321,6 +336,49 @@ script:
           if (id(current_contact_uid) == target) {
             id(contacts_close_chat)->execute();
           }
+          id(contacts_refresh_list)->execute();
+
+  - id: contacts_toggle_favorite
+    mode: queued
+    parameters:
+      contact: string
+    then:
+      - lambda: |
+          std::string target = contact;
+          if (target.empty()) return;
+
+          std::ifstream file("/data/contacts.json");
+          std::string config_json;
+          if (file.is_open()) {
+            std::string line;
+            while (std::getline(file, line)) {
+              config_json += line + "\n";
+            }
+            file.close();
+          }
+
+          JsonDocument doc;
+          if (!config_json.empty()) {
+            DeserializationError error = deserializeJson(doc, config_json);
+            if (error) {
+              ESP_LOGW("Chat", "Failed to parse contacts.json: %s", error.c_str());
+              return;
+            }
+          }
+
+          JsonObject contacts = doc["contacts"].as<JsonObject>();
+          if (contacts.isNull()) return;
+          if (contacts[target.c_str()].isNull()) return;
+
+          bool favorite = contacts[target.c_str()]["favorite"] | false;
+          contacts[target.c_str()]["favorite"] = !favorite;
+
+          std::string output;
+          serializeJson(doc, output);
+          std::ofstream file1("/data/contacts.json");
+          file1 << output;
+          file1.close();
+
           id(contacts_refresh_list)->execute();
 
   - id: contacts_open_chat

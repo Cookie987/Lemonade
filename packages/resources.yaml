@@ -25,6 +25,7 @@ font:
           "\uF0EE",  # cloud-arrow-up
           "\uF7C2",  # sd-card
           "\uF6A8",  # volume
+          "\uF005",  # star
         ]   # arrow-left, arrow-right, rotate-left
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [
