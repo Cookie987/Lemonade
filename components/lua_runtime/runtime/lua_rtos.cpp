@@ -1,0 +1,454 @@
+#include "lua_rtos.h"
+
+#include <cstring>
+#include <string>
+
+#include "esphome/core/log.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include "esp_err.h"
+#include "esp_heap_caps.h"
+#include "esp_system.h"
+
+#ifdef LUA_RUNTIME_STUB
+namespace esphome {
+namespace lua_runtime {
+
+bool rtos_init(RtosContext &ctx) {
+  (void) ctx;
+  return false;
+}
+
+void rtos_cleanup(RtosContext &ctx) { (void) ctx; }
+
+void rtos_set_context(RtosContext *ctx) { (void) ctx; }
+
+void register_rtos_api(lua_State *L) { (void) L; }
+
+}  // namespace lua_runtime
+}  // namespace esphome
+#else
+#include "lua.hpp"
+
+namespace esphome {
+namespace lua_runtime {
+
+static const char *TAG = "lua_runtime";
+static const int MSG_TIMER = 0x100;
+static const int INF_TIMEOUT = -1;
+
+struct RtosMsg {
+  int msgid;
+  int id;
+  int repeat;
+};
+
+struct RtosTimer {
+  int id;
+  int repeat;
+  uint32_t timeout_ms;
+  esp_timer_handle_t handle;
+};
+
+static RtosContext *g_ctx = nullptr;
+static size_t g_lua_max_used = 0;
+
+static const char *get_lemonade_version() {
+#ifdef LEMONADE_VERSION
+  return LEMONADE_VERSION;
+#elif defined(ESPHOME_VERSION)
+  return ESPHOME_VERSION;
+#else
+  return "0.0.0";
+#endif
+}
+
+static void timer_cleanup(RtosTimer *timer) {
+  if (timer == nullptr) return;
+  if (timer->handle != nullptr) {
+    esp_timer_stop(timer->handle);
+    esp_timer_delete(timer->handle);
+  }
+  delete timer;
+}
+
+static void rtos_timer_cb(void *arg) {
+  auto *timer = static_cast<RtosTimer *>(arg);
+  if (timer == nullptr || g_ctx == nullptr || g_ctx->queue == nullptr) return;
+
+  RtosMsg msg{MSG_TIMER, timer->id, timer->repeat};
+  ESP_LOGD(TAG, "rtos.timer_cb id=%d repeat=%d", timer->id, timer->repeat);
+  xQueueSend(g_ctx->queue, &msg, 0);
+
+  if (timer->repeat == 0) {
+    if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
+    g_ctx->timers.erase(timer->id);
+    if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+    timer_cleanup(timer);
+  } else if (timer->repeat > 0) {
+    timer->repeat--;
+    if (timer->repeat == 0) {
+      if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
+      g_ctx->timers.erase(timer->id);
+      if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+      timer_cleanup(timer);
+    }
+  }
+}
+
+bool rtos_init(RtosContext &ctx) {
+  ctx.queue = xQueueCreate(16, sizeof(RtosMsg));
+  ctx.lock = xSemaphoreCreateMutex();
+  rtos_set_context(&ctx);
+
+  if (ctx.queue == nullptr) {
+    ESP_LOGE(TAG, "rtos.queue create failed");
+  }
+  if (ctx.lock == nullptr) {
+    ESP_LOGE(TAG, "rtos.lock create failed");
+  }
+
+  esp_err_t init_err = esp_timer_init();
+  if (init_err != ESP_OK && init_err != ESP_ERR_INVALID_STATE) {
+    ESP_LOGW(TAG, "rtos.timer_start init fail: %s", esp_err_to_name(init_err));
+  }
+
+  return ctx.queue != nullptr && ctx.lock != nullptr;
+}
+
+void rtos_set_context(RtosContext *ctx) { g_ctx = ctx; }
+
+static void rtos_cleanup_timers(RtosContext &ctx) {
+  if (ctx.lock) xSemaphoreTake(ctx.lock, portMAX_DELAY);
+  for (auto &kv : ctx.timers) {
+    timer_cleanup(kv.second);
+  }
+  ctx.timers.clear();
+  if (ctx.lock) xSemaphoreGive(ctx.lock);
+}
+
+void rtos_cleanup(RtosContext &ctx) {
+  rtos_cleanup_timers(ctx);
+
+  if (ctx.queue) {
+    vQueueDelete(ctx.queue);
+    ctx.queue = nullptr;
+  }
+  if (ctx.lock) {
+    vSemaphoreDelete(ctx.lock);
+    ctx.lock = nullptr;
+  }
+  if (g_ctx == &ctx) g_ctx = nullptr;
+}
+
+static int rtos_receive(lua_State *L) {
+  if (g_ctx == nullptr || g_ctx->queue == nullptr) {
+    lua_pushinteger(L, -1);
+    return 1;
+  }
+
+  int timeout = (int) luaL_optinteger(L, 1, -1);
+  TickType_t ticks = (timeout < 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout);
+
+  RtosMsg msg{0, 0, 0};
+  if (xQueueReceive(g_ctx->queue, &msg, ticks) != pdTRUE) {
+    lua_pushinteger(L, -1);
+    return 1;
+  }
+
+  ESP_LOGD(TAG, "rtos.receive msg=%d id=%d repeat=%d", msg.msgid, msg.id, msg.repeat);
+
+  if (g_ctx->autogc_period > 0) {
+    g_ctx->autogc_counter++;
+    if (g_ctx->autogc_counter >= g_ctx->autogc_period) {
+      g_ctx->autogc_counter = 0;
+      size_t total = (size_t) lua_gc(L, LUA_GCCOUNT, 0) * 1024;
+      size_t used = total;
+      if (total > 0 && (used * 100) >= (total * g_ctx->autogc_high)) {
+        lua_gc(L, LUA_GCCOLLECT, 0);
+        lua_gc(L, LUA_GCCOLLECT, 0);
+      } else if (total > 0 && (used * 100) >= (total * g_ctx->autogc_mid)) {
+        lua_gc(L, LUA_GCCOLLECT, 0);
+        lua_gc(L, LUA_GCCOLLECT, 0);
+      }
+    }
+  }
+
+  lua_pushinteger(L, msg.msgid);
+  lua_pushinteger(L, msg.id);
+  lua_pushinteger(L, msg.repeat);
+  return 3;
+}
+
+static int rtos_timer_start(lua_State *L) {
+  if (g_ctx == nullptr) {
+    ESP_LOGE(TAG, "rtos.timer_start: no context");
+    lua_pushinteger(L, 0);
+    return 1;
+  }
+  if (g_ctx->queue == nullptr) {
+    ESP_LOGE(TAG, "rtos.timer_start: queue null");
+  }
+  if (g_ctx->lock == nullptr) {
+    ESP_LOGE(TAG, "rtos.timer_start: lock null");
+  }
+  int id = (int) luaL_checkinteger(L, 1);
+  int timeout = (int) luaL_checkinteger(L, 2);
+  int repeat = (int) luaL_optinteger(L, 3, 0);
+  ESP_LOGD(TAG, "rtos.timer_start id=%d timeout=%d repeat=%d", id, timeout, repeat);
+  if (timeout < 1) {
+    lua_pushinteger(L, 0);
+    return 1;
+  }
+
+  if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
+  auto it = g_ctx->timers.find(id);
+  if (it != g_ctx->timers.end()) {
+    timer_cleanup(it->second);
+    g_ctx->timers.erase(it);
+  }
+  if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+
+  auto *timer = new RtosTimer{ id, repeat, (uint32_t) timeout, nullptr };
+
+  esp_timer_create_args_t args{};
+  args.callback = &rtos_timer_cb;
+  args.arg = timer;
+  args.dispatch_method = ESP_TIMER_TASK;
+  args.name = "lua_rtos";
+
+  esp_err_t err = esp_timer_create(&args, &timer->handle);
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "rtos.timer_start create fail: %s", esp_err_to_name(err));
+    delete timer;
+    lua_pushinteger(L, 0);
+    return 1;
+  }
+
+  if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
+  g_ctx->timers[id] = timer;
+  if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+
+  if (repeat == 0) {
+    err = esp_timer_start_once(timer->handle, (uint64_t) timeout * 1000);
+  } else {
+    err = esp_timer_start_periodic(timer->handle, (uint64_t) timeout * 1000);
+  }
+
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "rtos.timer_start start fail: %s", esp_err_to_name(err));
+    if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
+    g_ctx->timers.erase(id);
+    if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+    timer_cleanup(timer);
+    lua_pushinteger(L, 0);
+    return 1;
+  }
+
+  lua_pushinteger(L, 1);
+  return 1;
+}
+
+static int rtos_timer_stop(lua_State *L) {
+  if (g_ctx == nullptr || g_ctx->lock == nullptr) return 0;
+  if (!lua_isinteger(L, 1)) return 0;
+  int id = (int) lua_tointeger(L, 1);
+
+  if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
+  auto it = g_ctx->timers.find(id);
+  if (it != g_ctx->timers.end()) {
+    timer_cleanup(it->second);
+    g_ctx->timers.erase(it);
+  }
+  if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+  return 0;
+}
+
+static int rtos_reboot(lua_State *L) {
+  (void) L;
+  ESP_LOGW(TAG, "Script requested reboot but rejected.");
+  return 0;
+}
+
+static int rtos_build_date(lua_State *L) {
+  lua_pushstring(L, __DATE__);
+  return 1;
+}
+
+static int rtos_bsp(lua_State *L) {
+#if CONFIG_IDF_TARGET_ESP32S3
+  lua_pushstring(L, "ESP32S3");
+#elif CONFIG_IDF_TARGET_ESP32
+  lua_pushstring(L, "ESP32");
+#elif CONFIG_IDF_TARGET_ESP32C3
+  lua_pushstring(L, "ESP32C3");
+#else
+  lua_pushstring(L, "ESP32");
+#endif
+  return 1;
+}
+
+static int rtos_version(lua_State *L) {
+  lua_pushstring(L, get_lemonade_version());
+  return 1;
+}
+
+static int rtos_standy(lua_State *L) {
+  int timeout = (int) luaL_optinteger(L, 1, 0);
+  if (timeout > 0) vTaskDelay(pdMS_TO_TICKS(timeout));
+  return 0;
+}
+
+static int rtos_meminfo(lua_State *L) {
+  const char *type = luaL_optstring(L, 1, "lua");
+
+  size_t total = 0;
+  size_t free = 0;
+  size_t used = 0;
+  size_t max_used = 0;
+
+  if (strcmp(type, "psram") == 0) {
+    total = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+    free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+  } else {
+    total = heap_caps_get_total_size(MALLOC_CAP_DEFAULT);
+    free = heap_caps_get_free_size(MALLOC_CAP_DEFAULT);
+  }
+  used = (total > free) ? (total - free) : 0;
+
+  if (strcmp(type, "lua") == 0) {
+    size_t lua_kb = (size_t) lua_gc(L, LUA_GCCOUNT, 0);
+    size_t lua_b = (size_t) lua_gc(L, LUA_GCCOUNTB, 0);
+    used = lua_kb * 1024 + lua_b;
+    if (used > g_lua_max_used) g_lua_max_used = used;
+    max_used = g_lua_max_used;
+  } else {
+    max_used = used;
+  }
+
+  lua_pushinteger(L, (lua_Integer) total);
+  lua_pushinteger(L, (lua_Integer) used);
+  lua_pushinteger(L, (lua_Integer) max_used);
+  return 3;
+}
+
+static int rtos_firmware(lua_State *L) {
+#if CONFIG_IDF_TARGET_ESP32S3
+  const char *bsp = "ESP32S3";
+#elif CONFIG_IDF_TARGET_ESP32
+  const char *bsp = "ESP32";
+#elif CONFIG_IDF_TARGET_ESP32C3
+  const char *bsp = "ESP32C3";
+#else
+  const char *bsp = "ESP32";
+#endif
+  lua_pushfstring(L, "LemonadeOS_%s_%s", get_lemonade_version(), bsp);
+  return 1;
+}
+
+static std::string replace_all(std::string s, const std::string &from, const std::string &to) {
+  size_t pos = 0;
+  while ((pos = s.find(from, pos)) != std::string::npos) {
+    s.replace(pos, from.length(), to);
+    pos += to.length();
+  }
+  return s;
+}
+
+static int rtos_set_paths(lua_State *L) {
+  lua_getglobal(L, "package");
+  if (!lua_istable(L, -1)) {
+    lua_pop(L, 1);
+    return 0;
+  }
+
+  std::string prefix;
+  for (int i = 1; i <= 4; i++) {
+    if (lua_isstring(L, i)) {
+      std::string p = lua_tostring(L, i);
+      if (!p.empty()) {
+        p = replace_all(p, "%s", "?");
+        if (p.find("?") == std::string::npos) {
+          if (!p.empty() && p.back() != '/') p += '/';
+          p += "?.lua";
+        }
+        prefix += p + ";";
+      }
+    }
+  }
+
+  lua_getfield(L, -1, "path");
+  const char *old_path = lua_tostring(L, -1);
+  std::string new_path = prefix + (old_path ? old_path : "");
+  lua_pop(L, 1);
+
+  lua_pushstring(L, new_path.c_str());
+  lua_setfield(L, -2, "path");
+  lua_pop(L, 1);
+  return 0;
+}
+
+static int rtos_nop(lua_State *L) {
+  (void) L;
+  return 0;
+}
+
+static int rtos_auto_collect_mem(lua_State *L) {
+  if (g_ctx == nullptr) return 0;
+  uint32_t period = (uint32_t) luaL_optinteger(L, 1, 100);
+  uint32_t mid = (uint32_t) luaL_optinteger(L, 2, 80);
+  uint32_t high = (uint32_t) luaL_optinteger(L, 3, 90);
+  if (period > 60000) return 0;
+  if (mid > 95 || high > 95) return 0;
+  if (mid < 50 || high < 50) return 0;
+  if (mid >= high) return 0;
+  g_ctx->autogc_period = period;
+  g_ctx->autogc_mid = mid;
+  g_ctx->autogc_high = high;
+  g_ctx->autogc_counter = 0;
+  return 0;
+}
+
+void register_rtos_api(lua_State *L) {
+  lua_newtable(L);
+
+  lua_pushcfunction(L, rtos_receive);
+  lua_setfield(L, -2, "receive");
+  lua_pushcfunction(L, rtos_timer_start);
+  lua_setfield(L, -2, "timer_start");
+  lua_pushcfunction(L, rtos_timer_stop);
+  lua_setfield(L, -2, "timer_stop");
+  lua_pushcfunction(L, rtos_reboot);
+  lua_setfield(L, -2, "reboot");
+  lua_pushcfunction(L, rtos_build_date);
+  lua_setfield(L, -2, "buildDate");
+  lua_pushcfunction(L, rtos_bsp);
+  lua_setfield(L, -2, "bsp");
+  lua_pushcfunction(L, rtos_version);
+  lua_setfield(L, -2, "version");
+  lua_pushcfunction(L, rtos_standy);
+  lua_setfield(L, -2, "standy");
+  lua_pushcfunction(L, rtos_meminfo);
+  lua_setfield(L, -2, "meminfo");
+  lua_pushcfunction(L, rtos_firmware);
+  lua_setfield(L, -2, "firmware");
+  lua_pushcfunction(L, rtos_set_paths);
+  lua_setfield(L, -2, "setPaths");
+  lua_pushcfunction(L, rtos_nop);
+  lua_setfield(L, -2, "nop");
+  lua_pushcfunction(L, rtos_auto_collect_mem);
+  lua_setfield(L, -2, "autoCollectMem");
+
+  lua_pushinteger(L, INF_TIMEOUT);
+  lua_setfield(L, -2, "INF_TIMEOUT");
+  lua_pushinteger(L, MSG_TIMER);
+  lua_setfield(L, -2, "MSG_TIMER");
+
+  lua_setglobal(L, "rtos");
+}
+
+}  // namespace lua_runtime
+}  // namespace esphome
+#endif
