@@ -18,10 +18,14 @@ lvgl:
                       align: CENTER
                       on_click:
                         then:
-                          - lvgl.page.show:
-                              id: page_limbus_prescript
-                              animation: FADE_IN
-                              time: 200ms
+                          - if:
+                              condition:
+                                lambda: 'return !id(app_edit_mode);'
+                              then:
+                                - lvgl.page.show:
+                                    id: page_limbus_prescript
+                                    animation: FADE_IN
+                                    time: 200ms
 
     - id: page_limbus_prescript
       on_load:

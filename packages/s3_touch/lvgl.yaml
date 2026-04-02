@@ -38,6 +38,20 @@ lvgl:
           text: "00:00"
           recolor: true
           text_font: chinese_font14
+      - button:
+          id: btn_edit_done
+          align: TOP_RIGHT
+          x: -6
+          y: 0
+          width: 48
+          height: 20
+          hidden: true
+          bg_color: !lambda return lv_color_hex(0x1f95f6);
+          widgets:
+            - label:
+                align: CENTER
+                text_font: chinese_font14
+                text: "完成"
 
       - obj:
           id: boot_screen
@@ -103,6 +117,379 @@ lvgl:
     - id: page_main
       on_load:
         - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - delay: 100ms
+        - lambda: |
+            struct IconItem {
+              const char *id;
+              lv_obj_t *obj;
+              int16_t default_x;
+              int16_t default_y;
+            };
+            struct EditState {
+              bool initialized;
+              bool edit_mode;
+              bool suppress_click;
+              lv_obj_t *dragging;
+              int16_t drag_offset_x;
+              int16_t drag_offset_y;
+              int16_t drag_start_x;
+              int16_t drag_start_y;
+              int16_t grid_x[8];
+              size_t grid_x_count;
+              int16_t grid_y[8];
+              size_t grid_y_count;
+              lv_obj_t *tileview;
+              IconItem *icons;
+              size_t icon_count;
+            };
+                struct Helper {
+              static bool str_eq(const char *a, const char *b) {
+                if (a == nullptr || b == nullptr) return false;
+                while (*a && *b) {
+                  if (*a != *b) return false;
+                  a++;
+                  b++;
+                }
+                return *a == *b;
+              }
+                  static void add_unique(int16_t v, int16_t *arr, size_t *count) {
+                    for (size_t i = 0; i < *count; i++) {
+                      if (arr[i] == v) return;
+                    }
+                if (*count < 8) {
+                  arr[*count] = v;
+                  (*count)++;
+                }
+              }
+              static int16_t nearest(int16_t v, const int16_t *arr, size_t count) {
+                if (count == 0) return v;
+                int16_t best = arr[0];
+                int32_t best_d = (int32_t) v - (int32_t) arr[0];
+                if (best_d < 0) best_d = -best_d;
+                for (size_t i = 1; i < count; i++) {
+                  int32_t d = (int32_t) v - (int32_t) arr[i];
+                  if (d < 0) d = -d;
+                  if (d < best_d) {
+                    best = arr[i];
+                    best_d = d;
+                  }
+                }
+                return best;
+              }
+              static IconItem *find_by_id(EditState *st, const char *id) {
+                if (st == nullptr || id == nullptr) return nullptr;
+                for (size_t i = 0; i < st->icon_count; i++) {
+                  if (str_eq(st->icons[i].id, id)) {
+                    return &st->icons[i];
+                  }
+                }
+                return nullptr;
+              }
+                  static IconItem *find_by_pos(EditState *st, int16_t x, int16_t y, lv_obj_t *exclude) {
+                    if (st == nullptr) return nullptr;
+                    for (size_t i = 0; i < st->icon_count; i++) {
+                      lv_obj_t *obj = st->icons[i].obj;
+                      if (obj == nullptr || obj == exclude) continue;
+                      int16_t ox = get_offset_x(obj);
+                      int16_t oy = get_offset_y(obj);
+                      if (ox == x && oy == y) {
+                        return &st->icons[i];
+                      }
+                    }
+                    return nullptr;
+                  }
+                  static void apply_pos(IconItem *icon, int16_t x, int16_t y) {
+                    if (icon == nullptr || icon->obj == nullptr) return;
+                    set_offset_pos(icon->obj, x, y);
+                  }
+                  static int16_t get_offset_x(lv_obj_t *obj) {
+                    if (obj == nullptr) return 0;
+                    lv_obj_t *parent = lv_obj_get_parent(obj);
+                    if (parent == nullptr) return (int16_t) lv_obj_get_x(obj);
+                    int16_t pw = (int16_t) lv_obj_get_width(parent);
+                    int16_t ow = (int16_t) lv_obj_get_width(obj);
+                    int16_t center_left = (int16_t) ((pw - ow) / 2);
+                    return (int16_t) (lv_obj_get_x(obj) - center_left);
+                  }
+                  static int16_t get_offset_y(lv_obj_t *obj) {
+                    if (obj == nullptr) return 0;
+                    lv_obj_t *parent = lv_obj_get_parent(obj);
+                    if (parent == nullptr) return (int16_t) lv_obj_get_y(obj);
+                    int16_t ph = (int16_t) lv_obj_get_height(parent);
+                    int16_t oh = (int16_t) lv_obj_get_height(obj);
+                    int16_t center_top = (int16_t) ((ph - oh) / 2);
+                    return (int16_t) (lv_obj_get_y(obj) - center_top);
+                  }
+                  static void set_offset_pos(lv_obj_t *obj, int16_t off_x, int16_t off_y) {
+                    if (obj == nullptr) return;
+                    lv_obj_align(obj, LV_ALIGN_CENTER, off_x, off_y);
+                  }
+                  static void anim_set_offset_x(void *obj, int32_t v) {
+                    lv_obj_t *o = (lv_obj_t *) obj;
+                    int16_t y = get_offset_y(o);
+                    lv_obj_align(o, LV_ALIGN_CENTER, (int16_t) v, y);
+                  }
+                  static void stop_wiggle(lv_obj_t *obj) {
+                    if (obj == nullptr) return;
+                    lv_anim_del(obj, (lv_anim_exec_xcb_t) anim_set_offset_x);
+                  }
+                  static void start_wiggle(lv_obj_t *obj, uint32_t delay_ms) {
+                    if (obj == nullptr) return;
+                    stop_wiggle(obj);
+                    int16_t x = get_offset_x(obj);
+                    lv_anim_t a;
+                    lv_anim_init(&a);
+                    lv_anim_set_var(&a, obj);
+                    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) anim_set_offset_x);
+                    lv_anim_set_values(&a, x - 2, x + 2);
+                lv_anim_set_time(&a, 140);
+                lv_anim_set_playback_time(&a, 140);
+                lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+                lv_anim_set_delay(&a, delay_ms);
+                lv_anim_start(&a);
+              }
+              static void start_all_wiggle(EditState *st) {
+                if (st == nullptr) return;
+                for (size_t i = 0; i < st->icon_count; i++) {
+                  if (st->icons[i].obj == nullptr) continue;
+                  start_wiggle(st->icons[i].obj, (uint32_t) (i * 40));
+                }
+              }
+              static void stop_all_wiggle(EditState *st) {
+                if (st == nullptr) return;
+                for (size_t i = 0; i < st->icon_count; i++) {
+                  if (st->icons[i].obj == nullptr) continue;
+                  stop_wiggle(st->icons[i].obj);
+                }
+              }
+                  static void snap_all(EditState *st) {
+                    if (st == nullptr) return;
+                    for (size_t i = 0; i < st->icon_count; i++) {
+                      lv_obj_t *obj = st->icons[i].obj;
+                      if (obj == nullptr) continue;
+                      int16_t x = nearest(get_offset_x(obj), st->grid_x, st->grid_x_count);
+                      int16_t y = nearest(get_offset_y(obj), st->grid_y, st->grid_y_count);
+                      set_offset_pos(obj, x, y);
+                    }
+                  }
+                  static void save_layout(EditState *st) {
+                    if (st == nullptr) return;
+                    JsonDocument doc;
+                JsonArray arr = doc["icons"].to<JsonArray>();
+                    for (size_t i = 0; i < st->icon_count; i++) {
+                      lv_obj_t *obj = st->icons[i].obj;
+                      if (obj == nullptr) continue;
+                      JsonObject item = arr.add<JsonObject>();
+                      item["id"] = st->icons[i].id;
+                      item["x"] = get_offset_x(obj);
+                      item["y"] = get_offset_y(obj);
+                    }
+                std::ofstream file("/data/app_layout.json");
+                if (!file.is_open()) {
+                  ESP_LOGW("Layout", "Failed to open /data/app_layout.json for write.");
+                  return;
+                }
+                serializeJson(doc, file);
+                file.close();
+              }
+              static void load_layout(EditState *st) {
+                if (st == nullptr) return;
+                std::ifstream file("/data/app_layout.json");
+                if (!file.is_open()) return;
+                JsonDocument doc;
+                DeserializationError err = deserializeJson(doc, file);
+                file.close();
+                if (err) {
+                  ESP_LOGW("Layout", "Failed to parse /data/app_layout.json");
+                  return;
+                }
+                if (!doc["icons"].is<JsonArray>()) return;
+                for (JsonObject item : doc["icons"].as<JsonArray>()) {
+                  const char *id = item["id"] | "";
+                  int16_t x = item["x"] | 0;
+                  int16_t y = item["y"] | 0;
+                  IconItem *icon = find_by_id(st, id);
+                  if (icon == nullptr || icon->obj == nullptr) continue;
+                  x = nearest(x, st->grid_x, st->grid_x_count);
+                  y = nearest(y, st->grid_y, st->grid_y_count);
+                  apply_pos(icon, x, y);
+                }
+              }
+            };
+
+            static IconItem icons[] = {
+              {"settings", id(img_settings_app), 0, 0},
+              {"timer", id(img_timer_app), 0, 0},
+              {"message", id(img_message_app), 0, 0},
+              {"weather", id(img_weather_app), 0, 0},
+              {"limbus_prescript", id(img_limbus_prescript_app), 0, 0},
+            };
+            static EditState st = {
+              false,
+              false,
+              false,
+              nullptr,
+              0,
+              0,
+              0,
+              0,
+              {0},
+              0,
+              {0},
+              0,
+              nullptr,
+              icons,
+              sizeof(icons) / sizeof(icons[0])
+            };
+            if (st.initialized) return;
+            st.tileview = id(tileview_main);
+            icons[0].obj = id(img_settings_app);
+            icons[1].obj = id(img_timer_app);
+            icons[2].obj = id(img_message_app);
+            icons[3].obj = id(img_weather_app);
+            icons[4].obj = id(img_limbus_prescript_app);
+            lv_obj_t *btn_done = id(btn_edit_done);
+
+            st.initialized = true;
+
+            for (size_t i = 0; i < st.icon_count; i++) {
+              if (st.icons[i].obj == nullptr) continue;
+                  lv_obj_add_flag(st.icons[i].obj, LV_OBJ_FLAG_CLICKABLE);
+                  st.icons[i].default_x = Helper::get_offset_x(st.icons[i].obj);
+                  st.icons[i].default_y = Helper::get_offset_y(st.icons[i].obj);
+                  Helper::add_unique(st.icons[i].default_x, st.grid_x, &st.grid_x_count);
+                  Helper::add_unique(st.icons[i].default_y, st.grid_y, &st.grid_y_count);
+                }
+
+            Helper::load_layout(&st);
+
+            auto icon_event_cb = [](lv_event_t *e) {
+              EditState *st = (EditState *) lv_event_get_user_data(e);
+              if (st == nullptr) return;
+              lv_obj_t *obj = lv_event_get_target(e);
+              lv_event_code_t code = lv_event_get_code(e);
+
+              if (code == LV_EVENT_LONG_PRESSED) {
+                if (st->edit_mode) {
+                  return;
+                }
+                st->edit_mode = true;
+                st->suppress_click = true;
+                id(app_edit_mode) = true;
+                if (st->tileview) {
+                  lv_obj_clear_flag(st->tileview, LV_OBJ_FLAG_SCROLLABLE);
+                }
+                Helper::start_all_wiggle(st);
+                lv_obj_clear_flag(id(btn_edit_done), LV_OBJ_FLAG_HIDDEN);
+                lv_event_stop_bubbling(e);
+                lv_event_stop_processing(e);
+                return;
+              }
+
+              if (!st->edit_mode) return;
+
+                  if (code == LV_EVENT_PRESSED) {
+                    st->dragging = obj;
+                    st->drag_start_x = Helper::get_offset_x(obj);
+                    st->drag_start_y = Helper::get_offset_y(obj);
+                    Helper::stop_wiggle(obj);
+                    lv_indev_t *indev = lv_indev_get_act();
+                    if (indev) {
+                  lv_point_t p;
+                  lv_indev_get_point(indev, &p);
+                      lv_area_t a;
+                      lv_obj_get_coords(obj, &a);
+                      st->drag_offset_x = (int16_t) (p.x - a.x1);
+                      st->drag_offset_y = (int16_t) (p.y - a.y1);
+                      lv_obj_move_foreground(obj);
+                }
+                lv_event_stop_bubbling(e);
+                lv_event_stop_processing(e);
+                return;
+              }
+
+                  if (code == LV_EVENT_PRESSING) {
+                    if (st->dragging != obj) return;
+                    lv_indev_t *indev = lv_indev_get_act();
+                    if (!indev) return;
+                    lv_point_t p;
+                    lv_indev_get_point(indev, &p);
+                    lv_obj_t *parent = lv_obj_get_parent(obj);
+                    lv_area_t pa;
+                    lv_obj_get_coords(parent, &pa);
+                    int16_t new_x = (int16_t) (p.x - st->drag_offset_x - pa.x1);
+                    int16_t new_y = (int16_t) (p.y - st->drag_offset_y - pa.y1);
+                    int16_t pw = (int16_t) lv_obj_get_width(parent);
+                    int16_t ph = (int16_t) lv_obj_get_height(parent);
+                    int16_t ow = (int16_t) lv_obj_get_width(obj);
+                    int16_t oh = (int16_t) lv_obj_get_height(obj);
+                    int16_t center_left = (int16_t) ((pw - ow) / 2);
+                    int16_t center_top = (int16_t) ((ph - oh) / 2);
+                    int16_t off_x = (int16_t) (new_x - center_left);
+                    int16_t off_y = (int16_t) (new_y - center_top);
+                    Helper::set_offset_pos(obj, off_x, off_y);
+                    lv_event_stop_bubbling(e);
+                    lv_event_stop_processing(e);
+                    return;
+                  }
+
+              if (code == LV_EVENT_RELEASED) {
+                if (st->dragging != obj) return;
+                    int16_t snap_x = Helper::nearest(Helper::get_offset_x(obj), st->grid_x, st->grid_x_count);
+                    int16_t snap_y = Helper::nearest(Helper::get_offset_y(obj), st->grid_y, st->grid_y_count);
+                    IconItem *other = Helper::find_by_pos(st, snap_x, snap_y, obj);
+                    if (other && other->obj) {
+                      Helper::set_offset_pos(other->obj, st->drag_start_x, st->drag_start_y);
+                    }
+                    Helper::set_offset_pos(obj, snap_x, snap_y);
+                st->dragging = nullptr;
+                Helper::save_layout(st);
+                if (st->edit_mode) {
+                  Helper::start_wiggle(obj, 0);
+                }
+                lv_event_stop_bubbling(e);
+                lv_event_stop_processing(e);
+                return;
+              }
+
+              if (code == LV_EVENT_CLICKED || code == LV_EVENT_SHORT_CLICKED) {
+                if (st->suppress_click) {
+                  st->suppress_click = false;
+                  lv_event_stop_bubbling(e);
+                  lv_event_stop_processing(e);
+                  return;
+                }
+                if (st->edit_mode) {
+                  lv_event_stop_bubbling(e);
+                  lv_event_stop_processing(e);
+                  return;
+                }
+                return;
+              }
+            };
+
+            for (size_t i = 0; i < st.icon_count; i++) {
+              if (st.icons[i].obj == nullptr) continue;
+              lv_obj_add_event_cb(st.icons[i].obj, icon_event_cb, LV_EVENT_ALL, &st);
+            }
+
+            if (btn_done != nullptr) {
+              lv_obj_add_event_cb(btn_done, [](lv_event_t *e) {
+                EditState *st = (EditState *) lv_event_get_user_data(e);
+                if (st == nullptr) return;
+                if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+                st->edit_mode = false;
+                st->suppress_click = true;
+                id(app_edit_mode) = false;
+                if (st->tileview) {
+                  lv_obj_add_flag(st->tileview, LV_OBJ_FLAG_SCROLLABLE);
+                }
+                Helper::stop_all_wiggle(st);
+                Helper::snap_all(st);
+                Helper::save_layout(st);
+                lv_obj_add_flag(id(btn_edit_done), LV_OBJ_FLAG_HIDDEN);
+              }, LV_EVENT_CLICKED, &st);
+            }
       on_unload:
         - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
       widgets:
@@ -173,10 +560,14 @@ lvgl:
                       align: CENTER
                       on_click:
                         then:
-                          - lvgl.page.show:
-                              id: page_setting_menu
-                              animation: FADE_IN
-                              time: 200ms
+                          - if:
+                              condition:
+                                lambda: 'return !id(app_edit_mode);'
+                              then:
+                                - lvgl.page.show:
+                                    id: page_setting_menu
+                                    animation: FADE_IN
+                                    time: 200ms
                   - image:
                       src: timer_icon
                       id: img_timer_app
@@ -187,7 +578,11 @@ lvgl:
                       align: CENTER
                       on_click:
                         then:
-                          - lvgl.page.show:
-                              id: page_timer
-                              animation: FADE_IN
-                              time: 200ms
+                          - if:
+                              condition:
+                                lambda: 'return !id(app_edit_mode);'
+                              then:
+                                - lvgl.page.show:
+                                    id: page_timer
+                                    animation: FADE_IN
+                                    time: 200ms

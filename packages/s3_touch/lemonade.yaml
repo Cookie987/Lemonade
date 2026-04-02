@@ -163,6 +163,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: app_edit_mode
+    type: bool
+    restore_value: no
+    initial_value: 'false'
 
 # Enable logging
 logger:
