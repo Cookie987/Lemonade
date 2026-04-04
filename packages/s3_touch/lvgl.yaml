@@ -196,6 +196,15 @@ lvgl:
                 }
                 return nullptr;
               }
+              static int find_index_by_obj(EditState *st, lv_obj_t *obj) {
+                if (st == nullptr || obj == nullptr) return -1;
+                for (size_t i = 0; i < st->icon_count; i++) {
+                  if (st->icons[i].obj == obj) {
+                    return (int) i;
+                  }
+                }
+                return -1;
+              }
                   static IconItem *find_by_pos(EditState *st, int16_t x, int16_t y, lv_obj_t *exclude) {
                     if (st == nullptr) return nullptr;
                     for (size_t i = 0; i < st->icon_count; i++) {
@@ -335,6 +344,8 @@ lvgl:
             static std::string icon_titles[MAX_ICONS];
             static std::string icon_paths[MAX_ICONS];
             static std::string icon_page_ids[MAX_ICONS];
+            static std::string icon_init_paths[MAX_ICONS];
+            static bool icon_init_ran[MAX_ICONS];
             static lv_obj_t *icon_pages[MAX_ICONS];
             static EditState st = {
               false,
@@ -382,10 +393,14 @@ lvgl:
             icons[2] = {"message", "信息", id(img_message_app), nullptr, 0, 0};
             icons[3] = {"weather", "天气", id(img_weather_app), nullptr, 0, 0};
             icons[4] = {"limbus_prescript", "Prescript", id(img_limbus_prescript_app), nullptr, 0, 0};
+            for (size_t i = 0; i < BASE_ICONS; i++) {
+              icon_init_paths[i] = "";
+              icon_init_ran[i] = false;
+            }
             st.icon_count = BASE_ICONS;
 
             if (tile_appcenter != nullptr) {
-              const char *base = "/sdcard/lemonade";
+              const char *base = "/sdcard/opt";
               ESP_LOGD("AppScan", "Scanning %s", base);
               DIR *dirp = opendir(base);
               if (dirp != nullptr) {
@@ -445,6 +460,8 @@ lvgl:
                   icon_ids[idx] = pkg;
                   icon_titles[idx] = app_name;
                   icon_paths[idx] = std::string("A:") + app_dir + "/" + icon_rel;
+                  icon_init_paths[idx] = app_dir + "/init.lua";
+                  icon_init_ran[idx] = false;
 
                   lv_obj_t *img = lv_img_create(tile_appcenter);
                   lv_obj_set_size(img, 96, 96);
@@ -457,10 +474,8 @@ lvgl:
                   lv_obj_t *page = lv_obj_create(NULL);
                   lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
                   lv_obj_set_size(page, 320, 240);
-                  lv_obj_set_style_bg_color(page, lv_color_hex(0x000000), 0);
-                  lv_obj_t *label = lv_label_create(page);
-                  lv_label_set_text(label, icon_titles[idx].c_str());
-                  lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+                  lv_obj_set_style_bg_color(page, lv_color_hex(0xffffff), 0);
+
                   lv_obj_set_user_data(page, (void *) icon_page_ids[idx].c_str());
 
                   icons[idx] = {icon_ids[idx].c_str(), icon_titles[idx].c_str(), img, page, 0, 0};
@@ -528,13 +543,21 @@ lvgl:
                 }
                 IconItem *icon = Helper::find_by_obj(st, obj);
                 if (icon != nullptr && icon->page != nullptr) {
+                  int idx = Helper::find_index_by_obj(st, obj);
+                  if (idx >= 0 && idx < (int) st->icon_count) {
+                    if (!icon_init_paths[idx].empty() && !icon_init_ran[idx]) {
+                      ESP_LOGD("AppLua", "Run %s", icon_init_paths[idx].c_str());
+                      id(lua).run_file_async(icon_init_paths[idx].c_str());
+                      icon_init_ran[idx] = true;
+                    }
+                  }
                   lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);
                   lv_obj_clear_flag(id(lbl_topbar_date), LV_OBJ_FLAG_HIDDEN);
                   lv_obj_clear_flag(id(lbl_topbar_time), LV_OBJ_FLAG_HIDDEN);
                   if (icon->title != nullptr) {
                     lv_label_set_text(id(lbl_topbar_title), icon->title);
                   }
-                  lv_scr_load(icon->page);
+                  lv_scr_load_anim(icon->page, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
                   lv_event_stop_bubbling(e);
                   lv_event_stop_processing(e);
                 }
