@@ -346,6 +346,8 @@ lvgl:
             static std::string icon_page_ids[MAX_ICONS];
             static std::string icon_init_paths[MAX_ICONS];
             static bool icon_init_ran[MAX_ICONS];
+            static std::string icon_main_paths[MAX_ICONS];
+            static bool icon_main_ran[MAX_ICONS];
             static lv_obj_t *icon_pages[MAX_ICONS];
             static EditState st = {
               false,
@@ -396,6 +398,8 @@ lvgl:
             for (size_t i = 0; i < BASE_ICONS; i++) {
               icon_init_paths[i] = "";
               icon_init_ran[i] = false;
+              icon_main_paths[i] = "";
+              icon_main_ran[i] = false;
             }
             st.icon_count = BASE_ICONS;
 
@@ -462,6 +466,8 @@ lvgl:
                   icon_paths[idx] = std::string("A:") + app_dir + "/" + icon_rel;
                   icon_init_paths[idx] = app_dir + "/init.lua";
                   icon_init_ran[idx] = false;
+                  icon_main_paths[idx] = app_dir + "/main.lua";
+                  icon_main_ran[idx] = false;
 
                   lv_obj_t *img = lv_img_create(tile_appcenter);
                   lv_obj_set_size(img, 96, 96);
@@ -477,6 +483,7 @@ lvgl:
                   lv_obj_set_style_bg_color(page, lv_color_hex(0xffffff), 0);
 
                   lv_obj_set_user_data(page, (void *) icon_page_ids[idx].c_str());
+                  esphome::lua_runtime::register_app_page(app_dir, page);
 
                   icons[idx] = {icon_ids[idx].c_str(), icon_titles[idx].c_str(), img, page, 0, 0};
                   icon_pages[idx] = page;
@@ -549,6 +556,11 @@ lvgl:
                       ESP_LOGD("AppLua", "Run %s", icon_init_paths[idx].c_str());
                       id(lua).run_file_async(icon_init_paths[idx].c_str());
                       icon_init_ran[idx] = true;
+                    }
+                    if (!icon_main_paths[idx].empty() && !icon_main_ran[idx]) {
+                      ESP_LOGD("AppLua", "Run %s", icon_main_paths[idx].c_str());
+                      id(lua).run_file_async(icon_main_paths[idx].c_str());
+                      icon_main_ran[idx] = true;
                     }
                   }
                   lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);

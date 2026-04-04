@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "esphome/core/log.h"
+#include "lua_lvgl.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -50,7 +51,10 @@ struct RtosMsg {
   int repeat;
 };
 
+struct RtosContext;
+
 struct RtosTimer {
+  RtosContext *ctx;
   int id;
   int repeat;
   uint32_t timeout_ms;
@@ -65,9 +69,50 @@ struct RtosContext {
   uint32_t autogc_mid{80};
   uint32_t autogc_high{90};
   uint32_t autogc_counter{0};
+  volatile bool alive{true};
 };
 
-static RtosContext *g_ctx = nullptr;
+static SemaphoreHandle_t g_run_lock = nullptr;
+static std::unordered_map<std::string, bool> g_run_paths;
+static const char *CTX_KEY = "lua_runtime.ctx";
+static bool claim_run_path(const std::string &path) {
+  if (g_run_lock == nullptr) {
+    g_run_lock = xSemaphoreCreateMutex();
+  }
+  if (g_run_lock) xSemaphoreTake(g_run_lock, portMAX_DELAY);
+  auto it = g_run_paths.find(path);
+  if (it != g_run_paths.end() && it->second) {
+    if (g_run_lock) xSemaphoreGive(g_run_lock);
+    return false;
+  }
+  g_run_paths[path] = true;
+  if (g_run_lock) xSemaphoreGive(g_run_lock);
+  return true;
+}
+
+static void release_run_path(const std::string &path) {
+  if (g_run_lock == nullptr) return;
+  if (g_run_lock) xSemaphoreTake(g_run_lock, portMAX_DELAY);
+  auto it = g_run_paths.find(path);
+  if (it != g_run_paths.end()) {
+    g_run_paths.erase(it);
+  }
+  if (g_run_lock) xSemaphoreGive(g_run_lock);
+}
+static void set_ctx(lua_State *L, RtosContext *ctx) {
+  lua_pushlightuserdata(L, (void *) &CTX_KEY);
+  lua_pushlightuserdata(L, ctx);
+  lua_settable(L, LUA_REGISTRYINDEX);
+}
+
+static RtosContext *get_ctx(lua_State *L) {
+  lua_pushlightuserdata(L, (void *) &CTX_KEY);
+  lua_gettable(L, LUA_REGISTRYINDEX);
+  auto *ctx = static_cast<RtosContext *>(lua_touserdata(L, -1));
+  lua_pop(L, 1);
+  return ctx;
+}
+
 static size_t g_lua_max_used = 0;
 
 static std::string to_upper(std::string s) {
@@ -235,29 +280,31 @@ static void timer_cleanup(RtosTimer *timer) {
 
 static void rtos_timer_cb(void *arg) {
   auto *timer = static_cast<RtosTimer *>(arg);
-  if (timer == nullptr || g_ctx == nullptr || g_ctx->queue == nullptr) return;
+  RtosContext *ctx = timer ? timer->ctx : nullptr;
+  if (timer == nullptr || ctx == nullptr || !ctx->alive || ctx->queue == nullptr) return;
 
   RtosMsg msg{MSG_TIMER, timer->id, timer->repeat};
-  xQueueSend(g_ctx->queue, &msg, 0);
+  xQueueSend(ctx->queue, &msg, 0);
 
   if (timer->repeat == 0) {
-    if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
-    g_ctx->timers.erase(timer->id);
-    if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+    if (ctx->lock) xSemaphoreTake(ctx->lock, portMAX_DELAY);
+    ctx->timers.erase(timer->id);
+    if (ctx->lock) xSemaphoreGive(ctx->lock);
     timer_cleanup(timer);
   } else if (timer->repeat > 0) {
     timer->repeat--;
     if (timer->repeat == 0) {
-      if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
-      g_ctx->timers.erase(timer->id);
-      if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+      if (ctx->lock) xSemaphoreTake(ctx->lock, portMAX_DELAY);
+      ctx->timers.erase(timer->id);
+      if (ctx->lock) xSemaphoreGive(ctx->lock);
       timer_cleanup(timer);
     }
   }
 }
 
 static int rtos_receive(lua_State *L) {
-  if (g_ctx == nullptr || g_ctx->queue == nullptr) {
+  RtosContext *ctx = get_ctx(L);
+  if (ctx == nullptr || !ctx->alive || ctx->queue == nullptr) {
     lua_pushinteger(L, -1);
     return 1;
   }
@@ -266,23 +313,22 @@ static int rtos_receive(lua_State *L) {
   TickType_t ticks = (timeout < 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout);
 
   RtosMsg msg{0, 0, 0};
-  if (xQueueReceive(g_ctx->queue, &msg, ticks) != pdTRUE) {
+  if (xQueueReceive(ctx->queue, &msg, ticks) != pdTRUE) {
     lua_pushinteger(L, -1);
     return 1;
   }
 
-
   // auto GC policy: run on receive boundary
-  if (g_ctx->autogc_period > 0) {
-    g_ctx->autogc_counter++;
-    if (g_ctx->autogc_counter >= g_ctx->autogc_period) {
-      g_ctx->autogc_counter = 0;
+  if (ctx->autogc_period > 0) {
+    ctx->autogc_counter++;
+    if (ctx->autogc_counter >= ctx->autogc_period) {
+      ctx->autogc_counter = 0;
       size_t total = (size_t) lua_gc(L, LUA_GCCOUNT, 0) * 1024;
       size_t used = total;
-      if (total > 0 && (used * 100) >= (total * g_ctx->autogc_high)) {
+      if (total > 0 && (used * 100) >= (total * ctx->autogc_high)) {
         lua_gc(L, LUA_GCCOLLECT, 0);
         lua_gc(L, LUA_GCCOLLECT, 0);
-      } else if (total > 0 && (used * 100) >= (total * g_ctx->autogc_mid)) {
+      } else if (total > 0 && (used * 100) >= (total * ctx->autogc_mid)) {
         lua_gc(L, LUA_GCCOLLECT, 0);
         lua_gc(L, LUA_GCCOLLECT, 0);
       }
@@ -296,15 +342,16 @@ static int rtos_receive(lua_State *L) {
 }
 
 static int rtos_timer_start(lua_State *L) {
-  if (g_ctx == nullptr) {
+  RtosContext *ctx = get_ctx(L);
+  if (ctx == nullptr || !ctx->alive) {
     ESP_LOGE(TAG, "rtos.timer_start: no context");
     lua_pushinteger(L, 0);
     return 1;
   }
-  if (g_ctx->queue == nullptr) {
+  if (ctx->queue == nullptr) {
     ESP_LOGE(TAG, "rtos.timer_start: queue null");
   }
-  if (g_ctx->lock == nullptr) {
+  if (ctx->lock == nullptr) {
     ESP_LOGE(TAG, "rtos.timer_start: lock null");
   }
   int id = (int) luaL_checkinteger(L, 1);
@@ -315,15 +362,15 @@ static int rtos_timer_start(lua_State *L) {
     return 1;
   }
 
-  if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
-  auto it = g_ctx->timers.find(id);
-  if (it != g_ctx->timers.end()) {
+  if (ctx->lock) xSemaphoreTake(ctx->lock, portMAX_DELAY);
+  auto it = ctx->timers.find(id);
+  if (it != ctx->timers.end()) {
     timer_cleanup(it->second);
-    g_ctx->timers.erase(it);
+    ctx->timers.erase(it);
   }
-  if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+  if (ctx->lock) xSemaphoreGive(ctx->lock);
 
-  auto *timer = new RtosTimer{ id, repeat, (uint32_t) timeout, nullptr };
+  auto *timer = new RtosTimer{ctx, id, repeat, (uint32_t) timeout, nullptr};
 
   esp_timer_create_args_t args{};
   args.callback = &rtos_timer_cb;
@@ -339,9 +386,9 @@ static int rtos_timer_start(lua_State *L) {
     return 1;
   }
 
-  if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
-  g_ctx->timers[id] = timer;
-  if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+  if (ctx->lock) xSemaphoreTake(ctx->lock, portMAX_DELAY);
+  ctx->timers[id] = timer;
+  if (ctx->lock) xSemaphoreGive(ctx->lock);
 
   if (repeat == 0) {
     err = esp_timer_start_once(timer->handle, (uint64_t) timeout * 1000);
@@ -351,9 +398,9 @@ static int rtos_timer_start(lua_State *L) {
 
   if (err != ESP_OK) {
     ESP_LOGW(TAG, "rtos.timer_start start fail: %s", esp_err_to_name(err));
-    if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
-    g_ctx->timers.erase(id);
-    if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+    if (ctx->lock) xSemaphoreTake(ctx->lock, portMAX_DELAY);
+    ctx->timers.erase(id);
+    if (ctx->lock) xSemaphoreGive(ctx->lock);
     timer_cleanup(timer);
     lua_pushinteger(L, 0);
     return 1;
@@ -364,20 +411,21 @@ static int rtos_timer_start(lua_State *L) {
 }
 
 static int rtos_timer_stop(lua_State *L) {
-  if (g_ctx == nullptr) return 0;
+  RtosContext *ctx = get_ctx(L);
+  if (ctx == nullptr || !ctx->alive) return 0;
   if (!lua_isinteger(L, 1)) return 0;
   int id = (int) lua_tointeger(L, 1);
 
-  if (g_ctx->lock) xSemaphoreTake(g_ctx->lock, portMAX_DELAY);
-  auto it = g_ctx->timers.find(id);
-  if (it != g_ctx->timers.end()) {
+  if (ctx->lock) xSemaphoreTake(ctx->lock, portMAX_DELAY);
+  auto it = ctx->timers.find(id);
+  if (it != ctx->timers.end()) {
     auto *timer = it->second;
-    g_ctx->timers.erase(it);
-    if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+    ctx->timers.erase(it);
+    if (ctx->lock) xSemaphoreGive(ctx->lock);
     timer_cleanup(timer);
     return 0;
   }
-  if (g_ctx->lock) xSemaphoreGive(g_ctx->lock);
+  if (ctx->lock) xSemaphoreGive(ctx->lock);
   return 0;
 }
 
@@ -525,7 +573,8 @@ static int rtos_nop(lua_State *L) {
 }
 
 static int rtos_auto_collect_mem(lua_State *L) {
-  if (g_ctx == nullptr) return 0;
+  RtosContext *ctx = get_ctx(L);
+  if (ctx == nullptr || !ctx->alive) return 0;
   uint32_t period = (uint32_t) luaL_optinteger(L, 1, 100);
   uint32_t mid = (uint32_t) luaL_optinteger(L, 2, 80);
   uint32_t high = (uint32_t) luaL_optinteger(L, 3, 90);
@@ -533,14 +582,15 @@ static int rtos_auto_collect_mem(lua_State *L) {
   if (mid > 95 || high > 95) return 0;
   if (mid < 50 || high < 50) return 0;
   if (mid >= high) return 0;
-  g_ctx->autogc_period = period;
-  g_ctx->autogc_mid = mid;
-  g_ctx->autogc_high = high;
-  g_ctx->autogc_counter = 0;
+  ctx->autogc_period = period;
+  ctx->autogc_mid = mid;
+  ctx->autogc_high = high;
+  ctx->autogc_counter = 0;
   return 0;
 }
 
 static void rtos_cleanup(RtosContext &ctx) {
+  ctx.alive = false;
   if (ctx.lock) xSemaphoreTake(ctx.lock, portMAX_DELAY);
   for (auto &kv : ctx.timers) {
     timer_cleanup(kv.second);
@@ -639,16 +689,27 @@ static void register_rtos_api(lua_State *L) {
   lua_setglobal(L, "rtos");
 }
 
-static void register_base_api(lua_State *L) {
+static void register_base_api(lua_State *L, const std::string &script_path) {
   register_log_api(L);
   register_rtos_api(L);
+  register_lvgl_api(L, script_path);
 
   lua_pushcfunction(L, lua_delay_ms);
   lua_setglobal(L, "delay_ms");
 }
 #endif
 
-void LuaRuntime::setup() {}
+void LuaRuntime::setup() {
+#ifndef LUA_RUNTIME_STUB
+  set_lvgl_owner_task((void *) xTaskGetCurrentTaskHandle());
+#endif
+}
+
+void LuaRuntime::loop() {
+#ifndef LUA_RUNTIME_STUB
+  process_lvgl_jobs();
+#endif
+}
 
 void LuaRuntime::dump_config() {
   ESP_LOGCONFIG(TAG, "Lua Runtime");
@@ -659,7 +720,7 @@ void LuaRuntime::dump_config() {
 #endif
 }
 
-void LuaRuntime::mark_task_done() { this->running_.store(false); }
+void LuaRuntime::mark_task_done(const std::string &path) { release_run_path(path); }
 
 bool LuaRuntime::run_file(const std::string &path) {
 #ifdef LUA_RUNTIME_STUB
@@ -685,7 +746,7 @@ bool LuaRuntime::run_file(const std::string &path) {
   RtosContext ctx;
   ctx.queue = xQueueCreate(16, sizeof(RtosMsg));
   ctx.lock = xSemaphoreCreateMutex();
-  g_ctx = &ctx;
+  set_ctx(L, &ctx);
 
   if (ctx.queue == nullptr) {
     ESP_LOGE(TAG, "rtos.queue create failed");
@@ -700,16 +761,16 @@ bool LuaRuntime::run_file(const std::string &path) {
   }
 
   luaL_openlibs(L);
-  register_base_api(L);
+  register_base_api(L, path);
   set_package_path(L, path);
 
   int load_status = luaL_loadbuffer(L, script.data(), script.size(), path.c_str());
   if (load_status != LUA_OK) {
     const char *err = lua_tostring(L, -1);
     ESP_LOGE(TAG, "Lua load error: %s", err ? err : "(unknown)");
-    lua_close(L);
+    cleanup_lvgl_api(L);
+  lua_close(L);
     rtos_cleanup(ctx);
-    g_ctx = nullptr;
     return false;
   }
 
@@ -717,15 +778,15 @@ bool LuaRuntime::run_file(const std::string &path) {
   if (call_status != LUA_OK) {
     const char *err = lua_tostring(L, -1);
     ESP_LOGE(TAG, "Lua runtime error: %s", err ? err : "(unknown)");
-    lua_close(L);
+    cleanup_lvgl_api(L);
+  lua_close(L);
     rtos_cleanup(ctx);
-    g_ctx = nullptr;
     return false;
   }
 
+  cleanup_lvgl_api(L);
   lua_close(L);
   rtos_cleanup(ctx);
-  g_ctx = nullptr;
   ESP_LOGI(TAG, "Lua script finished: %s", path.c_str());
   return true;
 #endif
@@ -743,7 +804,7 @@ static void lua_task_entry(void *param) {
   delete args;
 
   self->run_file(path);
-  self->mark_task_done();
+  self->mark_task_done(path);
   vTaskDelete(nullptr);
 }
 
@@ -753,19 +814,17 @@ bool LuaRuntime::run_file_async(const std::string &path) {
   ESP_LOGE(TAG, "Requested: %s", path.c_str());
   return false;
 #else
-  bool expected = false;
-  if (!this->running_.compare_exchange_strong(expected, true)) {
+  if (!claim_run_path(path)) {
     ESP_LOGW(TAG, "Lua task already running, skip: %s", path.c_str());
     return false;
   }
-
   auto *args = new LuaTaskArgs{this, path};
   BaseType_t ok = xTaskCreatePinnedToCore(
       lua_task_entry, "lua_task", LUA_TASK_STACK, args, LUA_TASK_PRIO, nullptr, 1);
   if (ok != pdPASS) {
     ESP_LOGE(TAG, "Failed to create Lua task");
     delete args;
-    this->running_.store(false);
+    release_run_path(path);
     return false;
   }
   return true;
@@ -774,3 +833,28 @@ bool LuaRuntime::run_file_async(const std::string &path) {
 
 }  // namespace lua_runtime
 }  // namespace esphome
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

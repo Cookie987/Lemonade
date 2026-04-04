@@ -1,6 +1,5 @@
 #pragma once
 
-#include <atomic>
 #include <string>
 
 #include "esphome/core/automation.h"
@@ -13,12 +12,10 @@ class LuaRuntime : public Component {
  public:
   void setup() override;
   void dump_config() override;
+  void loop() override;
   bool run_file(const std::string &path);
   bool run_file_async(const std::string &path);
-  void mark_task_done();
-
- protected:
-  std::atomic<bool> running_{false};
+  void mark_task_done(const std::string &path);
 };
 
 template<typename... Ts> class LuaRunFileAction : public Action<Ts...> {
@@ -47,3 +44,6 @@ template<typename... Ts> class LuaRunFileAsyncAction : public Action<Ts...> {
 
 }  // namespace lua_runtime
 }  // namespace esphome
+
+
+
