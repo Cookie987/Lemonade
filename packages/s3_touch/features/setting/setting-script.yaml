@@ -146,9 +146,14 @@ script:
           ESP_LOGD("Setting", "Connected Wi-Fi SSID: %s", id(ssid).state.c_str());
           // 获取扫描结果
           ESP_LOGD("Setting", "Wi-Fi Scan Results: %s\n", id(wifi_scan_results).state.c_str());
-          lv_obj_clean(list_scanned_wifi);
+          lv_obj_t *list_obj = id(list_scanned_wifi);
+          if (list_obj == nullptr || !lv_obj_is_valid(list_obj)) {
+            ESP_LOGW("Setting", "Skip refresh_wifi_list: list_scanned_wifi invalid (%p)", list_obj);
+            return;
+          }
+          lv_obj_clean(list_obj);
           ESP_LOGD("Setting", "Cleaned list_scanned_wifi.");
-          lv_list_add_text(id(list_scanned_wifi), "扫描到的Wi-Fi");
+          lv_list_add_text(list_obj, "扫描到的Wi-Fi");
           std::string wifi_list = id(wifi_scan_results).state;
           struct WifiEntry {
               std::string line;
@@ -223,7 +228,7 @@ script:
               }
 
               // 创建按钮
-              lv_obj_t *btn = lv_list_add_btn(id(list_scanned_wifi), NULL, display_text.c_str());
+              lv_obj_t *btn = lv_list_add_btn(list_obj, NULL, display_text.c_str());
 
               // 事件回调
               lv_obj_add_event_cb(
