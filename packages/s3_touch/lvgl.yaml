@@ -121,7 +121,9 @@ lvgl:
         - lambda: |
             struct IconItem {
               const char *id;
+              const char *title;
               lv_obj_t *obj;
+              lv_obj_t *page;
               int16_t default_x;
               int16_t default_y;
             };
@@ -134,15 +136,15 @@ lvgl:
               int16_t drag_offset_y;
               int16_t drag_start_x;
               int16_t drag_start_y;
-              int16_t grid_x[8];
+              int16_t grid_x[16];
               size_t grid_x_count;
-              int16_t grid_y[8];
+              int16_t grid_y[16];
               size_t grid_y_count;
               lv_obj_t *tileview;
               IconItem *icons;
               size_t icon_count;
             };
-                struct Helper {
+            struct Helper {
               static bool str_eq(const char *a, const char *b) {
                 if (a == nullptr || b == nullptr) return false;
                 while (*a && *b) {
@@ -180,6 +182,15 @@ lvgl:
                 if (st == nullptr || id == nullptr) return nullptr;
                 for (size_t i = 0; i < st->icon_count; i++) {
                   if (str_eq(st->icons[i].id, id)) {
+                    return &st->icons[i];
+                  }
+                }
+                return nullptr;
+              }
+              static IconItem *find_by_obj(EditState *st, lv_obj_t *obj) {
+                if (st == nullptr || obj == nullptr) return nullptr;
+                for (size_t i = 0; i < st->icon_count; i++) {
+                  if (st->icons[i].obj == obj) {
                     return &st->icons[i];
                   }
                 }
@@ -317,13 +328,14 @@ lvgl:
               }
             };
 
-            static IconItem icons[] = {
-              {"settings", id(img_settings_app), 0, 0},
-              {"timer", id(img_timer_app), 0, 0},
-              {"message", id(img_message_app), 0, 0},
-              {"weather", id(img_weather_app), 0, 0},
-              {"limbus_prescript", id(img_limbus_prescript_app), 0, 0},
-            };
+            static const size_t MAX_ICONS = 32;
+            static const size_t BASE_ICONS = 5;
+            static IconItem icons[MAX_ICONS];
+            static std::string icon_ids[MAX_ICONS];
+            static std::string icon_titles[MAX_ICONS];
+            static std::string icon_paths[MAX_ICONS];
+            static std::string icon_page_ids[MAX_ICONS];
+            static lv_obj_t *icon_pages[MAX_ICONS];
             static EditState st = {
               false,
               false,
@@ -339,27 +351,143 @@ lvgl:
               0,
               nullptr,
               icons,
-              sizeof(icons) / sizeof(icons[0])
+              BASE_ICONS
             };
-            if (st.initialized) return;
+            if (st.initialized) {
+              ESP_LOGD("AppScan", "Init skipped (already initialized)");
+              return;
+            }
             st.tileview = id(tileview_main);
-            icons[0].obj = id(img_settings_app);
-            icons[1].obj = id(img_timer_app);
-            icons[2].obj = id(img_message_app);
-            icons[3].obj = id(img_weather_app);
-            icons[4].obj = id(img_limbus_prescript_app);
             lv_obj_t *btn_done = id(btn_edit_done);
+            ESP_LOGD("AppScan", "Init start (tile_appcenter=%p)", tile_appcenter);
+
+            if (tile_appcenter != nullptr) {
+              lv_obj_set_scroll_dir(tile_appcenter, LV_DIR_VER);
+              lv_obj_set_scrollbar_mode(tile_appcenter, LV_SCROLLBAR_MODE_OFF);
+            }
+
+            st.grid_x_count = 3;
+            st.grid_x[0] = -96;
+            st.grid_x[1] = 0;
+            st.grid_x[2] = 96;
+            size_t max_rows = (MAX_ICONS + st.grid_x_count - 1) / st.grid_x_count;
+            if (max_rows > 16) max_rows = 16;
+            st.grid_y_count = max_rows;
+            for (size_t r = 0; r < max_rows; r++) {
+              st.grid_y[r] = (int16_t) (-45 + (int16_t) r * 90);
+            }
+
+            icons[0] = {"settings", "设置", id(img_settings_app), nullptr, 0, 0};
+            icons[1] = {"timer", "秒表", id(img_timer_app), nullptr, 0, 0};
+            icons[2] = {"message", "信息", id(img_message_app), nullptr, 0, 0};
+            icons[3] = {"weather", "天气", id(img_weather_app), nullptr, 0, 0};
+            icons[4] = {"limbus_prescript", "Prescript", id(img_limbus_prescript_app), nullptr, 0, 0};
+            st.icon_count = BASE_ICONS;
+
+            if (tile_appcenter != nullptr) {
+              const char *base = "/sdcard/lemonade";
+              ESP_LOGD("AppScan", "Scanning %s", base);
+              DIR *dirp = opendir(base);
+              if (dirp != nullptr) {
+                struct dirent *ent;
+                while ((ent = readdir(dirp)) != nullptr) {
+                  const char *name = ent->d_name;
+                  if (name == nullptr) continue;
+                  if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+                  if (st.icon_count >= MAX_ICONS) break;
+
+                  std::string pkg = name;
+                  std::string app_dir = std::string(base) + "/" + pkg;
+                  struct stat stbuf;
+                  if (stat(app_dir.c_str(), &stbuf) != 0) {
+                    ESP_LOGD("AppScan", "Skip %s (stat failed)", app_dir.c_str());
+                    continue;
+                  }
+                  if (!S_ISDIR(stbuf.st_mode)) continue;
+
+                  std::string manifest_path = app_dir + "/manifest.json";
+                  std::ifstream file(manifest_path);
+                  if (!file.is_open()) {
+                    ESP_LOGD("AppScan", "No manifest: %s", manifest_path.c_str());
+                    continue;
+                  }
+                  JsonDocument doc;
+                  DeserializationError err = deserializeJson(doc, file);
+                  file.close();
+                  if (err) {
+                    ESP_LOGD("AppScan", "Bad manifest: %s", manifest_path.c_str());
+                    continue;
+                  }
+
+                  bool platform_ok = false;
+                  if (doc["platform"].is<JsonArray>()) {
+                    for (JsonVariant v : doc["platform"].as<JsonArray>()) {
+                      const char *p = v.as<const char *>();
+                      if (p != nullptr && Helper::str_eq(p, "s3_t")) {
+                        platform_ok = true;
+                        break;
+                      }
+                    }
+                  }
+                  if (!platform_ok) {
+                    ESP_LOGD("AppScan", "Skip %s (platform mismatch)", pkg.c_str());
+                    continue;
+                  }
+
+                  const char *app_name = doc["name"] | pkg.c_str();
+                  const char *icon_rel = doc["icon"] | "";
+                  if (icon_rel[0] == '\0') {
+                    ESP_LOGD("AppScan", "Skip %s (icon missing)", pkg.c_str());
+                    continue;
+                  }
+
+                  size_t idx = st.icon_count;
+                  icon_ids[idx] = pkg;
+                  icon_titles[idx] = app_name;
+                  icon_paths[idx] = std::string("A:") + app_dir + "/" + icon_rel;
+
+                  lv_obj_t *img = lv_img_create(tile_appcenter);
+                  lv_obj_set_size(img, 96, 96);
+                  lv_img_set_src(img, icon_paths[idx].c_str());
+
+                  icon_page_ids[idx] = std::string("lv_page_") + pkg;
+                  for (auto &ch : icon_page_ids[idx]) {
+                    if (ch == '.') ch = '_';
+                  }
+                  lv_obj_t *page = lv_obj_create(NULL);
+                  lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
+                  lv_obj_set_size(page, 320, 240);
+                  lv_obj_set_style_bg_color(page, lv_color_hex(0x000000), 0);
+                  lv_obj_t *label = lv_label_create(page);
+                  lv_label_set_text(label, icon_titles[idx].c_str());
+                  lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+                  lv_obj_set_user_data(page, (void *) icon_page_ids[idx].c_str());
+
+                  icons[idx] = {icon_ids[idx].c_str(), icon_titles[idx].c_str(), img, page, 0, 0};
+                  icon_pages[idx] = page;
+                  st.icon_count++;
+                  ESP_LOGD("AppScan", "Added %s (%s)", pkg.c_str(), icon_paths[idx].c_str());
+                }
+                closedir(dirp);
+              } else {
+                ESP_LOGD("AppScan", "Failed to open %s", base);
+              }
+            } else {
+              ESP_LOGD("AppScan", "Skip scan (tile_appcenter is null)");
+            }
 
             st.initialized = true;
 
             for (size_t i = 0; i < st.icon_count; i++) {
               if (st.icons[i].obj == nullptr) continue;
-                  lv_obj_add_flag(st.icons[i].obj, LV_OBJ_FLAG_CLICKABLE);
-                  st.icons[i].default_x = Helper::get_offset_x(st.icons[i].obj);
-                  st.icons[i].default_y = Helper::get_offset_y(st.icons[i].obj);
-                  Helper::add_unique(st.icons[i].default_x, st.grid_x, &st.grid_x_count);
-                  Helper::add_unique(st.icons[i].default_y, st.grid_y, &st.grid_y_count);
-                }
+              lv_obj_add_flag(st.icons[i].obj, LV_OBJ_FLAG_CLICKABLE);
+              int16_t off_x = st.grid_x[i % st.grid_x_count];
+              size_t row = i / st.grid_x_count;
+              int16_t off_y = st.grid_y[row < st.grid_y_count ? row : (st.grid_y_count - 1)];
+              Helper::set_offset_pos(st.icons[i].obj, off_x, off_y);
+              st.icons[i].default_x = off_x;
+              st.icons[i].default_y = off_y;
+            }
 
             Helper::load_layout(&st);
 
@@ -386,12 +514,39 @@ lvgl:
                 return;
               }
 
+              if (code == LV_EVENT_CLICKED || code == LV_EVENT_SHORT_CLICKED) {
+                if (st->suppress_click) {
+                  st->suppress_click = false;
+                  lv_event_stop_bubbling(e);
+                  lv_event_stop_processing(e);
+                  return;
+                }
+                if (st->edit_mode) {
+                  lv_event_stop_bubbling(e);
+                  lv_event_stop_processing(e);
+                  return;
+                }
+                IconItem *icon = Helper::find_by_obj(st, obj);
+                if (icon != nullptr && icon->page != nullptr) {
+                  lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);
+                  lv_obj_clear_flag(id(lbl_topbar_date), LV_OBJ_FLAG_HIDDEN);
+                  lv_obj_clear_flag(id(lbl_topbar_time), LV_OBJ_FLAG_HIDDEN);
+                  if (icon->title != nullptr) {
+                    lv_label_set_text(id(lbl_topbar_title), icon->title);
+                  }
+                  lv_scr_load(icon->page);
+                  lv_event_stop_bubbling(e);
+                  lv_event_stop_processing(e);
+                }
+                return;
+              }
+
               if (!st->edit_mode) return;
 
-                  if (code == LV_EVENT_PRESSED) {
-                    st->dragging = obj;
-                    st->drag_start_x = Helper::get_offset_x(obj);
-                    st->drag_start_y = Helper::get_offset_y(obj);
+              if (code == LV_EVENT_PRESSED) {
+                st->dragging = obj;
+                st->drag_start_x = Helper::get_offset_x(obj);
+                st->drag_start_y = Helper::get_offset_y(obj);
                     Helper::stop_wiggle(obj);
                     lv_indev_t *indev = lv_indev_get_act();
                     if (indev) {
@@ -401,6 +556,10 @@ lvgl:
                       lv_obj_get_coords(obj, &a);
                       st->drag_offset_x = (int16_t) (p.x - a.x1);
                       st->drag_offset_y = (int16_t) (p.y - a.y1);
+                      lv_obj_t *parent = lv_obj_get_parent(obj);
+                      if (parent) {
+                        lv_obj_clear_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+                      }
                       lv_obj_move_foreground(obj);
                 }
                 lv_event_stop_bubbling(e);
@@ -417,8 +576,10 @@ lvgl:
                     lv_obj_t *parent = lv_obj_get_parent(obj);
                     lv_area_t pa;
                     lv_obj_get_coords(parent, &pa);
-                    int16_t new_x = (int16_t) (p.x - st->drag_offset_x - pa.x1);
-                    int16_t new_y = (int16_t) (p.y - st->drag_offset_y - pa.y1);
+                    int16_t scroll_x = (int16_t) lv_obj_get_scroll_x(parent);
+                    int16_t scroll_y = (int16_t) lv_obj_get_scroll_y(parent);
+                    int16_t new_x = (int16_t) (p.x - st->drag_offset_x - pa.x1 + scroll_x);
+                    int16_t new_y = (int16_t) (p.y - st->drag_offset_y - pa.y1 + scroll_y);
                     int16_t pw = (int16_t) lv_obj_get_width(parent);
                     int16_t ph = (int16_t) lv_obj_get_height(parent);
                     int16_t ow = (int16_t) lv_obj_get_width(obj);
@@ -443,27 +604,16 @@ lvgl:
                     }
                     Helper::set_offset_pos(obj, snap_x, snap_y);
                 st->dragging = nullptr;
+                lv_obj_t *parent = lv_obj_get_parent(obj);
+                if (parent) {
+                  lv_obj_add_flag(parent, LV_OBJ_FLAG_SCROLLABLE);
+                }
                 Helper::save_layout(st);
                 if (st->edit_mode) {
                   Helper::start_wiggle(obj, 0);
                 }
                 lv_event_stop_bubbling(e);
                 lv_event_stop_processing(e);
-                return;
-              }
-
-              if (code == LV_EVENT_CLICKED || code == LV_EVENT_SHORT_CLICKED) {
-                if (st->suppress_click) {
-                  st->suppress_click = false;
-                  lv_event_stop_bubbling(e);
-                  lv_event_stop_processing(e);
-                  return;
-                }
-                if (st->edit_mode) {
-                  lv_event_stop_bubbling(e);
-                  lv_event_stop_processing(e);
-                  return;
-                }
                 return;
               }
             };

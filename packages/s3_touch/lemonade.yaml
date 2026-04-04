@@ -7,6 +7,7 @@ esphome:
     - <esp_littlefs.h>
     - <mbedtls/base64.h>
     - <fstream>
+    - <dirent.h>
     - <vector>
     - <algorithm>
 
