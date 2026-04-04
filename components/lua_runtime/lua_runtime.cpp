@@ -211,8 +211,11 @@ static void set_package_path(lua_State *L, const std::string &script_path) {
   std::string new_path;
   if (old_path != nullptr) new_path = old_path;
 
-  // Prepend app directory search paths so `require \"sys\"` resolves to ./sys.lua
-  std::string prefix = dir + "/?.lua;" + dir + "/?/init.lua;" + dir + "/lib/?.lua;";
+  // Search order (high -> low):
+  // 1) script directory
+  // 2) script directory /lib
+  // 3) shared /sdcard/lib
+  std::string prefix = dir + "/?.lua;" + dir + "/lib/?.lua;" + "/sdcard/lib/?.lua;";
   new_path = prefix + new_path;
 
   lua_pop(L, 1);  // pop old path
