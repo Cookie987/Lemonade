@@ -15,6 +15,7 @@
 #include "esp_heap_caps.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "esp_random.h"
 
 #ifdef LUA_RUNTIME_STUB
 // Stub mode: no Lua linked. Build succeeds but run_file always fails.
