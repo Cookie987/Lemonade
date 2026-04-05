@@ -216,3 +216,6 @@ lv_msgbox_get_active_btn
 lv_msgbox_get_active_btn_text
 lv_msgbox_close
 lv_msgbox_close_async
+
+# lv_timer_create
+# lv_timer_del

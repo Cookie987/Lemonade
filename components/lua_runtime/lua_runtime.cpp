@@ -20,6 +20,7 @@
 // Stub mode: no Lua linked. Build succeeds but run_file always fails.
 #else
 #include "lua.hpp"
+extern "C" int luaopen_json(lua_State *L);
 #endif
 
 namespace esphome {
@@ -588,6 +589,43 @@ static int rtos_auto_collect_mem(lua_State *L) {
   ctx->autogc_counter = 0;
   return 0;
 }
+static uint32_t random_bounded_u32(uint32_t bound) {
+  if (bound == 0) return 0;
+  const uint32_t threshold = static_cast<uint32_t>(-bound) % bound;
+  while (true) {
+    uint32_t r = esp_random();
+    if (r >= threshold) return r % bound;
+  }
+}
+
+static int lua_esp_random(lua_State *L) {
+  int argc = lua_gettop(L);
+  if (argc == 0) {
+    // Keep default return in Lua integer range.
+    uint32_t bound = static_cast<uint32_t>(LUA_MAXINTEGER) + 1U;
+    lua_pushinteger(L, static_cast<lua_Integer>(random_bounded_u32(bound)));
+    return 1;
+  }
+
+  if (argc == 1) {
+    lua_Integer upper = luaL_checkinteger(L, 1);
+    luaL_argcheck(L, upper >= 1, 1, "upper bound must be >= 1");
+    uint64_t span = static_cast<uint64_t>(upper);
+    luaL_argcheck(L, span <= 0xFFFFFFFFULL, 1, "range too large");
+    lua_pushinteger(L, static_cast<lua_Integer>(random_bounded_u32(static_cast<uint32_t>(span)) + 1U));
+    return 1;
+  }
+
+  lua_Integer lower = luaL_checkinteger(L, 1);
+  lua_Integer upper = luaL_checkinteger(L, 2);
+  luaL_argcheck(L, lower <= upper, 2, "lower bound must be <= upper bound");
+
+  uint64_t span = static_cast<uint64_t>(upper - lower) + 1ULL;
+  luaL_argcheck(L, span <= 0xFFFFFFFFULL, 2, "range too large");
+  lua_Integer out = lower + static_cast<lua_Integer>(random_bounded_u32(static_cast<uint32_t>(span)));
+  lua_pushinteger(L, out);
+  return 1;
+}
 
 static void rtos_cleanup(RtosContext &ctx) {
   ctx.alive = false;
@@ -688,11 +726,22 @@ static void register_rtos_api(lua_State *L) {
 
   lua_setglobal(L, "rtos");
 }
+static void register_esp_api(lua_State *L) {
+  lua_newtable(L);  // esp
+
+  lua_pushcfunction(L, lua_esp_random);
+  lua_setfield(L, -2, "random");
+
+  lua_setglobal(L, "esp");
+}
 
 static void register_base_api(lua_State *L, const std::string &script_path) {
   register_log_api(L);
   register_rtos_api(L);
+  register_esp_api(L);
   register_lvgl_api(L, script_path);
+  luaL_requiref(L, "json", luaopen_json, 1);
+  lua_pop(L, 1);
 
   lua_pushcfunction(L, lua_delay_ms);
   lua_setglobal(L, "delay_ms");
@@ -833,28 +882,4 @@ bool LuaRuntime::run_file_async(const std::string &path) {
 
 }  // namespace lua_runtime
 }  // namespace esphome
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

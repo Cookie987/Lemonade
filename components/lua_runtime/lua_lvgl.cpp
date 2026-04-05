@@ -38,11 +38,13 @@ static std::unordered_map<std::string, lv_obj_t *> g_app_pages;
 static const char *LVGL_APP_PAGE_KEY = "lua_lvgl.app_page";
 static const char *LVGL_CTX_KEY = "lua_lvgl.ctx";
 
+struct LuaTimerCb;
+
 struct LuaLvglContext {
   QueueHandle_t queue{nullptr};
   volatile bool alive{true};
+  std::unordered_map<lv_timer_t *, LuaTimerCb *> timers;
 };
-
 static void ensure_page_lock() {
   if (g_page_lock == nullptr) {
     g_page_lock = xSemaphoreCreateMutex();
@@ -117,7 +119,8 @@ static QueueHandle_t g_lvgl_job_queue = nullptr;
 static void *g_lvgl_owner_task = nullptr;
 
 struct LvglJobBase {
-  SemaphoreHandle_t done{nullptr};
+  TaskHandle_t waiter{nullptr};
+  volatile bool done{false};
   virtual ~LvglJobBase() = default;
   virtual void run() = 0;
 };
@@ -154,9 +157,16 @@ void process_lvgl_jobs() {
   while (xQueueReceive(g_lvgl_job_queue, &job, 0) == pdTRUE) {
     if (job != nullptr) {
       job->run();
-      if (job->done) xSemaphoreGive(job->done);
+      job->done = true;
+      if (job->waiter != nullptr) xTaskNotifyGive(job->waiter);
     }
-    if (++processed >= 64) break;
+    if (++processed >= 256) break;
+  }
+}
+
+static void wait_job_done(LvglJobBase *job) {
+  while (job != nullptr && !job->done) {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
   }
 }
 
@@ -168,27 +178,15 @@ template<typename F> static void lvgl_call_void(F &&fn) {
     return;
   }
 
-  auto *job = new LvglJobVoid<F>(std::forward<F>(fn));
-  job->done = xSemaphoreCreateBinary();
-  if (job->done == nullptr) {
-    ESP_LOGW(TAG, "lvgl_call_void: failed to create semaphore, execute directly");
-    job->run();
-    delete job;
-    return;
-  }
-
-  LvglJobBase *base = job;
+  LvglJobVoid<F> job(std::forward<F>(fn));
+  job.waiter = xTaskGetCurrentTaskHandle();
+  LvglJobBase *base = &job;
   if (xQueueSend(g_lvgl_job_queue, &base, portMAX_DELAY) != pdTRUE) {
     ESP_LOGW(TAG, "lvgl_call_void: queue send failed, execute directly");
-    job->run();
-    vSemaphoreDelete(job->done);
-    delete job;
+    job.run();
     return;
   }
-
-  xSemaphoreTake(job->done, portMAX_DELAY);
-  vSemaphoreDelete(job->done);
-  delete job;
+  wait_job_done(&job);
 }
 
 template<typename F> static auto lvgl_call_ret(F &&fn) -> decltype(fn()) {
@@ -199,31 +197,16 @@ template<typename F> static auto lvgl_call_ret(F &&fn) -> decltype(fn()) {
     return fn();
   }
 
-  auto *job = new LvglJobRet<R, F>(std::forward<F>(fn));
-  job->done = xSemaphoreCreateBinary();
-  if (job->done == nullptr) {
-    ESP_LOGW(TAG, "lvgl_call_ret: failed to create semaphore, execute directly");
-    job->run();
-    R out = job->result;
-    delete job;
-    return out;
-  }
-
-  LvglJobBase *base = job;
+  LvglJobRet<R, F> job(std::forward<F>(fn));
+  job.waiter = xTaskGetCurrentTaskHandle();
+  LvglJobBase *base = &job;
   if (xQueueSend(g_lvgl_job_queue, &base, portMAX_DELAY) != pdTRUE) {
     ESP_LOGW(TAG, "lvgl_call_ret: queue send failed, execute directly");
-    job->run();
-    R out = job->result;
-    vSemaphoreDelete(job->done);
-    delete job;
-    return out;
+    job.run();
+    return job.result;
   }
-
-  xSemaphoreTake(job->done, portMAX_DELAY);
-  R out = job->result;
-  vSemaphoreDelete(job->done);
-  delete job;
-  return out;
+  wait_job_done(&job);
+  return job.result;
 }
 
 #define LUA_LVGL_IMPL
@@ -236,9 +219,23 @@ struct LuaEventCb {
   int code_filter;
 };
 
-struct LvglEventMsg {
-  LuaEventCb *cb;
-  lv_obj_t *obj;
+struct LuaTimerCb {
+  LuaLvglContext *ctx;
+  int ref;
+  int user_data_ref;
+  lv_timer_t *timer;
+  bool active;
+};
+
+enum class LuaLvglMsgKind : int {
+  EVENT = 0,
+  TIMER = 1,
+};
+
+struct LuaLvglMsg {
+  LuaLvglMsgKind kind;
+  void *cb;
+  void *target;
   int code;
 };
 
@@ -250,10 +247,18 @@ static void lua_event_trampoline(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code != LV_EVENT_DELETE && cb->code_filter != LV_EVENT_ALL && code != cb->code_filter) return;
 
-  LvglEventMsg msg{cb, lv_event_get_target(e), (int) code};
+  LuaLvglMsg msg{LuaLvglMsgKind::EVENT, cb, lv_event_get_target(e), (int) code};
   xQueueSend(cb->ctx->queue, &msg, 0);
 }
 
+static void lua_timer_trampoline(lv_timer_t *timer) {
+  auto *cb = static_cast<LuaTimerCb *>(timer != nullptr ? timer->user_data : nullptr);
+  if (cb == nullptr || cb->ctx == nullptr || !cb->ctx->alive || cb->ctx->queue == nullptr) return;
+  if (!cb->active || cb->ref == LUA_NOREF) return;
+
+  LuaLvglMsg msg{LuaLvglMsgKind::TIMER, cb, timer, 0};
+  xQueueSend(cb->ctx->queue, &msg, 0);
+}
 static int l_poll_events(lua_State *L) {
   LuaLvglContext *ctx = get_lvgl_ctx(L);
   if (ctx == nullptr || !ctx->alive || ctx->queue == nullptr) {
@@ -265,26 +270,47 @@ static int l_poll_events(lua_State *L) {
   TickType_t ticks = (timeout < 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout);
 
   int processed = 0;
-  LvglEventMsg msg{};
+  LuaLvglMsg msg{};
   if (xQueueReceive(ctx->queue, &msg, ticks) == pdTRUE) {
     do {
-      if (msg.cb != nullptr) {
-        if (msg.code == LV_EVENT_DELETE) {
-          if (msg.cb->ref != LUA_NOREF) {
-            luaL_unref(L, LUA_REGISTRYINDEX, msg.cb->ref);
-            msg.cb->ref = LUA_NOREF;
+      if (msg.kind == LuaLvglMsgKind::EVENT) {
+        auto *cb = static_cast<LuaEventCb *>(msg.cb);
+        auto *obj = static_cast<lv_obj_t *>(msg.target);
+        if (cb != nullptr) {
+          if (msg.code == LV_EVENT_DELETE) {
+            if (cb->ref != LUA_NOREF) {
+              luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
+              cb->ref = LUA_NOREF;
+            }
+          } else if (cb->ref != LUA_NOREF) {
+            lua_rawgeti(L, LUA_REGISTRYINDEX, cb->ref);
+            lua_pushlightuserdata(L, obj);
+            lua_pushinteger(L, msg.code);
+            if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
+              const char *err = lua_tostring(L, -1);
+              ESP_LOGE(TAG, "event cb error: %s", err ? err : "(unknown)");
+              lua_pop(L, 1);
+            }
           }
-        } else if (msg.cb->ref != LUA_NOREF) {
-          lua_rawgeti(L, LUA_REGISTRYINDEX, msg.cb->ref);
-          lua_pushlightuserdata(L, msg.obj);
-          lua_pushinteger(L, msg.code);
+          processed++;
+        }
+      } else if (msg.kind == LuaLvglMsgKind::TIMER) {
+        auto *cb = static_cast<LuaTimerCb *>(msg.cb);
+        if (cb != nullptr && cb->ref != LUA_NOREF) {
+          lua_rawgeti(L, LUA_REGISTRYINDEX, cb->ref);
+          lua_pushlightuserdata(L, msg.target);
+          if (cb->user_data_ref != LUA_NOREF) {
+            lua_rawgeti(L, LUA_REGISTRYINDEX, cb->user_data_ref);
+          } else {
+            lua_pushnil(L);
+          }
           if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
             const char *err = lua_tostring(L, -1);
-            ESP_LOGE(TAG, "event cb error: %s", err ? err : "(unknown)");
+            ESP_LOGE(TAG, "timer cb error: %s", err ? err : "(unknown)");
             lua_pop(L, 1);
           }
+          processed++;
         }
-        processed++;
       }
     } while (xQueueReceive(ctx->queue, &msg, 0) == pdTRUE);
   }
@@ -292,7 +318,6 @@ static int l_poll_events(lua_State *L) {
   lua_pushinteger(L, processed);
   return 1;
 }
-
 static int l_obj_add_event_cb(lua_State *L) {
   lv_obj_t *obj = check_obj(L, 1);
   int code = (int) luaL_checkinteger(L, 2);
@@ -388,6 +413,70 @@ static int l_obj_center(lua_State *L) {
   return 0;
 }
 
+static int l_timer_create(lua_State *L) {
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  uint32_t period = (uint32_t) luaL_checkinteger(L, 2);
+
+  LuaLvglContext *ctx = get_lvgl_ctx(L);
+  if (ctx == nullptr || !ctx->alive) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  auto *cb = new LuaTimerCb{ctx, LUA_NOREF, LUA_NOREF, nullptr, true};
+  lua_pushvalue(L, 1);
+  cb->ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  if (!lua_isnoneornil(L, 3)) {
+    lua_pushvalue(L, 3);
+    cb->user_data_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  }
+
+  lv_timer_t *timer = lvgl_call_ret([&]() -> lv_timer_t * {
+    return lv_timer_create(lua_timer_trampoline, period, cb);
+  });
+  if (timer == nullptr) {
+    if (cb->ref != LUA_NOREF) luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
+    if (cb->user_data_ref != LUA_NOREF) luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
+    delete cb;
+    lua_pushnil(L);
+    return 1;
+  }
+
+  cb->timer = timer;
+  ctx->timers[timer] = cb;
+  lua_pushlightuserdata(L, (void *) timer);
+  return 1;
+}
+
+static int l_timer_del(lua_State *L) {
+  lv_timer_t *timer = (lv_timer_t *) lua_touserdata(L, 1);
+  if (timer == nullptr) return 0;
+
+  LuaLvglContext *ctx = get_lvgl_ctx(L);
+  if (ctx != nullptr) {
+    auto it = ctx->timers.find(timer);
+    if (it != ctx->timers.end()) {
+      LuaTimerCb *cb = it->second;
+      ctx->timers.erase(it);
+      if (cb != nullptr) {
+        cb->active = false;
+        cb->timer = nullptr;
+        if (cb->ref != LUA_NOREF) {
+          luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
+          cb->ref = LUA_NOREF;
+        }
+        if (cb->user_data_ref != LUA_NOREF) {
+          luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
+          cb->user_data_ref = LUA_NOREF;
+        }
+      }
+    }
+  }
+
+  lvgl_call_void([&]() { lv_timer_del(timer); });
+  return 0;
+}
+
 static void set_int_field(lua_State *L, const char *name, int value) {
   lua_pushinteger(L, value);
   lua_setfield(L, -2, name);
@@ -399,7 +488,7 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   set_app_page(L, page);
 
   auto *ctx = new LuaLvglContext;
-  ctx->queue = xQueueCreate(16, sizeof(LvglEventMsg));
+  ctx->queue = xQueueCreate(16, sizeof(LuaLvglMsg));
   ctx->alive = true;
   set_lvgl_ctx(L, ctx);
 
@@ -421,6 +510,14 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "dropdown_get_selected_str");
   lua_pushcfunction(L, l_obj_center);
   lua_setfield(L, -2, "obj_center");
+  lua_pushcfunction(L, l_timer_create);
+  lua_setfield(L, -2, "timer_create");
+  lua_pushcfunction(L, l_timer_del);
+  lua_setfield(L, -2, "timer_del");
+  lua_pushcfunction(L, l_timer_create);
+  lua_setfield(L, -2, "lv_timer_create");
+  lua_pushcfunction(L, l_timer_del);
+  lua_setfield(L, -2, "lv_timer_del");
   // align constants
   set_int_field(L, "ALIGN_CENTER", LV_ALIGN_CENTER);
   set_int_field(L, "ALIGN_TOP_LEFT", LV_ALIGN_TOP_LEFT);
@@ -496,6 +593,22 @@ void cleanup_lvgl_api(lua_State *L) {
   LuaLvglContext *ctx = get_lvgl_ctx(L);
   if (ctx == nullptr) return;
   ctx->alive = false;
+  for (auto &entry : ctx->timers) {
+    LuaTimerCb *cb = entry.second;
+    if (cb == nullptr) continue;
+    cb->active = false;
+    cb->ctx = nullptr;
+    cb->timer = nullptr;
+    if (cb->ref != LUA_NOREF) {
+      luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
+      cb->ref = LUA_NOREF;
+    }
+    if (cb->user_data_ref != LUA_NOREF) {
+      luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
+      cb->user_data_ref = LUA_NOREF;
+    }
+  }
+  ctx->timers.clear();
   if (ctx->queue) {
     vQueueDelete(ctx->queue);
     ctx->queue = nullptr;

@@ -38,6 +38,8 @@ VOID_PTR_TYPES = {"void *", "const void *"}
 MANUAL_BINDINGS = {
     "lv_label_set_text_fmt",
     "lv_dropdown_get_selected_str",
+    "lv_timer_create",
+    "lv_timer_del",
 }
 
 
