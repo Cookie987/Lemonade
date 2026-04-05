@@ -2073,6 +2073,25 @@ static int l_msgbox_close_async(lua_State *L) {
   return 0;
 }
 
+static int l_timer_pause(lua_State *L) {
+  lv_timer_t * a0_timer = (lv_timer_t *) lua_touserdata(L, 1);
+  lvgl_call_void([&]() { lv_timer_pause(a0_timer); });
+  return 0;
+}
+
+static int l_timer_resume(lua_State *L) {
+  lv_timer_t * a0_timer = (lv_timer_t *) lua_touserdata(L, 1);
+  lvgl_call_void([&]() { lv_timer_resume(a0_timer); });
+  return 0;
+}
+
+static int l_timer_set_period(lua_State *L) {
+  lv_timer_t * a0_timer = (lv_timer_t *) lua_touserdata(L, 1);
+  uint32_t a1_period = (uint32_t) luaL_checkinteger(L, 2);
+  lvgl_call_void([&]() { lv_timer_set_period(a0_timer, a1_period); });
+  return 0;
+}
+
 static void register_lvgl_gen(lua_State *L) {
   lua_pushcfunction(L, l_obj_create);
   lua_setfield(L, -2, "obj_create");
@@ -2436,6 +2455,12 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "msgbox_close");
   lua_pushcfunction(L, l_msgbox_close_async);
   lua_setfield(L, -2, "msgbox_close_async");
+  lua_pushcfunction(L, l_timer_pause);
+  lua_setfield(L, -2, "timer_pause");
+  lua_pushcfunction(L, l_timer_resume);
+  lua_setfield(L, -2, "timer_resume");
+  lua_pushcfunction(L, l_timer_set_period);
+  lua_setfield(L, -2, "timer_set_period");
 }
 
 #endif  // LUA_LVGL_IMPL

@@ -16,6 +16,10 @@ class LuaRuntime : public Component {
   bool run_file(const std::string &path);
   bool run_file_async(const std::string &path);
   void mark_task_done(const std::string &path);
+  void set_async_core(int async_core) { this->async_core_ = async_core; }
+
+ protected:
+  int async_core_{0};
 };
 
 template<typename... Ts> class LuaRunFileAction : public Action<Ts...> {

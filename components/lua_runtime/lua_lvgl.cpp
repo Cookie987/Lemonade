@@ -40,10 +40,15 @@ static const char *LVGL_CTX_KEY = "lua_lvgl.ctx";
 
 struct LuaTimerCb;
 
+enum class LuaFontKind : uint8_t {
+  TINY_TTF = 0,
+};
+
 struct LuaLvglContext {
   QueueHandle_t queue{nullptr};
   volatile bool alive{true};
   std::unordered_map<lv_timer_t *, LuaTimerCb *> timers;
+  std::unordered_map<lv_font_t *, LuaFontKind> fonts;
 };
 static void ensure_page_lock() {
   if (g_page_lock == nullptr) {
@@ -413,6 +418,65 @@ static int l_obj_center(lua_State *L) {
   return 0;
 }
 
+static int l_font_load(lua_State *L) {
+  const char *path = luaL_checkstring(L, 1);
+  lv_coord_t font_size = (lv_coord_t) luaL_checkinteger(L, 2);
+  size_t cache_size = (size_t) luaL_optinteger(L, 3, 4096);
+
+  LuaLvglContext *ctx = get_lvgl_ctx(L);
+  if (ctx == nullptr || !ctx->alive) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+#if LV_USE_TINY_TTF && LV_TINY_TTF_FILE_SUPPORT
+  lv_font_t *font = lvgl_call_ret([&]() -> lv_font_t * {
+    return lv_tiny_ttf_create_file_ex(path, font_size, cache_size);
+  });
+  if (font == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  ctx->fonts[font] = LuaFontKind::TINY_TTF;
+  lua_pushlightuserdata(L, (void *) font);
+#else
+  (void) path;
+  (void) font_size;
+  (void) cache_size;
+  lua_pushnil(L);
+#endif
+  return 1;
+}
+
+static int l_font_free(lua_State *L) {
+  lv_font_t *font = (lv_font_t *) lua_touserdata(L, 1);
+  if (font == nullptr) return 0;
+
+  LuaLvglContext *ctx = get_lvgl_ctx(L);
+  LuaFontKind kind = LuaFontKind::TINY_TTF;
+  bool owned = false;
+  if (ctx != nullptr) {
+    auto it = ctx->fonts.find(font);
+    if (it != ctx->fonts.end()) {
+      kind = it->second;
+      ctx->fonts.erase(it);
+      owned = true;
+    }
+  }
+  if (!owned) return 0;
+
+  lvgl_call_void([&]() {
+    switch (kind) {
+      case LuaFontKind::TINY_TTF:
+#if LV_USE_TINY_TTF
+        lv_tiny_ttf_destroy(font);
+#endif
+        break;
+    }
+  });
+  return 0;
+}
+
 static int l_timer_create(lua_State *L) {
   luaL_checktype(L, 1, LUA_TFUNCTION);
   uint32_t period = (uint32_t) luaL_checkinteger(L, 2);
@@ -510,14 +574,14 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "dropdown_get_selected_str");
   lua_pushcfunction(L, l_obj_center);
   lua_setfield(L, -2, "obj_center");
+  lua_pushcfunction(L, l_font_load);
+  lua_setfield(L, -2, "font_load");
+  lua_pushcfunction(L, l_font_free);
+  lua_setfield(L, -2, "font_free");
   lua_pushcfunction(L, l_timer_create);
   lua_setfield(L, -2, "timer_create");
   lua_pushcfunction(L, l_timer_del);
   lua_setfield(L, -2, "timer_del");
-  lua_pushcfunction(L, l_timer_create);
-  lua_setfield(L, -2, "lv_timer_create");
-  lua_pushcfunction(L, l_timer_del);
-  lua_setfield(L, -2, "lv_timer_del");
   // align constants
   set_int_field(L, "ALIGN_CENTER", LV_ALIGN_CENTER);
   set_int_field(L, "ALIGN_TOP_LEFT", LV_ALIGN_TOP_LEFT);
@@ -609,6 +673,21 @@ void cleanup_lvgl_api(lua_State *L) {
     }
   }
   ctx->timers.clear();
+  for (auto &entry : ctx->fonts) {
+    lv_font_t *font = entry.first;
+    LuaFontKind kind = entry.second;
+    if (font == nullptr) continue;
+    lvgl_call_void([&]() {
+      switch (kind) {
+        case LuaFontKind::TINY_TTF:
+#if LV_USE_TINY_TTF
+          lv_tiny_ttf_destroy(font);
+#endif
+          break;
+      }
+    });
+  }
+  ctx->fonts.clear();
   if (ctx->queue) {
     vQueueDelete(ctx->queue);
     ctx->queue = nullptr;

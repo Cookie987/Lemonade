@@ -27,6 +27,8 @@
 #include "lauxlib.h"
 #include "llimits.h"
 
+#include "esp_heap_caps.h"
+#include "esp_log.h"
 
 /*
 ** {======================================================
@@ -38,7 +40,7 @@
 #define LEVELS1	10	/* size of the first part of the stack */
 #define LEVELS2	11	/* size of the second part of the stack */
 
-
+static const char* TAG = "lauxlib";
 
 /*
 ** Search for 'objidx' in table at index -1. ('objidx' must be an
@@ -1047,13 +1049,25 @@ LUALIB_API const char *luaL_gsub (lua_State *L, const char *s,
 
 
 void *luaL_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
-  UNUSED(ud); UNUSED(osize);
+  UNUSED(ud); 
+  UNUSED(osize);
   if (nsize == 0) {
-    free(ptr);
+    /* 在 ESP32 中，heap_caps_free 可以安全处理 NULL */
+    heap_caps_free(ptr);
     return NULL;
   }
-  else
-    return realloc(ptr, nsize);
+  else {
+    /* 强制在 16MB PSRAM 中分配，并确保 8-bit 可访问 */
+    void *new_ptr = heap_caps_realloc(ptr, nsize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    
+    /* 防御性处理：如果 PSRAM 分配失败，尝试回退到内部 SRAM (可选) */
+    if (new_ptr == NULL) {
+      ESP_LOGE(TAG, "PSRAM allocation failed, trying internal SRAM...");
+      new_ptr = heap_caps_realloc(ptr, nsize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    
+    return new_ptr;
+  }
 }
 
 

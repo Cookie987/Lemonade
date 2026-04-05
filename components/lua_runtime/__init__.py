@@ -9,6 +9,7 @@ DEPENDENCIES = ["esp32"]
 
 CONF_ENABLE_STUB = "enable_stub"
 CONF_FORCE_32BIT = "force_32bit"
+CONF_ASYNC_CORE = "async_core"
 
 lua_runtime_ns = cg.esphome_ns.namespace("lua_runtime")
 LuaRuntime = lua_runtime_ns.class_("LuaRuntime", cg.Component)
@@ -22,6 +23,7 @@ CONFIG_SCHEMA = cv.All(
             cv.GenerateID(): cv.declare_id(LuaRuntime),
             cv.Optional(CONF_ENABLE_STUB, default=True): cv.boolean,
             cv.Optional(CONF_FORCE_32BIT, default=True): cv.boolean,
+            cv.Optional(CONF_ASYNC_CORE, default=0): cv.one_of(0, 1, int=True),
         }
     ).extend(cv.COMPONENT_SCHEMA),
 )
@@ -49,6 +51,8 @@ async def to_code(config):
     if config[CONF_FORCE_32BIT]:
         # Avoid 'long long' requirement on some embedded toolchains
         cg.add_define("LUA_32BITS")
+
+    cg.add(var.set_async_core(config[CONF_ASYNC_CORE]))
 
     # Export lemonade_version (from substitutions) as a C define if present
     lemonade_ver = None

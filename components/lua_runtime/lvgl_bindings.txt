@@ -219,3 +219,6 @@ lv_msgbox_close_async
 
 # lv_timer_create
 # lv_timer_del
+lv_timer_pause
+lv_timer_resume
+lv_timer_set_period

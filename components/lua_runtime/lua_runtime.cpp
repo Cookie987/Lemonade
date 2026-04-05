@@ -767,6 +767,7 @@ void LuaRuntime::dump_config() {
   ESP_LOGCONFIG(TAG, "  Mode: stub (no Lua linked)");
 #else
   ESP_LOGCONFIG(TAG, "  Mode: enabled");
+  ESP_LOGCONFIG(TAG, "  Async core: %d", this->async_core_);
 #endif
 }
 
@@ -870,9 +871,9 @@ bool LuaRuntime::run_file_async(const std::string &path) {
   }
   auto *args = new LuaTaskArgs{this, path};
   BaseType_t ok = xTaskCreatePinnedToCore(
-      lua_task_entry, "lua_task", LUA_TASK_STACK, args, LUA_TASK_PRIO, nullptr, 1);
+      lua_task_entry, "lua_task", LUA_TASK_STACK, args, LUA_TASK_PRIO, nullptr, this->async_core_);
   if (ok != pdPASS) {
-    ESP_LOGE(TAG, "Failed to create Lua task");
+    ESP_LOGE(TAG, "Failed to create Lua task on core %d", this->async_core_);
     delete args;
     release_run_path(path);
     return false;
