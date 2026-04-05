@@ -38,6 +38,7 @@ static SemaphoreHandle_t g_page_lock = nullptr;
 static std::unordered_map<std::string, lv_obj_t *> g_app_pages;
 static const char *LVGL_APP_PAGE_KEY = "lua_lvgl.app_page";
 static const char *LVGL_CTX_KEY = "lua_lvgl.ctx";
+static const char *LVGL_SCRIPT_DIR_KEY = "lua_lvgl.script_dir";
 
 struct LuaTimerCb;
 
@@ -95,6 +96,21 @@ static lv_obj_t *get_app_page_from_lua(lua_State *L) {
   auto *page = static_cast<lv_obj_t *>(lua_touserdata(L, -1));
   lua_pop(L, 1);
   return page;
+}
+
+static void set_script_dir(lua_State *L, const std::string &dir) {
+  lua_pushlightuserdata(L, (void *) &LVGL_SCRIPT_DIR_KEY);
+  lua_pushstring(L, dir.c_str());
+  lua_settable(L, LUA_REGISTRYINDEX);
+}
+
+static std::string get_script_dir(lua_State *L) {
+  lua_pushlightuserdata(L, (void *) &LVGL_SCRIPT_DIR_KEY);
+  lua_gettable(L, LUA_REGISTRYINDEX);
+  const char *dir = lua_tostring(L, -1);
+  std::string out = dir ? dir : ".";
+  lua_pop(L, 1);
+  return out;
 }
 
 static void set_lvgl_ctx(lua_State *L, LuaLvglContext *ctx) {
@@ -434,9 +450,34 @@ static bool has_case_insensitive_suffix(const std::string &value, const char *su
   return true;
 }
 
+static bool has_drive_prefix(const std::string &path) {
+  if (path.size() < 2 || path[1] != ':') return false;
+  unsigned char drive = static_cast<unsigned char>(path[0]);
+  return std::isalpha(drive) != 0;
+}
+
+static std::string join_path(const std::string &base, const std::string &relative) {
+  if (base.empty() || base == ".") return relative;
+  if (base == "/") return "/" + relative;
+  if (!base.empty() && base.back() == '/') return base + relative;
+  return base + "/" + relative;
+}
+
+static std::string normalize_lvgl_font_path(lua_State *L, const std::string &path) {
+  if (path.empty()) return path;
+  if (has_drive_prefix(path)) return path;
+  if (path[0] == '/') return std::string(1, LV_FS_POSIX_LETTER) + ":" + path;
+
+  std::string script_dir = get_script_dir(L);
+  std::string resolved = join_path(script_dir, path);
+  if (has_drive_prefix(resolved)) return resolved;
+  if (!resolved.empty() && resolved[0] == '/') return std::string(1, LV_FS_POSIX_LETTER) + ":" + resolved;
+  return std::string(1, LV_FS_POSIX_LETTER) + ":/" + resolved;
+}
+
 static int l_font_load(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-  std::string path_str = path;
+  std::string path_str = normalize_lvgl_font_path(L, path);
   bool is_bin_font = has_case_insensitive_suffix(path_str, ".bin");
 
   LuaLvglContext *ctx = get_lvgl_ctx(L);
@@ -448,13 +489,13 @@ static int l_font_load(lua_State *L) {
   lv_font_t *font = nullptr;
   LuaFontKind kind = LuaFontKind::BIN;
   if (is_bin_font) {
-    font = lvgl_call_ret([&]() -> lv_font_t * { return lv_font_load(path); });
+    font = lvgl_call_ret([&]() -> lv_font_t * { return lv_font_load(path_str.c_str()); });
   } else {
     lv_coord_t font_size = (lv_coord_t) luaL_checkinteger(L, 2);
     size_t cache_size = (size_t) luaL_optinteger(L, 3, 4096);
 #if LV_USE_TINY_TTF && LV_TINY_TTF_FILE_SUPPORT
     font = lvgl_call_ret([&]() -> lv_font_t * {
-      return lv_tiny_ttf_create_file_ex(path, font_size, cache_size);
+      return lv_tiny_ttf_create_file_ex(path_str.c_str(), font_size, cache_size);
     });
     kind = LuaFontKind::TINY_TTF;
 #else
@@ -578,6 +619,7 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   std::string app_dir = dir_from_path(script_path);
   lv_obj_t *page = get_app_page(app_dir);
   set_app_page(L, page);
+  set_script_dir(L, app_dir);
 
   auto *ctx = new LuaLvglContext;
   ctx->queue = xQueueCreate(16, sizeof(LuaLvglMsg));
