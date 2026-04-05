@@ -99,6 +99,9 @@ esp32:
       CONFIG_PM_DFS_INIT_AUTO: y
       CONFIG_FATFS_LFN_STACK: y
       CONFIG_SPIRAM_USE_MALLOC: y
+      CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: y
+      CONFIG_MBEDTLS_HARDWARE_MPI: y
+      CONFIG_MBEDTLS_DYNAMIC_BUFFER: y
 
 psram:
   mode: octal
@@ -185,6 +188,7 @@ lua_runtime:
   id: lua
   enable_stub: false
   force_32bit: true
+  async_core: 0
 
 ota:
   - platform: esphome
