@@ -302,6 +302,17 @@ static int l_obj_has_state(lua_State *L) {
   return 1;
 }
 
+static int l_obj_is_valid(lua_State *L) {
+  const lv_obj_t * a0_obj = (const lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  bool res = lvgl_call_ret([&]() -> bool { return lv_obj_is_valid(a0_obj); });
+  lua_pushboolean(L, res);
+  return 1;
+}
+
 static int l_obj_set_scroll_dir(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_dir_t a1_dir = (lv_dir_t) luaL_checkinteger(L, 2);
@@ -1082,21 +1093,6 @@ static int l_img_create(lua_State *L) {
     lua_pushnil(L);
   }
   return 1;
-}
-
-static int l_img_set_src(lua_State *L) {
-  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const void * a1_src = nullptr;
-  if (lua_isstring(L, 2)) {
-    a1_src = (const void *) lua_tostring(L, 2);
-  } else if (lua_islightuserdata(L, 2)) {
-    a1_src = lua_touserdata(L, 2);
-  }
-  if (a0_obj == nullptr) {
-    return 0;
-  }
-  lvgl_call_void([&]() { lv_img_set_src(a0_obj, a1_src); });
-  return 0;
 }
 
 static int l_img_set_offset_x(lua_State *L) {
@@ -2147,6 +2143,8 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "obj_clear_state");
   lua_pushcfunction(L, l_obj_has_state);
   lua_setfield(L, -2, "obj_has_state");
+  lua_pushcfunction(L, l_obj_is_valid);
+  lua_setfield(L, -2, "obj_is_valid");
   lua_pushcfunction(L, l_obj_set_scroll_dir);
   lua_setfield(L, -2, "obj_set_scroll_dir");
   lua_pushcfunction(L, l_obj_set_scrollbar_mode);
@@ -2285,8 +2283,6 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "dropdown_is_open");
   lua_pushcfunction(L, l_img_create);
   lua_setfield(L, -2, "img_create");
-  lua_pushcfunction(L, l_img_set_src);
-  lua_setfield(L, -2, "img_set_src");
   lua_pushcfunction(L, l_img_set_offset_x);
   lua_setfield(L, -2, "img_set_offset_x");
   lua_pushcfunction(L, l_img_set_offset_y);

@@ -175,6 +175,7 @@ globals:
 # Enable logging
 logger:
   level: ${log_level}
+  # hardware_uart: USB_CDC
   on_message:
     level: ERROR
     then:
@@ -189,6 +190,15 @@ lua_runtime:
   enable_stub: false
   force_32bit: true
   async_core: 0
+
+# tinyusb:
+#   usb_product_id: 0xC002
+#   usb_vendor_id: 0x303A
+#   usb_lang_id: 0x0804
+#   usb_manufacturer_str: "R.C.Studio"
+#   usb_product_str: "LemonadeOS on SMC"
+
+# usb_cdc_acm:
 
 ota:
   - platform: esphome
@@ -278,8 +288,6 @@ wifi:
       #       - wifi.disable
       #       - delay: 5s
       #       - wifi.enable
-
-improv_serial:
 
 switch:
   - platform: template

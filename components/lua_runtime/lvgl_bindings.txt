@@ -33,6 +33,7 @@ lv_obj_has_flag
 lv_obj_add_state
 lv_obj_clear_state
 lv_obj_has_state
+lv_obj_is_valid
 
 # Scroll
 lv_obj_set_scroll_dir

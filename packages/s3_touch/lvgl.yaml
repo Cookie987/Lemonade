@@ -394,7 +394,6 @@ lvgl:
             icons[1] = {"timer", "秒表", id(img_timer_app), nullptr, 0, 0};
             icons[2] = {"message", "信息", id(img_message_app), nullptr, 0, 0};
             icons[3] = {"weather", "天气", id(img_weather_app), nullptr, 0, 0};
-            icons[4] = {"limbus_prescript", "Prescript", id(img_limbus_prescript_app), nullptr, 0, 0};
             if (id(img_message_app) != nullptr && id(message_unread_messages_amount_indicator) != nullptr) {
               lv_obj_set_parent(id(message_unread_messages_amount_indicator), id(img_message_app));
               lv_obj_align(id(message_unread_messages_amount_indicator), LV_ALIGN_TOP_RIGHT, -4, 4);

@@ -39,8 +39,18 @@ static std::unordered_map<std::string, lv_obj_t *> g_app_pages;
 static const char *LVGL_APP_PAGE_KEY = "lua_lvgl.app_page";
 static const char *LVGL_CTX_KEY = "lua_lvgl.ctx";
 static const char *LVGL_SCRIPT_DIR_KEY = "lua_lvgl.script_dir";
+static constexpr int32_t NOTIFICATION_BAR_Y_HIDE = -45;
+static constexpr int32_t NOTIFICATION_BAR_Y_SHOW = 10;
+static constexpr uint32_t LUA_NOTIFICATION_MAGIC = 0x4C55494E;
 
 struct LuaTimerCb;
+
+struct LuaNotificationBar {
+  uint32_t magic;
+  lv_obj_t *bar;
+  lv_timer_t *close_timer;
+  bool closing;
+};
 
 enum class LuaFontKind : uint8_t {
   BIN = 0,
@@ -239,6 +249,7 @@ template<typename F> static auto lvgl_call_ret(F &&fn) -> decltype(fn()) {
 struct LuaEventCb {
   LuaLvglContext *ctx;
   int ref;
+  int user_data_ref;
   int code_filter;
 };
 
@@ -261,6 +272,41 @@ struct LuaLvglMsg {
   void *target;
   int code;
 };
+
+static void push_lua_event(lua_State *L, lv_obj_t *target, int code, LuaEventCb *cb) {
+  lua_createtable(L, 0, 3);
+
+  lua_pushlightuserdata(L, target);
+  lua_setfield(L, -2, "target");
+
+  lua_pushinteger(L, code);
+  lua_setfield(L, -2, "code");
+
+  if (cb != nullptr && cb->user_data_ref != LUA_NOREF) {
+    lua_rawgeti(L, LUA_REGISTRYINDEX, cb->user_data_ref);
+  } else {
+    lua_pushnil(L);
+  }
+  lua_setfield(L, -2, "user_data");
+}
+
+static int l_event_get_code(lua_State *L) {
+  luaL_checktype(L, 1, LUA_TTABLE);
+  lua_getfield(L, 1, "code");
+  return 1;
+}
+
+static int l_event_get_target(lua_State *L) {
+  luaL_checktype(L, 1, LUA_TTABLE);
+  lua_getfield(L, 1, "target");
+  return 1;
+}
+
+static int l_event_get_user_data(lua_State *L) {
+  luaL_checktype(L, 1, LUA_TTABLE);
+  lua_getfield(L, 1, "user_data");
+  return 1;
+}
 
 static void lua_event_trampoline(lv_event_t *e) {
   auto *cb = static_cast<LuaEventCb *>(lv_event_get_user_data(e));
@@ -305,11 +351,14 @@ static int l_poll_events(lua_State *L) {
               luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
               cb->ref = LUA_NOREF;
             }
+            if (cb->user_data_ref != LUA_NOREF) {
+              luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
+              cb->user_data_ref = LUA_NOREF;
+            }
           } else if (cb->ref != LUA_NOREF) {
             lua_rawgeti(L, LUA_REGISTRYINDEX, cb->ref);
-            lua_pushlightuserdata(L, obj);
-            lua_pushinteger(L, msg.code);
-            if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
+            push_lua_event(L, obj, msg.code, cb);
+            if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
               const char *err = lua_tostring(L, -1);
               ESP_LOGE(TAG, "event cb error: %s", err ? err : "(unknown)");
               lua_pop(L, 1);
@@ -343,16 +392,26 @@ static int l_poll_events(lua_State *L) {
 }
 static int l_obj_add_event_cb(lua_State *L) {
   lv_obj_t *obj = check_obj(L, 1);
-  int code = (int) luaL_checkinteger(L, 2);
-  luaL_checktype(L, 3, LUA_TFUNCTION);
   if (obj == nullptr) return 0;
+
+  // Strict LVGL order: obj, cb, code[, user_data]
+  luaL_checktype(L, 2, LUA_TFUNCTION);
+  int code = LV_EVENT_ALL;
+  if (lua_isnumber(L, 3)) code = (int) lua_tointeger(L, 3);
 
   LuaLvglContext *ctx = get_lvgl_ctx(L);
   if (ctx == nullptr || !ctx->alive) return 0;
 
-  lua_pushvalue(L, 3);
+  lua_pushvalue(L, 2);
   int ref = luaL_ref(L, LUA_REGISTRYINDEX);
-  auto *cb = new LuaEventCb{ctx, ref, code};
+
+  int user_data_ref = LUA_NOREF;
+  if (lua_gettop(L) >= 4 && !lua_isnoneornil(L, 4)) {
+    lua_pushvalue(L, 4);
+    user_data_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+  }
+
+  auto *cb = new LuaEventCb{ctx, ref, user_data_ref, code};
   lvgl_call_void([&]() { lv_obj_add_event_cb(obj, lua_event_trampoline, LV_EVENT_ALL, cb); });
   return 0;
 }
@@ -450,10 +509,288 @@ static bool has_case_insensitive_suffix(const std::string &value, const char *su
   return true;
 }
 
+static bool ends_with(const std::string &value, const std::string &suffix) {
+  if (suffix.empty()) return true;
+  if (value.size() < suffix.size()) return false;
+  return value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 static bool has_drive_prefix(const std::string &path) {
   if (path.size() < 2 || path[1] != ':') return false;
   unsigned char drive = static_cast<unsigned char>(path[0]);
   return std::isalpha(drive) != 0;
+}
+
+static lv_disp_t *get_ui_disp_for_page(lv_obj_t *page) {
+  if (page != nullptr) return lv_obj_get_disp(page);
+  return lv_disp_get_default();
+}
+
+static lv_obj_t *get_ui_top_layer_for_page(lv_obj_t *page) {
+  lv_disp_t *disp = get_ui_disp_for_page(page);
+  if (disp == nullptr) return nullptr;
+  return lv_disp_get_layer_top(disp);
+}
+
+struct LuaTopbarRefs {
+  lv_obj_t *title{nullptr};
+  lv_obj_t *date{nullptr};
+  lv_obj_t *time{nullptr};
+};
+
+static LuaTopbarRefs find_topbar_refs(lv_obj_t *top_layer) {
+  LuaTopbarRefs refs;
+  if (top_layer == nullptr) return refs;
+
+  lv_obj_t **slots[] = {&refs.title, &refs.date, &refs.time};
+  size_t next_slot = 0;
+  uint32_t child_count = lv_obj_get_child_cnt(top_layer);
+  for (uint32_t i = 0; i < child_count && next_slot < 3; i++) {
+    lv_obj_t *child = lv_obj_get_child(top_layer, i);
+    if (child == nullptr || !lv_obj_check_type(child, &lv_label_class)) continue;
+    *slots[next_slot] = child;
+    next_slot++;
+  }
+
+  return refs;
+}
+
+static LuaNotificationBar *get_notification_bar_data(lv_obj_t *obj) {
+  if (obj == nullptr) return nullptr;
+  auto *data = static_cast<LuaNotificationBar *>(lv_obj_get_user_data(obj));
+  if (data == nullptr || data->magic != LUA_NOTIFICATION_MAGIC) return nullptr;
+  return data;
+}
+
+static lv_obj_t *get_notification_label(lv_obj_t *bar) {
+  if (bar == nullptr) return nullptr;
+  lv_obj_t *label = lv_obj_get_child(bar, 0);
+  if (label == nullptr || !lv_obj_check_type(label, &lv_label_class)) return nullptr;
+  return label;
+}
+
+static lv_obj_t *find_notification_bar(lv_obj_t *top_layer, const std::string &suffix) {
+  if (top_layer == nullptr) return nullptr;
+  uint32_t child_count = lv_obj_get_child_cnt(top_layer);
+  for (uint32_t i = 0; i < child_count; i++) {
+    lv_obj_t *child = lv_obj_get_child(top_layer, i);
+    auto *data = get_notification_bar_data(child);
+    if (data == nullptr || data->closing) continue;
+
+    lv_obj_t *label = get_notification_label(child);
+    if (label == nullptr) continue;
+    const char *text = lv_label_get_text(label);
+    if (text != nullptr && ends_with(text, suffix)) return child;
+  }
+  return nullptr;
+}
+
+static int count_notification_bars(lv_obj_t *top_layer) {
+  if (top_layer == nullptr) return 0;
+  int count = 0;
+  uint32_t child_count = lv_obj_get_child_cnt(top_layer);
+  for (uint32_t i = 0; i < child_count; i++) {
+    if (get_notification_bar_data(lv_obj_get_child(top_layer, i)) != nullptr) count++;
+  }
+  return count;
+}
+
+static void notification_bar_delete_cb(lv_event_t *e) {
+  lv_obj_t *bar = lv_event_get_target(e);
+  auto *data = get_notification_bar_data(bar);
+  if (data == nullptr) return;
+
+  if (data->close_timer != nullptr) {
+    lv_timer_del(data->close_timer);
+    data->close_timer = nullptr;
+  }
+  data->bar = nullptr;
+  data->closing = true;
+  lv_obj_set_user_data(bar, nullptr);
+  delete data;
+}
+
+static void notification_bar_hide_ready_cb(lv_anim_t *a) {
+  lv_obj_t *bar = static_cast<lv_obj_t *>(a != nullptr ? a->var : nullptr);
+  if (bar == nullptr || !lv_obj_is_valid(bar)) return;
+  lv_obj_del(bar);
+}
+
+static void close_notification_bar(lv_obj_t *bar) {
+  auto *data = get_notification_bar_data(bar);
+  if (data == nullptr || data->closing) return;
+
+  data->closing = true;
+  if (data->close_timer != nullptr) {
+    lv_timer_del(data->close_timer);
+    data->close_timer = nullptr;
+  }
+
+  lv_anim_del(bar, (lv_anim_exec_xcb_t) lv_obj_set_y);
+
+  lv_anim_t anim;
+  lv_anim_init(&anim);
+  lv_anim_set_var(&anim, bar);
+  lv_anim_set_values(&anim, lv_obj_get_y(bar), NOTIFICATION_BAR_Y_HIDE);
+  lv_anim_set_exec_cb(&anim, (lv_anim_exec_xcb_t) lv_obj_set_y);
+  lv_anim_set_time(&anim, 300);
+  lv_anim_set_path_cb(&anim, lv_anim_path_ease_in);
+  lv_anim_set_ready_cb(&anim, notification_bar_hide_ready_cb);
+  lv_anim_start(&anim);
+}
+
+static void notification_bar_timer_cb(lv_timer_t *timer) {
+  auto *data = static_cast<LuaNotificationBar *>(timer != nullptr ? timer->user_data : nullptr);
+  if (data == nullptr || data->magic != LUA_NOTIFICATION_MAGIC) return;
+  data->close_timer = nullptr;
+  if (data->bar == nullptr || !lv_obj_is_valid(data->bar)) return;
+  close_notification_bar(data->bar);
+}
+
+static void notification_bar_click_cb(lv_event_t *e) {
+  if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+  close_notification_bar(lv_event_get_target(e));
+}
+
+static void set_notification_bar_timer(LuaNotificationBar *data, int delay_ms) {
+  if (data == nullptr) return;
+  if (data->close_timer != nullptr) {
+    lv_timer_del(data->close_timer);
+    data->close_timer = nullptr;
+  }
+  if (delay_ms <= 0) return;
+
+  data->close_timer = lv_timer_create(notification_bar_timer_cb, (uint32_t) delay_ms, data);
+  if (data->close_timer != nullptr) {
+    lv_timer_set_repeat_count(data->close_timer, 1);
+  }
+}
+
+static int l_ui_hide_topbar(lua_State *L) {
+  lv_obj_t *app_page = get_app_page_from_lua(L);
+  lvgl_call_void([app_page]() {
+    LuaTopbarRefs refs = find_topbar_refs(get_ui_top_layer_for_page(app_page));
+    if (refs.title != nullptr) lv_obj_add_flag(refs.title, LV_OBJ_FLAG_HIDDEN);
+    if (refs.date != nullptr) lv_obj_add_flag(refs.date, LV_OBJ_FLAG_HIDDEN);
+    if (refs.time != nullptr) lv_obj_add_flag(refs.time, LV_OBJ_FLAG_HIDDEN);
+  });
+  return 0;
+}
+
+static int l_ui_show_topbar(lua_State *L) {
+  lv_obj_t *app_page = get_app_page_from_lua(L);
+  lvgl_call_void([app_page]() {
+    LuaTopbarRefs refs = find_topbar_refs(get_ui_top_layer_for_page(app_page));
+    if (refs.title != nullptr) lv_obj_clear_flag(refs.title, LV_OBJ_FLAG_HIDDEN);
+    if (refs.date != nullptr) lv_obj_clear_flag(refs.date, LV_OBJ_FLAG_HIDDEN);
+    if (refs.time != nullptr) lv_obj_clear_flag(refs.time, LV_OBJ_FLAG_HIDDEN);
+  });
+  return 0;
+}
+
+static int l_ui_show_notification(lua_State *L) {
+  std::string message = luaL_checkstring(L, 1);
+  std::string suffix = luaL_optstring(L, 2, "");
+  int delay_ms = (int) luaL_optinteger(L, 3, 0);
+  lv_obj_t *app_page = get_app_page_from_lua(L);
+
+  lvgl_call_void([app_page, message, suffix, delay_ms]() {
+    lv_obj_t *top_layer = get_ui_top_layer_for_page(app_page);
+    if (top_layer == nullptr) return;
+
+    lv_obj_t *bar = suffix.empty() ? nullptr : find_notification_bar(top_layer, suffix);
+    if (bar != nullptr) {
+      auto *data = get_notification_bar_data(bar);
+      lv_obj_t *label = get_notification_label(bar);
+      if (data != nullptr && label != nullptr) {
+        data->closing = false;
+        lv_anim_del(bar, (lv_anim_exec_xcb_t) lv_obj_set_y);
+        lv_obj_move_foreground(bar);
+        lv_label_set_text(label, message.c_str());
+        lv_obj_set_y(bar, NOTIFICATION_BAR_Y_SHOW);
+
+        lv_anim_t shake_anim;
+        lv_anim_init(&shake_anim);
+        lv_anim_set_var(&shake_anim, bar);
+        lv_anim_set_values(&shake_anim, NOTIFICATION_BAR_Y_SHOW, NOTIFICATION_BAR_Y_SHOW + 8);
+        lv_anim_set_exec_cb(&shake_anim, (lv_anim_exec_xcb_t) lv_obj_set_y);
+        lv_anim_set_time(&shake_anim, 100);
+        lv_anim_set_playback_time(&shake_anim, 100);
+        lv_anim_start(&shake_anim);
+
+        set_notification_bar_timer(data, delay_ms);
+      }
+      return;
+    }
+
+    if (count_notification_bars(top_layer) >= 15) {
+      ESP_LOGW(TAG, "Reached notification limit, skip showing new notification");
+      return;
+    }
+
+    bar = lv_obj_create(top_layer);
+    lv_obj_set_size(bar, 240, 25);
+    lv_obj_align(bar, LV_ALIGN_TOP_MID, 0, NOTIFICATION_BAR_Y_HIDE);
+    lv_obj_set_scrollbar_mode(bar, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_style_bg_opa(bar, 175, 0);
+    lv_obj_set_style_pad_all(bar, 0, 0);
+
+    auto *data = new LuaNotificationBar{LUA_NOTIFICATION_MAGIC, bar, nullptr, false};
+    lv_obj_set_user_data(bar, data);
+    lv_obj_add_event_cb(bar, notification_bar_delete_cb, LV_EVENT_DELETE, nullptr);
+    lv_obj_add_event_cb(bar, notification_bar_click_cb, LV_EVENT_CLICKED, nullptr);
+
+    lv_obj_t *label = lv_label_create(bar);
+    lv_label_set_text(label, message.c_str());
+    lv_obj_set_width(label, 220);
+    lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+
+    lv_anim_t in_anim;
+    lv_anim_init(&in_anim);
+    lv_anim_set_var(&in_anim, bar);
+    lv_anim_set_values(&in_anim, NOTIFICATION_BAR_Y_HIDE, NOTIFICATION_BAR_Y_SHOW);
+    lv_anim_set_exec_cb(&in_anim, (lv_anim_exec_xcb_t) lv_obj_set_y);
+    lv_anim_set_time(&in_anim, 500);
+    lv_anim_set_path_cb(&in_anim, lv_anim_path_overshoot);
+    lv_anim_start(&in_anim);
+
+    set_notification_bar_timer(data, delay_ms);
+  });
+
+  return 0;
+}
+
+static int l_ui_close_notification(lua_State *L) {
+  const char *suffix = luaL_optstring(L, 1, "");
+  std::string suffix_str = suffix ? suffix : "";
+  lv_obj_t *app_page = get_app_page_from_lua(L);
+
+  lvgl_call_void([app_page, suffix_str]() {
+    lv_obj_t *top_layer = get_ui_top_layer_for_page(app_page);
+    if (top_layer == nullptr) return;
+
+    if (suffix_str.empty()) {
+      std::vector<lv_obj_t *> bars;
+      uint32_t child_count = lv_obj_get_child_cnt(top_layer);
+      for (uint32_t i = 0; i < child_count; i++) {
+        lv_obj_t *child = lv_obj_get_child(top_layer, i);
+        if (get_notification_bar_data(child) != nullptr) bars.push_back(child);
+      }
+      for (lv_obj_t *bar : bars) close_notification_bar(bar);
+      return;
+    }
+
+    lv_obj_t *bar = find_notification_bar(top_layer, suffix_str);
+    if (bar != nullptr) {
+      close_notification_bar(bar);
+    } else {
+      ESP_LOGW(TAG, "No matching notification found for suffix: %s", suffix_str.c_str());
+    }
+  });
+
+  return 0;
 }
 
 static std::string join_path(const std::string &base, const std::string &relative) {
@@ -463,7 +800,7 @@ static std::string join_path(const std::string &base, const std::string &relativ
   return base + "/" + relative;
 }
 
-static std::string normalize_lvgl_font_path(lua_State *L, const std::string &path) {
+static std::string normalize_lvgl_fs_path(lua_State *L, const std::string &path) {
   if (path.empty()) return path;
   if (has_drive_prefix(path)) return path;
   if (path[0] == '/') return std::string(1, LV_FS_POSIX_LETTER) + ":" + path;
@@ -475,9 +812,27 @@ static std::string normalize_lvgl_font_path(lua_State *L, const std::string &pat
   return std::string(1, LV_FS_POSIX_LETTER) + ":/" + resolved;
 }
 
+static int l_img_set_src(lua_State *L) {
+  lv_obj_t *obj = check_obj(L, 1);
+  if (obj == nullptr) return 0;
+
+  const void *src = nullptr;
+  std::string normalized_path;
+  if (lua_isstring(L, 2)) {
+    normalized_path = normalize_lvgl_fs_path(L, lua_tostring(L, 2));
+    src = normalized_path.c_str();
+  } else if (lua_islightuserdata(L, 2)) {
+    src = lua_touserdata(L, 2);
+  }
+
+  if (src == nullptr) return 0;
+  lvgl_call_void([&]() { lv_img_set_src(obj, src); });
+  return 0;
+}
+
 static int l_font_load(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-  std::string path_str = normalize_lvgl_font_path(L, path);
+  std::string path_str = normalize_lvgl_fs_path(L, path);
   bool is_bin_font = has_case_insensitive_suffix(path_str, ".bin");
 
   LuaLvglContext *ctx = get_lvgl_ctx(L);
@@ -636,6 +991,12 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
 
   lua_pushcfunction(L, l_obj_add_event_cb);
   lua_setfield(L, -2, "obj_add_event_cb");
+  lua_pushcfunction(L, l_event_get_code);
+  lua_setfield(L, -2, "event_get_code");
+  lua_pushcfunction(L, l_event_get_target);
+  lua_setfield(L, -2, "event_get_target");
+  lua_pushcfunction(L, l_event_get_user_data);
+  lua_setfield(L, -2, "event_get_user_data");
   lua_pushcfunction(L, l_btn_set_text);
   lua_setfield(L, -2, "btn_set_text");
   lua_pushcfunction(L, l_label_set_text_fmt);
@@ -644,6 +1005,8 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "dropdown_get_selected_str");
   lua_pushcfunction(L, l_obj_center);
   lua_setfield(L, -2, "obj_center");
+  lua_pushcfunction(L, l_img_set_src);
+  lua_setfield(L, -2, "img_set_src");
   lua_pushcfunction(L, l_font_load);
   lua_setfield(L, -2, "font_load");
   lua_pushcfunction(L, l_font_free);
@@ -719,8 +1082,23 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   set_int_field(L, "EVENT_FOCUSED", LV_EVENT_FOCUSED);
   set_int_field(L, "EVENT_DEFOCUSED", LV_EVENT_DEFOCUSED);
   set_int_field(L, "EVENT_DELETE", LV_EVENT_DELETE);
+  set_int_field(L, "EVENT_SCREEN_UNLOAD_START", LV_EVENT_SCREEN_UNLOAD_START);
+  set_int_field(L, "EVENT_SCREEN_LOAD_START", LV_EVENT_SCREEN_LOAD_START);
+  set_int_field(L, "EVENT_SCREEN_LOADED", LV_EVENT_SCREEN_LOADED);
+  set_int_field(L, "EVENT_SCREEN_UNLOADED", LV_EVENT_SCREEN_UNLOADED);
 
   lua_setglobal(L, "lvgl");
+
+  lua_newtable(L);  // ui
+  lua_pushcfunction(L, l_ui_hide_topbar);
+  lua_setfield(L, -2, "hide_topbar");
+  lua_pushcfunction(L, l_ui_show_topbar);
+  lua_setfield(L, -2, "show_topbar");
+  lua_pushcfunction(L, l_ui_show_notification);
+  lua_setfield(L, -2, "show_notification");
+  lua_pushcfunction(L, l_ui_close_notification);
+  lua_setfield(L, -2, "close_notification");
+  lua_setglobal(L, "ui");
 }
 
 void cleanup_lvgl_api(lua_State *L) {
