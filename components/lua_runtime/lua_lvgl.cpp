@@ -1,5 +1,6 @@
 #include "lua_lvgl.h"
 
+#include <cctype>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -41,7 +42,8 @@ static const char *LVGL_CTX_KEY = "lua_lvgl.ctx";
 struct LuaTimerCb;
 
 enum class LuaFontKind : uint8_t {
-  TINY_TTF = 0,
+  BIN = 0,
+  TINY_TTF = 1,
 };
 
 struct LuaLvglContext {
@@ -418,10 +420,24 @@ static int l_obj_center(lua_State *L) {
   return 0;
 }
 
+static bool has_case_insensitive_suffix(const std::string &value, const char *suffix) {
+  size_t suffix_len = 0;
+  while (suffix[suffix_len] != '\0') suffix_len++;
+  if (value.size() < suffix_len) return false;
+
+  size_t offset = value.size() - suffix_len;
+  for (size_t i = 0; i < suffix_len; i++) {
+    unsigned char lhs = static_cast<unsigned char>(value[offset + i]);
+    unsigned char rhs = static_cast<unsigned char>(suffix[i]);
+    if (std::tolower(lhs) != std::tolower(rhs)) return false;
+  }
+  return true;
+}
+
 static int l_font_load(lua_State *L) {
   const char *path = luaL_checkstring(L, 1);
-  lv_coord_t font_size = (lv_coord_t) luaL_checkinteger(L, 2);
-  size_t cache_size = (size_t) luaL_optinteger(L, 3, 4096);
+  std::string path_str = path;
+  bool is_bin_font = has_case_insensitive_suffix(path_str, ".bin");
 
   LuaLvglContext *ctx = get_lvgl_ctx(L);
   if (ctx == nullptr || !ctx->alive) {
@@ -429,22 +445,31 @@ static int l_font_load(lua_State *L) {
     return 1;
   }
 
+  lv_font_t *font = nullptr;
+  LuaFontKind kind = LuaFontKind::BIN;
+  if (is_bin_font) {
+    font = lvgl_call_ret([&]() -> lv_font_t * { return lv_font_load(path); });
+  } else {
+    lv_coord_t font_size = (lv_coord_t) luaL_checkinteger(L, 2);
+    size_t cache_size = (size_t) luaL_optinteger(L, 3, 4096);
 #if LV_USE_TINY_TTF && LV_TINY_TTF_FILE_SUPPORT
-  lv_font_t *font = lvgl_call_ret([&]() -> lv_font_t * {
-    return lv_tiny_ttf_create_file_ex(path, font_size, cache_size);
-  });
+    font = lvgl_call_ret([&]() -> lv_font_t * {
+      return lv_tiny_ttf_create_file_ex(path, font_size, cache_size);
+    });
+    kind = LuaFontKind::TINY_TTF;
+#else
+    (void) font_size;
+    (void) cache_size;
+#endif
+  }
+
   if (font == nullptr) {
     lua_pushnil(L);
     return 1;
   }
-  ctx->fonts[font] = LuaFontKind::TINY_TTF;
+
+  ctx->fonts[font] = kind;
   lua_pushlightuserdata(L, (void *) font);
-#else
-  (void) path;
-  (void) font_size;
-  (void) cache_size;
-  lua_pushnil(L);
-#endif
   return 1;
 }
 
@@ -453,7 +478,7 @@ static int l_font_free(lua_State *L) {
   if (font == nullptr) return 0;
 
   LuaLvglContext *ctx = get_lvgl_ctx(L);
-  LuaFontKind kind = LuaFontKind::TINY_TTF;
+  LuaFontKind kind = LuaFontKind::BIN;
   bool owned = false;
   if (ctx != nullptr) {
     auto it = ctx->fonts.find(font);
@@ -467,6 +492,9 @@ static int l_font_free(lua_State *L) {
 
   lvgl_call_void([&]() {
     switch (kind) {
+      case LuaFontKind::BIN:
+        lv_font_free(font);
+        break;
       case LuaFontKind::TINY_TTF:
 #if LV_USE_TINY_TTF
         lv_tiny_ttf_destroy(font);
@@ -679,6 +707,9 @@ void cleanup_lvgl_api(lua_State *L) {
     if (font == nullptr) continue;
     lvgl_call_void([&]() {
       switch (kind) {
+        case LuaFontKind::BIN:
+          lv_font_free(font);
+          break;
         case LuaFontKind::TINY_TTF:
 #if LV_USE_TINY_TTF
           lv_tiny_ttf_destroy(font);
