@@ -20,6 +20,7 @@ namespace lua_runtime {
 void register_app_page(const std::string &, lv_obj_t *) {}
 void register_lvgl_api(lua_State *, const std::string &) {}
 void cleanup_lvgl_api(lua_State *) {}
+void show_lua_error_on_app_page(const std::string &, const std::string &) {}
 void set_lvgl_owner_task(void *) {}
 void process_lvgl_jobs() {}
 
@@ -92,6 +93,12 @@ static std::string dir_from_path(const std::string &path) {
   if (pos == std::string::npos) return ".";
   if (pos == 0) return "/";
   return path.substr(0, pos);
+}
+
+static std::string shorten_error_message(const std::string &message, size_t limit) {
+  if (message.size() <= limit) return message;
+  if (limit <= 3) return message.substr(0, limit);
+  return message.substr(0, limit - 3) + "...";
 }
 
 static void set_app_page(lua_State *L, lv_obj_t *page) {
@@ -793,6 +800,35 @@ static int l_ui_close_notification(lua_State *L) {
   return 0;
 }
 
+void show_lua_error_on_app_page(const std::string &script_path, const std::string &message) {
+  std::string app_dir = dir_from_path(script_path);
+  lv_obj_t *page = get_app_page(app_dir);
+  if (page == nullptr) return;
+
+  std::string short_msg = shorten_error_message(message, 220);
+  lvgl_call_void([page, short_msg]() {
+    if (!lv_obj_is_valid(page)) return;
+
+    lv_obj_clean(page);
+    lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(page, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_opa(page, LV_OPA_COVER, 0);
+
+    lv_obj_t *title = lv_label_create(page);
+    lv_label_set_text(title, "Lua 脚本错误");
+    lv_obj_set_style_text_color(title, lv_color_hex(0xCC3333), 0);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 28);
+
+    lv_obj_t *detail = lv_label_create(page);
+    lv_obj_set_width(detail, 280);
+    lv_obj_set_style_text_align(detail, LV_TEXT_ALIGN_LEFT, 0);
+    std::string detail_text = short_msg + "\n\n脚本已停止运行。请按 Home 键返回桌面。";
+    lv_label_set_text(detail, detail_text.c_str());
+    lv_obj_set_style_text_color(detail, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_align(detail, LV_ALIGN_TOP_LEFT, 20, 68);
+  });
+}
+
 static std::string join_path(const std::string &base, const std::string &relative) {
   if (base.empty() || base == ".") return relative;
   if (base == "/") return "/" + relative;
@@ -1117,6 +1153,27 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   set_int_field(L, "DIR_HOR", LV_DIR_HOR);
   set_int_field(L, "DIR_VER", LV_DIR_VER);
   set_int_field(L, "DIR_ALL", LV_DIR_ALL);
+
+  // layout
+  set_int_field(L, "LAYOUT_FLEX", LV_LAYOUT_FLEX);
+
+  // flex flow
+  set_int_field(L, "FLEX_FLOW_ROW", LV_FLEX_FLOW_ROW);
+  set_int_field(L, "FLEX_FLOW_COLUMN", LV_FLEX_FLOW_COLUMN);
+  set_int_field(L, "FLEX_FLOW_ROW_WRAP", LV_FLEX_FLOW_ROW_WRAP);
+  set_int_field(L, "FLEX_FLOW_ROW_REVERSE", LV_FLEX_FLOW_ROW_REVERSE);
+  set_int_field(L, "FLEX_FLOW_ROW_WRAP_REVERSE", LV_FLEX_FLOW_ROW_WRAP_REVERSE);
+  set_int_field(L, "FLEX_FLOW_COLUMN_WRAP", LV_FLEX_FLOW_COLUMN_WRAP);
+  set_int_field(L, "FLEX_FLOW_COLUMN_REVERSE", LV_FLEX_FLOW_COLUMN_REVERSE);
+  set_int_field(L, "FLEX_FLOW_COLUMN_WRAP_REVERSE", LV_FLEX_FLOW_COLUMN_WRAP_REVERSE);
+
+  // flex align
+  set_int_field(L, "FLEX_ALIGN_START", LV_FLEX_ALIGN_START);
+  set_int_field(L, "FLEX_ALIGN_END", LV_FLEX_ALIGN_END);
+  set_int_field(L, "FLEX_ALIGN_CENTER", LV_FLEX_ALIGN_CENTER);
+  set_int_field(L, "FLEX_ALIGN_SPACE_EVENLY", LV_FLEX_ALIGN_SPACE_EVENLY);
+  set_int_field(L, "FLEX_ALIGN_SPACE_AROUND", LV_FLEX_ALIGN_SPACE_AROUND);
+  set_int_field(L, "FLEX_ALIGN_SPACE_BETWEEN", LV_FLEX_ALIGN_SPACE_BETWEEN);
 
   // opacity
   set_int_field(L, "OPA_TRANSP", LV_OPA_TRANSP);

@@ -563,7 +563,7 @@ lvgl:
                     if (!icon_main_paths[idx].empty() && !icon_main_ran[idx]) {
                       ESP_LOGD("AppLua", "Run %s", icon_main_paths[idx].c_str());
                       id(lua).run_file_async(icon_main_paths[idx].c_str());
-                      icon_main_ran[idx] = true;
+                      icon_main_ran[idx] = false;
                     }
                   }
                   lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);

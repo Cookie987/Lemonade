@@ -6,6 +6,8 @@ local lv = lvgl
 local page = lv.app_page()
 if not page then return end
 
+lv.obj_clean(page)
+
 local unifont_24 = lv.font_load("assets/unifont_24.bin")
 local mask_chars = "$%&*@?!<>/ "
 local speed_ms = 80

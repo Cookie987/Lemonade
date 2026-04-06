@@ -876,20 +876,24 @@ bool LuaRuntime::run_file(const std::string &path) {
   int load_status = luaL_loadbuffer(L, script.data(), script.size(), path.c_str());
   if (load_status != LUA_OK) {
     const char *err = lua_tostring(L, -1);
-    ESP_LOGE(TAG, "Lua load error: %s", err ? err : "(unknown)");
+    std::string error_message = err ? err : "(unknown)";
+    ESP_LOGE(TAG, "Lua load error: %s", error_message.c_str());
     cleanup_lvgl_api(L);
-  lua_close(L);
+    lua_close(L);
     rtos_cleanup(ctx);
+    show_lua_error_on_app_page(path, error_message);
     return false;
   }
 
   int call_status = lua_pcall(L, 0, LUA_MULTRET, 0);
   if (call_status != LUA_OK) {
     const char *err = lua_tostring(L, -1);
-    ESP_LOGE(TAG, "Lua runtime error: %s", err ? err : "(unknown)");
+    std::string error_message = err ? err : "(unknown)";
+    ESP_LOGE(TAG, "Lua runtime error: %s", error_message.c_str());
     cleanup_lvgl_api(L);
-  lua_close(L);
+    lua_close(L);
     rtos_cleanup(ctx);
+    show_lua_error_on_app_page(path, error_message);
     return false;
   }
 
@@ -928,7 +932,7 @@ bool LuaRuntime::run_file_async(const std::string &path) {
     return false;
   }
   if (!claim_run_path(path)) {
-    ESP_LOGW(TAG, "Lua task already running, skip: %s", path.c_str());
+    ESP_LOGI(TAG, "Lua task already running, skip: %s", path.c_str());
     return false;
   }
   auto *args = new LuaTaskArgs{this, path};

@@ -7,6 +7,8 @@ local lv = lvgl
 local page = lv.app_page()
 if not page then return end
 
+lv.obj_clean(page)
+
 -- 加载像素字体
 -- local pixel_font = lv.font_load("assets/unifont_24.bin")
 
