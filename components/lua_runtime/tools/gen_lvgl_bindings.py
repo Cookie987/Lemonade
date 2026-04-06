@@ -39,6 +39,11 @@ MANUAL_BINDINGS = {
     "lv_label_set_text_fmt",
     "lv_dropdown_get_selected_str",
     "lv_img_set_src",
+    "lv_obj_set_style_pad_all",
+    "lv_obj_set_style_pad_hor",
+    "lv_obj_set_style_pad_ver",
+    "lv_obj_set_style_pad_gap",
+    "lv_obj_set_style_size",
     "lv_timer_create",
     "lv_timer_del",
 }

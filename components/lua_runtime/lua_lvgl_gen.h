@@ -365,6 +365,94 @@ static int l_obj_is_scrolling(lua_State *L) {
   return 1;
 }
 
+static int l_obj_set_style_width(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_width(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_min_width(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_min_width(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_max_width(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_max_width(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_height(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_height(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_min_height(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_min_height(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_max_height(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_max_height(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_x(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_x(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_y(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_y(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_bg_color(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_color_t a1_value = lv_color_hex((uint32_t) luaL_checkinteger(L, 2));
@@ -384,6 +472,132 @@ static int l_obj_set_style_bg_opa(lua_State *L) {
     return 0;
   }
   lvgl_call_void([&]() { lv_obj_set_style_bg_opa(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_grad_color(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_color_t a1_value = lv_color_hex((uint32_t) luaL_checkinteger(L, 2));
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_grad_color(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_grad_dir(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_grad_dir_t a1_value = (lv_grad_dir_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_grad_dir(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_main_stop(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_main_stop(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_grad_stop(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_grad_stop(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_grad(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  const lv_grad_dsc_t * a1_value = (const lv_grad_dsc_t *) lua_touserdata(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_grad(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_dither_mode(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_dither_mode_t a1_value = (lv_dither_mode_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_dither_mode(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_img_src(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  const void * a1_value = nullptr;
+  if (lua_isstring(L, 2)) {
+    a1_value = (const void *) lua_tostring(L, 2);
+  } else if (lua_islightuserdata(L, 2)) {
+    a1_value = lua_touserdata(L, 2);
+  }
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_img_src(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_img_opa(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_opa_t a1_value = (lv_opa_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_img_opa(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_img_recolor(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_color_t a1_value = lv_color_hex((uint32_t) luaL_checkinteger(L, 2));
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_img_recolor(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_img_recolor_opa(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_opa_t a1_value = (lv_opa_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_img_recolor_opa(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_bg_img_tiled(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  bool a1_value = (bool) lua_toboolean(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_bg_img_tiled(a0_obj, a1_value, a2_selector); });
   return 0;
 }
 
@@ -409,6 +623,39 @@ static int l_obj_set_style_border_color(lua_State *L) {
   return 0;
 }
 
+static int l_obj_set_style_border_opa(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_opa_t a1_value = (lv_opa_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_border_opa(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_border_side(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_border_side_t a1_value = (lv_border_side_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_border_side(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_border_post(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  bool a1_value = (bool) lua_toboolean(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_border_post(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_radius(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
@@ -417,6 +664,17 @@ static int l_obj_set_style_radius(lua_State *L) {
     return 0;
   }
   lvgl_call_void([&]() { lv_obj_set_style_radius(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_clip_corner(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  bool a1_value = (bool) lua_toboolean(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_clip_corner(a0_obj, a1_value, a2_selector); });
   return 0;
 }
 
@@ -464,6 +722,28 @@ static int l_obj_set_style_pad_right(lua_State *L) {
   return 0;
 }
 
+static int l_obj_set_style_pad_row(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_pad_row(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_pad_column(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_pad_column(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_text_color(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_color_t a1_value = lv_color_hex((uint32_t) luaL_checkinteger(L, 2));
@@ -508,6 +788,39 @@ static int l_obj_set_style_text_font(lua_State *L) {
   return 0;
 }
 
+static int l_obj_set_style_text_letter_space(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_text_letter_space(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_text_line_space(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_text_line_space(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_text_decor(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_text_decor_t a1_value = (lv_text_decor_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_text_decor(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_align(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_align_t a1_value = (lv_align_t) luaL_checkinteger(L, 2);
@@ -519,6 +832,94 @@ static int l_obj_set_style_align(lua_State *L) {
   return 0;
 }
 
+static int l_obj_set_style_transform_width(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_transform_width(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_transform_height(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_transform_height(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_translate_x(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_translate_x(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_translate_y(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_translate_y(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_transform_zoom(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_transform_zoom(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_transform_angle(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_transform_angle(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_transform_pivot_x(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_transform_pivot_x(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_transform_pivot_y(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_transform_pivot_y(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_anim_time(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   uint32_t a1_value = (uint32_t) luaL_checkinteger(L, 2);
@@ -527,6 +928,17 @@ static int l_obj_set_style_anim_time(lua_State *L) {
     return 0;
   }
   lvgl_call_void([&]() { lv_obj_set_style_anim_time(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_anim_speed(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint32_t a1_value = (uint32_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_anim_speed(a0_obj, a1_value, a2_selector); });
   return 0;
 }
 
@@ -618,6 +1030,17 @@ static int l_obj_set_style_shadow_ofs_y(lua_State *L) {
   return 0;
 }
 
+static int l_obj_set_style_shadow_spread(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_shadow_spread(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_outline_width(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
@@ -673,6 +1096,39 @@ static int l_obj_set_style_line_width(lua_State *L) {
   return 0;
 }
 
+static int l_obj_set_style_line_dash_width(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_line_dash_width(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_line_dash_gap(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_coord_t a1_value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_line_dash_gap(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_line_rounded(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  bool a1_value = (bool) lua_toboolean(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_line_rounded(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_line_color(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_color_t a1_value = lv_color_hex((uint32_t) luaL_checkinteger(L, 2));
@@ -706,6 +1162,17 @@ static int l_obj_set_style_arc_width(lua_State *L) {
   return 0;
 }
 
+static int l_obj_set_style_arc_rounded(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  bool a1_value = (bool) lua_toboolean(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_arc_rounded(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_arc_color(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_color_t a1_value = lv_color_hex((uint32_t) luaL_checkinteger(L, 2));
@@ -728,6 +1195,22 @@ static int l_obj_set_style_arc_opa(lua_State *L) {
   return 0;
 }
 
+static int l_obj_set_style_arc_img_src(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  const void * a1_value = nullptr;
+  if (lua_isstring(L, 2)) {
+    a1_value = (const void *) lua_tostring(L, 2);
+  } else if (lua_islightuserdata(L, 2)) {
+    a1_value = lua_touserdata(L, 2);
+  }
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_arc_img_src(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_obj_set_style_opa(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_opa_t a1_value = (lv_opa_t) luaL_checkinteger(L, 2);
@@ -747,6 +1230,83 @@ static int l_obj_set_style_opa_layered(lua_State *L) {
     return 0;
   }
   lvgl_call_void([&]() { lv_obj_set_style_opa_layered(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_color_filter_dsc(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  const lv_color_filter_dsc_t * a1_value = (const lv_color_filter_dsc_t *) lua_touserdata(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_color_filter_dsc(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_color_filter_opa(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_opa_t a1_value = (lv_opa_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_color_filter_opa(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_anim(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  const lv_anim_t * a1_value = (const lv_anim_t *) lua_touserdata(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_anim(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_transition(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  const lv_style_transition_dsc_t * a1_value = (const lv_style_transition_dsc_t *) lua_touserdata(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_transition(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_blend_mode(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_blend_mode_t a1_value = (lv_blend_mode_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_blend_mode(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_layout(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint16_t a1_value = (uint16_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_layout(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_base_dir(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_base_dir_t a1_value = (lv_base_dir_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_base_dir(a0_obj, a1_value, a2_selector); });
   return 0;
 }
 
@@ -2414,16 +2974,62 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "obj_scroll_to_y");
   lua_pushcfunction(L, l_obj_is_scrolling);
   lua_setfield(L, -2, "obj_is_scrolling");
+  lua_pushcfunction(L, l_obj_set_style_width);
+  lua_setfield(L, -2, "obj_set_style_width");
+  lua_pushcfunction(L, l_obj_set_style_min_width);
+  lua_setfield(L, -2, "obj_set_style_min_width");
+  lua_pushcfunction(L, l_obj_set_style_max_width);
+  lua_setfield(L, -2, "obj_set_style_max_width");
+  lua_pushcfunction(L, l_obj_set_style_height);
+  lua_setfield(L, -2, "obj_set_style_height");
+  lua_pushcfunction(L, l_obj_set_style_min_height);
+  lua_setfield(L, -2, "obj_set_style_min_height");
+  lua_pushcfunction(L, l_obj_set_style_max_height);
+  lua_setfield(L, -2, "obj_set_style_max_height");
+  lua_pushcfunction(L, l_obj_set_style_x);
+  lua_setfield(L, -2, "obj_set_style_x");
+  lua_pushcfunction(L, l_obj_set_style_y);
+  lua_setfield(L, -2, "obj_set_style_y");
   lua_pushcfunction(L, l_obj_set_style_bg_color);
   lua_setfield(L, -2, "obj_set_style_bg_color");
   lua_pushcfunction(L, l_obj_set_style_bg_opa);
   lua_setfield(L, -2, "obj_set_style_bg_opa");
+  lua_pushcfunction(L, l_obj_set_style_bg_grad_color);
+  lua_setfield(L, -2, "obj_set_style_bg_grad_color");
+  lua_pushcfunction(L, l_obj_set_style_bg_grad_dir);
+  lua_setfield(L, -2, "obj_set_style_bg_grad_dir");
+  lua_pushcfunction(L, l_obj_set_style_bg_main_stop);
+  lua_setfield(L, -2, "obj_set_style_bg_main_stop");
+  lua_pushcfunction(L, l_obj_set_style_bg_grad_stop);
+  lua_setfield(L, -2, "obj_set_style_bg_grad_stop");
+  lua_pushcfunction(L, l_obj_set_style_bg_grad);
+  lua_setfield(L, -2, "obj_set_style_bg_grad");
+  lua_pushcfunction(L, l_obj_set_style_bg_dither_mode);
+  lua_setfield(L, -2, "obj_set_style_bg_dither_mode");
+  lua_pushcfunction(L, l_obj_set_style_bg_img_src);
+  lua_setfield(L, -2, "obj_set_style_bg_img_src");
+  lua_pushcfunction(L, l_obj_set_style_bg_img_opa);
+  lua_setfield(L, -2, "obj_set_style_bg_img_opa");
+  lua_pushcfunction(L, l_obj_set_style_bg_img_recolor);
+  lua_setfield(L, -2, "obj_set_style_bg_img_recolor");
+  lua_pushcfunction(L, l_obj_set_style_bg_img_recolor_opa);
+  lua_setfield(L, -2, "obj_set_style_bg_img_recolor_opa");
+  lua_pushcfunction(L, l_obj_set_style_bg_img_tiled);
+  lua_setfield(L, -2, "obj_set_style_bg_img_tiled");
   lua_pushcfunction(L, l_obj_set_style_border_width);
   lua_setfield(L, -2, "obj_set_style_border_width");
   lua_pushcfunction(L, l_obj_set_style_border_color);
   lua_setfield(L, -2, "obj_set_style_border_color");
+  lua_pushcfunction(L, l_obj_set_style_border_opa);
+  lua_setfield(L, -2, "obj_set_style_border_opa");
+  lua_pushcfunction(L, l_obj_set_style_border_side);
+  lua_setfield(L, -2, "obj_set_style_border_side");
+  lua_pushcfunction(L, l_obj_set_style_border_post);
+  lua_setfield(L, -2, "obj_set_style_border_post");
   lua_pushcfunction(L, l_obj_set_style_radius);
   lua_setfield(L, -2, "obj_set_style_radius");
+  lua_pushcfunction(L, l_obj_set_style_clip_corner);
+  lua_setfield(L, -2, "obj_set_style_clip_corner");
   lua_pushcfunction(L, l_obj_set_style_pad_top);
   lua_setfield(L, -2, "obj_set_style_pad_top");
   lua_pushcfunction(L, l_obj_set_style_pad_bottom);
@@ -2432,6 +3038,10 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "obj_set_style_pad_left");
   lua_pushcfunction(L, l_obj_set_style_pad_right);
   lua_setfield(L, -2, "obj_set_style_pad_right");
+  lua_pushcfunction(L, l_obj_set_style_pad_row);
+  lua_setfield(L, -2, "obj_set_style_pad_row");
+  lua_pushcfunction(L, l_obj_set_style_pad_column);
+  lua_setfield(L, -2, "obj_set_style_pad_column");
   lua_pushcfunction(L, l_obj_set_style_text_color);
   lua_setfield(L, -2, "obj_set_style_text_color");
   lua_pushcfunction(L, l_obj_set_style_text_opa);
@@ -2440,10 +3050,34 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "obj_set_style_text_align");
   lua_pushcfunction(L, l_obj_set_style_text_font);
   lua_setfield(L, -2, "obj_set_style_text_font");
+  lua_pushcfunction(L, l_obj_set_style_text_letter_space);
+  lua_setfield(L, -2, "obj_set_style_text_letter_space");
+  lua_pushcfunction(L, l_obj_set_style_text_line_space);
+  lua_setfield(L, -2, "obj_set_style_text_line_space");
+  lua_pushcfunction(L, l_obj_set_style_text_decor);
+  lua_setfield(L, -2, "obj_set_style_text_decor");
   lua_pushcfunction(L, l_obj_set_style_align);
   lua_setfield(L, -2, "obj_set_style_align");
+  lua_pushcfunction(L, l_obj_set_style_transform_width);
+  lua_setfield(L, -2, "obj_set_style_transform_width");
+  lua_pushcfunction(L, l_obj_set_style_transform_height);
+  lua_setfield(L, -2, "obj_set_style_transform_height");
+  lua_pushcfunction(L, l_obj_set_style_translate_x);
+  lua_setfield(L, -2, "obj_set_style_translate_x");
+  lua_pushcfunction(L, l_obj_set_style_translate_y);
+  lua_setfield(L, -2, "obj_set_style_translate_y");
+  lua_pushcfunction(L, l_obj_set_style_transform_zoom);
+  lua_setfield(L, -2, "obj_set_style_transform_zoom");
+  lua_pushcfunction(L, l_obj_set_style_transform_angle);
+  lua_setfield(L, -2, "obj_set_style_transform_angle");
+  lua_pushcfunction(L, l_obj_set_style_transform_pivot_x);
+  lua_setfield(L, -2, "obj_set_style_transform_pivot_x");
+  lua_pushcfunction(L, l_obj_set_style_transform_pivot_y);
+  lua_setfield(L, -2, "obj_set_style_transform_pivot_y");
   lua_pushcfunction(L, l_obj_set_style_anim_time);
   lua_setfield(L, -2, "obj_set_style_anim_time");
+  lua_pushcfunction(L, l_obj_set_style_anim_speed);
+  lua_setfield(L, -2, "obj_set_style_anim_speed");
   lua_pushcfunction(L, l_obj_set_style_img_opa);
   lua_setfield(L, -2, "obj_set_style_img_opa");
   lua_pushcfunction(L, l_obj_set_style_img_recolor);
@@ -2460,6 +3094,8 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "obj_set_style_shadow_ofs_x");
   lua_pushcfunction(L, l_obj_set_style_shadow_ofs_y);
   lua_setfield(L, -2, "obj_set_style_shadow_ofs_y");
+  lua_pushcfunction(L, l_obj_set_style_shadow_spread);
+  lua_setfield(L, -2, "obj_set_style_shadow_spread");
   lua_pushcfunction(L, l_obj_set_style_outline_width);
   lua_setfield(L, -2, "obj_set_style_outline_width");
   lua_pushcfunction(L, l_obj_set_style_outline_color);
@@ -2470,20 +3106,44 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "obj_set_style_outline_pad");
   lua_pushcfunction(L, l_obj_set_style_line_width);
   lua_setfield(L, -2, "obj_set_style_line_width");
+  lua_pushcfunction(L, l_obj_set_style_line_dash_width);
+  lua_setfield(L, -2, "obj_set_style_line_dash_width");
+  lua_pushcfunction(L, l_obj_set_style_line_dash_gap);
+  lua_setfield(L, -2, "obj_set_style_line_dash_gap");
+  lua_pushcfunction(L, l_obj_set_style_line_rounded);
+  lua_setfield(L, -2, "obj_set_style_line_rounded");
   lua_pushcfunction(L, l_obj_set_style_line_color);
   lua_setfield(L, -2, "obj_set_style_line_color");
   lua_pushcfunction(L, l_obj_set_style_line_opa);
   lua_setfield(L, -2, "obj_set_style_line_opa");
   lua_pushcfunction(L, l_obj_set_style_arc_width);
   lua_setfield(L, -2, "obj_set_style_arc_width");
+  lua_pushcfunction(L, l_obj_set_style_arc_rounded);
+  lua_setfield(L, -2, "obj_set_style_arc_rounded");
   lua_pushcfunction(L, l_obj_set_style_arc_color);
   lua_setfield(L, -2, "obj_set_style_arc_color");
   lua_pushcfunction(L, l_obj_set_style_arc_opa);
   lua_setfield(L, -2, "obj_set_style_arc_opa");
+  lua_pushcfunction(L, l_obj_set_style_arc_img_src);
+  lua_setfield(L, -2, "obj_set_style_arc_img_src");
   lua_pushcfunction(L, l_obj_set_style_opa);
   lua_setfield(L, -2, "obj_set_style_opa");
   lua_pushcfunction(L, l_obj_set_style_opa_layered);
   lua_setfield(L, -2, "obj_set_style_opa_layered");
+  lua_pushcfunction(L, l_obj_set_style_color_filter_dsc);
+  lua_setfield(L, -2, "obj_set_style_color_filter_dsc");
+  lua_pushcfunction(L, l_obj_set_style_color_filter_opa);
+  lua_setfield(L, -2, "obj_set_style_color_filter_opa");
+  lua_pushcfunction(L, l_obj_set_style_anim);
+  lua_setfield(L, -2, "obj_set_style_anim");
+  lua_pushcfunction(L, l_obj_set_style_transition);
+  lua_setfield(L, -2, "obj_set_style_transition");
+  lua_pushcfunction(L, l_obj_set_style_blend_mode);
+  lua_setfield(L, -2, "obj_set_style_blend_mode");
+  lua_pushcfunction(L, l_obj_set_style_layout);
+  lua_setfield(L, -2, "obj_set_style_layout");
+  lua_pushcfunction(L, l_obj_set_style_base_dir);
+  lua_setfield(L, -2, "obj_set_style_base_dir");
   lua_pushcfunction(L, l_flex_init);
   lua_setfield(L, -2, "flex_init");
   lua_pushcfunction(L, l_obj_set_flex_flow);

@@ -905,6 +905,56 @@ static int l_font_load(lua_State *L) {
   return 1;
 }
 
+static int l_obj_set_style_pad_all(lua_State *L) {
+  lv_obj_t *obj = check_obj(L, 1);
+  lv_coord_t value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (obj == nullptr) return 0;
+
+  lvgl_call_void([&]() { lv_obj_set_style_pad_all(obj, value, selector); });
+  return 0;
+}
+
+static int l_obj_set_style_pad_hor(lua_State *L) {
+  lv_obj_t *obj = check_obj(L, 1);
+  lv_coord_t value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (obj == nullptr) return 0;
+
+  lvgl_call_void([&]() { lv_obj_set_style_pad_hor(obj, value, selector); });
+  return 0;
+}
+
+static int l_obj_set_style_pad_ver(lua_State *L) {
+  lv_obj_t *obj = check_obj(L, 1);
+  lv_coord_t value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (obj == nullptr) return 0;
+
+  lvgl_call_void([&]() { lv_obj_set_style_pad_ver(obj, value, selector); });
+  return 0;
+}
+
+static int l_obj_set_style_pad_gap(lua_State *L) {
+  lv_obj_t *obj = check_obj(L, 1);
+  lv_coord_t value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (obj == nullptr) return 0;
+
+  lvgl_call_void([&]() { lv_obj_set_style_pad_gap(obj, value, selector); });
+  return 0;
+}
+
+static int l_obj_set_style_size(lua_State *L) {
+  lv_obj_t *obj = check_obj(L, 1);
+  lv_coord_t value = (lv_coord_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (obj == nullptr) return 0;
+
+  lvgl_call_void([&]() { lv_obj_set_style_size(obj, value, selector); });
+  return 0;
+}
+
 static int l_font_free(lua_State *L) {
   lv_font_t *font = (lv_font_t *) lua_touserdata(L, 1);
   if (font == nullptr) return 0;
@@ -1096,6 +1146,16 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "obj_center");
   lua_pushcfunction(L, l_img_set_src);
   lua_setfield(L, -2, "img_set_src");
+  lua_pushcfunction(L, l_obj_set_style_pad_all);
+  lua_setfield(L, -2, "obj_set_style_pad_all");
+  lua_pushcfunction(L, l_obj_set_style_pad_hor);
+  lua_setfield(L, -2, "obj_set_style_pad_hor");
+  lua_pushcfunction(L, l_obj_set_style_pad_ver);
+  lua_setfield(L, -2, "obj_set_style_pad_ver");
+  lua_pushcfunction(L, l_obj_set_style_pad_gap);
+  lua_setfield(L, -2, "obj_set_style_pad_gap");
+  lua_pushcfunction(L, l_obj_set_style_size);
+  lua_setfield(L, -2, "obj_set_style_size");
   lua_pushcfunction(L, l_font_load);
   lua_setfield(L, -2, "font_load");
   lua_pushcfunction(L, l_font_free);
@@ -1178,6 +1238,44 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   // opacity
   set_int_field(L, "OPA_TRANSP", LV_OPA_TRANSP);
   set_int_field(L, "OPA_COVER", LV_OPA_COVER);
+
+  // gradient
+  set_int_field(L, "GRAD_DIR_NONE", LV_GRAD_DIR_NONE);
+  set_int_field(L, "GRAD_DIR_VER", LV_GRAD_DIR_VER);
+  set_int_field(L, "GRAD_DIR_HOR", LV_GRAD_DIR_HOR);
+
+  // dither
+  set_int_field(L, "DITHER_NONE", LV_DITHER_NONE);
+  set_int_field(L, "DITHER_ORDERED", LV_DITHER_ORDERED);
+  set_int_field(L, "DITHER_ERR_DIFF", LV_DITHER_ERR_DIFF);
+
+  // border side
+  set_int_field(L, "BORDER_SIDE_NONE", LV_BORDER_SIDE_NONE);
+  set_int_field(L, "BORDER_SIDE_BOTTOM", LV_BORDER_SIDE_BOTTOM);
+  set_int_field(L, "BORDER_SIDE_TOP", LV_BORDER_SIDE_TOP);
+  set_int_field(L, "BORDER_SIDE_LEFT", LV_BORDER_SIDE_LEFT);
+  set_int_field(L, "BORDER_SIDE_RIGHT", LV_BORDER_SIDE_RIGHT);
+  set_int_field(L, "BORDER_SIDE_FULL", LV_BORDER_SIDE_FULL);
+  set_int_field(L, "BORDER_SIDE_INTERNAL", LV_BORDER_SIDE_INTERNAL);
+
+  // text decor
+  set_int_field(L, "TEXT_DECOR_NONE", LV_TEXT_DECOR_NONE);
+  set_int_field(L, "TEXT_DECOR_UNDERLINE", LV_TEXT_DECOR_UNDERLINE);
+  set_int_field(L, "TEXT_DECOR_STRIKETHROUGH", LV_TEXT_DECOR_STRIKETHROUGH);
+
+  // base dir
+  set_int_field(L, "BASE_DIR_LTR", LV_BASE_DIR_LTR);
+  set_int_field(L, "BASE_DIR_RTL", LV_BASE_DIR_RTL);
+  set_int_field(L, "BASE_DIR_AUTO", LV_BASE_DIR_AUTO);
+  set_int_field(L, "BASE_DIR_NEUTRAL", LV_BASE_DIR_NEUTRAL);
+  set_int_field(L, "BASE_DIR_WEAK", LV_BASE_DIR_WEAK);
+
+  // blend mode
+  set_int_field(L, "BLEND_MODE_NORMAL", LV_BLEND_MODE_NORMAL);
+  set_int_field(L, "BLEND_MODE_ADDITIVE", LV_BLEND_MODE_ADDITIVE);
+  set_int_field(L, "BLEND_MODE_SUBTRACTIVE", LV_BLEND_MODE_SUBTRACTIVE);
+  set_int_field(L, "BLEND_MODE_MULTIPLY", LV_BLEND_MODE_MULTIPLY);
+  set_int_field(L, "BLEND_MODE_REPLACE", LV_BLEND_MODE_REPLACE);
 
   // text align
   set_int_field(L, "TEXT_ALIGN_LEFT", LV_TEXT_ALIGN_LEFT);
