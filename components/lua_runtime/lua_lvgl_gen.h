@@ -750,6 +750,133 @@ static int l_obj_set_style_opa_layered(lua_State *L) {
   return 0;
 }
 
+static int l_flex_init(lua_State *L) {
+  lvgl_call_void([&]() { lv_flex_init(); });
+  return 0;
+}
+
+static int l_obj_set_flex_flow(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_flex_flow_t a1_flow = (lv_flex_flow_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_flex_flow(a0_obj, a1_flow); });
+  return 0;
+}
+
+static int l_obj_set_flex_align(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_flex_align_t a1_main_place = (lv_flex_align_t) luaL_checkinteger(L, 2);
+  lv_flex_align_t a2_cross_place = (lv_flex_align_t) luaL_checkinteger(L, 3);
+  lv_flex_align_t a3_track_cross_place = (lv_flex_align_t) luaL_checkinteger(L, 4);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_flex_align(a0_obj, a1_main_place, a2_cross_place, a3_track_cross_place); });
+  return 0;
+}
+
+static int l_obj_set_flex_grow(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint8_t a1_grow = (uint8_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_flex_grow(a0_obj, a1_grow); });
+  return 0;
+}
+
+static int l_style_set_flex_flow(lua_State *L) {
+  lv_style_t * a0_style = (lv_style_t *) lua_touserdata(L, 1);
+  lv_flex_flow_t a1_value = (lv_flex_flow_t) luaL_checkinteger(L, 2);
+  lvgl_call_void([&]() { lv_style_set_flex_flow(a0_style, a1_value); });
+  return 0;
+}
+
+static int l_style_set_flex_main_place(lua_State *L) {
+  lv_style_t * a0_style = (lv_style_t *) lua_touserdata(L, 1);
+  lv_flex_align_t a1_value = (lv_flex_align_t) luaL_checkinteger(L, 2);
+  lvgl_call_void([&]() { lv_style_set_flex_main_place(a0_style, a1_value); });
+  return 0;
+}
+
+static int l_style_set_flex_cross_place(lua_State *L) {
+  lv_style_t * a0_style = (lv_style_t *) lua_touserdata(L, 1);
+  lv_flex_align_t a1_value = (lv_flex_align_t) luaL_checkinteger(L, 2);
+  lvgl_call_void([&]() { lv_style_set_flex_cross_place(a0_style, a1_value); });
+  return 0;
+}
+
+static int l_style_set_flex_track_place(lua_State *L) {
+  lv_style_t * a0_style = (lv_style_t *) lua_touserdata(L, 1);
+  lv_flex_align_t a1_value = (lv_flex_align_t) luaL_checkinteger(L, 2);
+  lvgl_call_void([&]() { lv_style_set_flex_track_place(a0_style, a1_value); });
+  return 0;
+}
+
+static int l_style_set_flex_grow(lua_State *L) {
+  lv_style_t * a0_style = (lv_style_t *) lua_touserdata(L, 1);
+  uint8_t a1_value = (uint8_t) luaL_checkinteger(L, 2);
+  lvgl_call_void([&]() { lv_style_set_flex_grow(a0_style, a1_value); });
+  return 0;
+}
+
+static int l_obj_set_style_flex_flow(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_flex_flow_t a1_value = (lv_flex_flow_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_flex_flow(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_flex_main_place(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_flex_align_t a1_value = (lv_flex_align_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_flex_main_place(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_flex_cross_place(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_flex_align_t a1_value = (lv_flex_align_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_flex_cross_place(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_flex_track_place(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_flex_align_t a1_value = (lv_flex_align_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_flex_track_place(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
+static int l_obj_set_style_flex_grow(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint8_t a1_value = (uint8_t) luaL_checkinteger(L, 2);
+  lv_style_selector_t a2_selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_obj_set_style_flex_grow(a0_obj, a1_value, a2_selector); });
+  return 0;
+}
+
 static int l_btn_create(lua_State *L) {
   lv_obj_t * a0_parent = (lv_obj_t *) check_obj(L, 1);
   if (a0_parent == nullptr) {
@@ -2088,6 +2215,138 @@ static int l_timer_set_period(lua_State *L) {
   return 0;
 }
 
+static int l_btnmatrix_create(lua_State *L) {
+  lv_obj_t * a0_parent = (lv_obj_t *) check_obj(L, 1);
+  if (a0_parent == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lv_obj_t * res = lvgl_call_ret([&]() -> lv_obj_t * { return lv_btnmatrix_create(a0_parent); });
+  if (res) {
+    lua_pushlightuserdata(L, (void *) res);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+static int l_btnmatrix_set_map(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  const char * * a1_map = (const char * *) lua_touserdata(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_set_map(a0_obj, a1_map); });
+  return 0;
+}
+
+static int l_btnmatrix_set_ctrl_map(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  const lv_btnmatrix_ctrl_t * a1_ctrl_map = (const lv_btnmatrix_ctrl_t *) lua_touserdata(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_set_ctrl_map(a0_obj, a1_ctrl_map); });
+  return 0;
+}
+
+static int l_btnmatrix_set_selected_btn(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint16_t a1_btn_id = (uint16_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_set_selected_btn(a0_obj, a1_btn_id); });
+  return 0;
+}
+
+static int l_btnmatrix_set_btn_ctrl(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint16_t a1_btn_id = (uint16_t) luaL_checkinteger(L, 2);
+  lv_btnmatrix_ctrl_t a2_ctrl = (lv_btnmatrix_ctrl_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_set_btn_ctrl(a0_obj, a1_btn_id, a2_ctrl); });
+  return 0;
+}
+
+static int l_btnmatrix_clear_btn_ctrl(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint16_t a1_btn_id = (uint16_t) luaL_checkinteger(L, 2);
+  lv_btnmatrix_ctrl_t a2_ctrl = (lv_btnmatrix_ctrl_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_clear_btn_ctrl(a0_obj, a1_btn_id, a2_ctrl); });
+  return 0;
+}
+
+static int l_btnmatrix_set_btn_ctrl_all(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_btnmatrix_ctrl_t a1_ctrl = (lv_btnmatrix_ctrl_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_set_btn_ctrl_all(a0_obj, a1_ctrl); });
+  return 0;
+}
+
+static int l_btnmatrix_clear_btn_ctrl_all(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_btnmatrix_ctrl_t a1_ctrl = (lv_btnmatrix_ctrl_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_clear_btn_ctrl_all(a0_obj, a1_ctrl); });
+  return 0;
+}
+
+static int l_btnmatrix_set_btn_width(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint16_t a1_btn_id = (uint16_t) luaL_checkinteger(L, 2);
+  uint8_t a2_width = (uint8_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_set_btn_width(a0_obj, a1_btn_id, a2_width); });
+  return 0;
+}
+
+static int l_btnmatrix_set_one_checked(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  bool a1_en = (bool) lua_toboolean(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([&]() { lv_btnmatrix_set_one_checked(a0_obj, a1_en); });
+  return 0;
+}
+
+static int l_btnmatrix_has_btn_ctrl(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  uint16_t a1_btn_id = (uint16_t) luaL_checkinteger(L, 2);
+  lv_btnmatrix_ctrl_t a2_ctrl = (lv_btnmatrix_ctrl_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  bool res = lvgl_call_ret([&]() -> bool { return lv_btnmatrix_has_btn_ctrl(a0_obj, a1_btn_id, a2_ctrl); });
+  lua_pushboolean(L, res);
+  return 1;
+}
+
+static int l_btnmatrix_get_one_checked(lua_State *L) {
+  const lv_obj_t * a0_obj = (const lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  bool res = lvgl_call_ret([&]() -> bool { return lv_btnmatrix_get_one_checked(a0_obj); });
+  lua_pushboolean(L, res);
+  return 1;
+}
+
 static void register_lvgl_gen(lua_State *L) {
   lua_pushcfunction(L, l_obj_create);
   lua_setfield(L, -2, "obj_create");
@@ -2225,6 +2484,34 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "obj_set_style_opa");
   lua_pushcfunction(L, l_obj_set_style_opa_layered);
   lua_setfield(L, -2, "obj_set_style_opa_layered");
+  lua_pushcfunction(L, l_flex_init);
+  lua_setfield(L, -2, "flex_init");
+  lua_pushcfunction(L, l_obj_set_flex_flow);
+  lua_setfield(L, -2, "obj_set_flex_flow");
+  lua_pushcfunction(L, l_obj_set_flex_align);
+  lua_setfield(L, -2, "obj_set_flex_align");
+  lua_pushcfunction(L, l_obj_set_flex_grow);
+  lua_setfield(L, -2, "obj_set_flex_grow");
+  lua_pushcfunction(L, l_style_set_flex_flow);
+  lua_setfield(L, -2, "style_set_flex_flow");
+  lua_pushcfunction(L, l_style_set_flex_main_place);
+  lua_setfield(L, -2, "style_set_flex_main_place");
+  lua_pushcfunction(L, l_style_set_flex_cross_place);
+  lua_setfield(L, -2, "style_set_flex_cross_place");
+  lua_pushcfunction(L, l_style_set_flex_track_place);
+  lua_setfield(L, -2, "style_set_flex_track_place");
+  lua_pushcfunction(L, l_style_set_flex_grow);
+  lua_setfield(L, -2, "style_set_flex_grow");
+  lua_pushcfunction(L, l_obj_set_style_flex_flow);
+  lua_setfield(L, -2, "obj_set_style_flex_flow");
+  lua_pushcfunction(L, l_obj_set_style_flex_main_place);
+  lua_setfield(L, -2, "obj_set_style_flex_main_place");
+  lua_pushcfunction(L, l_obj_set_style_flex_cross_place);
+  lua_setfield(L, -2, "obj_set_style_flex_cross_place");
+  lua_pushcfunction(L, l_obj_set_style_flex_track_place);
+  lua_setfield(L, -2, "obj_set_style_flex_track_place");
+  lua_pushcfunction(L, l_obj_set_style_flex_grow);
+  lua_setfield(L, -2, "obj_set_style_flex_grow");
   lua_pushcfunction(L, l_btn_create);
   lua_setfield(L, -2, "btn_create");
   lua_pushcfunction(L, l_label_create);
@@ -2457,6 +2744,30 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "timer_resume");
   lua_pushcfunction(L, l_timer_set_period);
   lua_setfield(L, -2, "timer_set_period");
+  lua_pushcfunction(L, l_btnmatrix_create);
+  lua_setfield(L, -2, "btnmatrix_create");
+  lua_pushcfunction(L, l_btnmatrix_set_map);
+  lua_setfield(L, -2, "btnmatrix_set_map");
+  lua_pushcfunction(L, l_btnmatrix_set_ctrl_map);
+  lua_setfield(L, -2, "btnmatrix_set_ctrl_map");
+  lua_pushcfunction(L, l_btnmatrix_set_selected_btn);
+  lua_setfield(L, -2, "btnmatrix_set_selected_btn");
+  lua_pushcfunction(L, l_btnmatrix_set_btn_ctrl);
+  lua_setfield(L, -2, "btnmatrix_set_btn_ctrl");
+  lua_pushcfunction(L, l_btnmatrix_clear_btn_ctrl);
+  lua_setfield(L, -2, "btnmatrix_clear_btn_ctrl");
+  lua_pushcfunction(L, l_btnmatrix_set_btn_ctrl_all);
+  lua_setfield(L, -2, "btnmatrix_set_btn_ctrl_all");
+  lua_pushcfunction(L, l_btnmatrix_clear_btn_ctrl_all);
+  lua_setfield(L, -2, "btnmatrix_clear_btn_ctrl_all");
+  lua_pushcfunction(L, l_btnmatrix_set_btn_width);
+  lua_setfield(L, -2, "btnmatrix_set_btn_width");
+  lua_pushcfunction(L, l_btnmatrix_set_one_checked);
+  lua_setfield(L, -2, "btnmatrix_set_one_checked");
+  lua_pushcfunction(L, l_btnmatrix_has_btn_ctrl);
+  lua_setfield(L, -2, "btnmatrix_has_btn_ctrl");
+  lua_pushcfunction(L, l_btnmatrix_get_one_checked);
+  lua_setfield(L, -2, "btnmatrix_get_one_checked");
 }
 
 #endif  // LUA_LVGL_IMPL

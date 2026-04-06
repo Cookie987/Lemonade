@@ -965,6 +965,59 @@ static int l_timer_del(lua_State *L) {
   return 0;
 }
 
+static int l_btnmatrix_get_selected_btn(lua_State *L) {
+  const lv_obj_t *obj = check_obj(L, 1);
+  if (obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  uint16_t res = lvgl_call_ret([&]() -> uint16_t {
+    return lv_btnmatrix_get_selected_btn(obj);
+  });
+  lua_pushinteger(L, (lua_Integer) res);
+  return 1;
+}
+
+static int l_btnmatrix_get_btn_text(lua_State *L) {
+  const lv_obj_t *obj = check_obj(L, 1);
+  uint16_t btn_id = (uint16_t) luaL_checkinteger(L, 2);
+  if (obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  const char *res = lvgl_call_ret([&]() -> const char * {
+    return lv_btnmatrix_get_btn_text(obj, btn_id);
+  });
+  if (res) {
+    lua_pushstring(L, res);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+static int l_btnmatrix_get_map(lua_State *L) {
+  const lv_obj_t *obj = check_obj(L, 1);
+  if (obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  const char **map = lvgl_call_ret([&]() -> const char ** {
+    return lv_btnmatrix_get_map(obj);
+  });
+  if (map == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lua_newtable(L);
+  int idx = 1;
+  for (int i = 0; map[i] != nullptr; i++) {
+    lua_pushstring(L, map[i]);
+    lua_seti(L, -2, idx++);
+  }
+  return 1;
+}
+
 static void set_int_field(lua_State *L, const char *name, int value) {
   lua_pushinteger(L, value);
   lua_setfield(L, -2, name);
@@ -1015,6 +1068,12 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "timer_create");
   lua_pushcfunction(L, l_timer_del);
   lua_setfield(L, -2, "timer_del");
+  lua_pushcfunction(L, l_btnmatrix_get_selected_btn);
+  lua_setfield(L, -2, "btnmatrix_get_selected_btn");
+  lua_pushcfunction(L, l_btnmatrix_get_btn_text);
+  lua_setfield(L, -2, "btnmatrix_get_btn_text");
+  lua_pushcfunction(L, l_btnmatrix_get_map);
+  lua_setfield(L, -2, "btnmatrix_get_map");
   // align constants
   set_int_field(L, "ALIGN_CENTER", LV_ALIGN_CENTER);
   set_int_field(L, "ALIGN_TOP_LEFT", LV_ALIGN_TOP_LEFT);

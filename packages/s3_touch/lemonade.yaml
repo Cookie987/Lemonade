@@ -206,12 +206,15 @@ ota:
     on_begin:
       - logger.log: "Turn On Lock"
       - switch.turn_on: switch_powermanage_lock
+      - lambda: |
+          id(lua).set_ota_active(true);
       - logger.log: "Begin OTA Flash"
       - lvgl.page.show: page_ota
       - lambda: "id(lvgl_1).loop();"
       - output.set_level:
           id: backlight_pin
           level: 100%
+      - delay: 200ms
       - lambda: |
           // umount filesystems to prevent corruption
           esp_vfs_littlefs_unregister("littlefs");
@@ -225,6 +228,8 @@ ota:
         - lambda: "id(lvgl_1).loop();"
     on_error:
       then:
+        - lambda: |
+            id(lua).set_ota_active(false);
         - logger.log: "Turn Off Lock"
         - lvgl.widget.hide: lbl_ota_prompt
         - lvgl.label.update:
@@ -238,6 +243,8 @@ ota:
     on_begin:
       - logger.log: "Turn On Lock"
       - switch.turn_on: switch_powermanage_lock
+      - lambda: |
+          id(lua).set_ota_active(true);
       - logger.log: "Begin OTA Flash"
       - lvgl.page.show: page_ota
       - lambda: "id(lvgl_1).loop();"
@@ -253,6 +260,8 @@ ota:
         - lambda: "id(lvgl_1).loop();"
     on_error:
       then:
+        - lambda: |
+            id(lua).set_ota_active(false);
         - logger.log: "Turn Off Lock"
         - lvgl.label.update:
             id: lbl_ota_prompt
@@ -354,6 +363,17 @@ switch:
     id: buzzer_alarm_switch
     widget: switch_buzzer_alarm
     restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: lvgl
+    id: invert_color_switch
+    widget: switch_invert_color
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      then:
+        - lambda: id(watchface)->set_command(0x21);
+    on_turn_off:
+      then:
+        - lambda: id(watchface)->set_command(0x20);
 
 mqtt:
   id: mqtt_client

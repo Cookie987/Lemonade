@@ -432,6 +432,18 @@ lvgl:
                           id: dropdown_image
                           selected_index: 1
                       - script.execute: get_background_img
+              - label:
+                  x: 9
+                  y: 183
+                  text: "颜色反转"
+                  text_font: chinese_font14
+              - switch:
+                  id: switch_invert_color
+                  x: 230
+                  y: 178
+                  on_change:
+                    then:
+                      - lambda: global_preferences->sync();
 
     - id: system_setting_sound_page
       skip: true

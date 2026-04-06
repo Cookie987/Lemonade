@@ -77,6 +77,21 @@ struct RtosContext {
 static SemaphoreHandle_t g_run_lock = nullptr;
 static std::unordered_map<std::string, bool> g_run_paths;
 static const char *CTX_KEY = "lua_runtime.ctx";
+static volatile bool g_ota_active = false;
+
+static bool ota_is_active() { return g_ota_active; }
+
+static void lua_abort_if_ota(lua_State *L) {
+  if (ota_is_active()) {
+    luaL_error(L, "Lua script aborted because OTA is in progress");
+  }
+}
+
+static void lua_ota_hook(lua_State *L, lua_Debug *ar) {
+  (void) ar;
+  lua_abort_if_ota(L);
+}
+
 static bool claim_run_path(const std::string &path) {
   if (g_run_lock == nullptr) {
     g_run_lock = xSemaphoreCreateMutex();
@@ -235,7 +250,12 @@ static int lua_log_call(lua_State *L) { return lua_log_print(L, LOG_INFO); }
 static int lua_delay_ms(lua_State *L) {
   int ms = (int) luaL_checkinteger(L, 1);
   if (ms < 0) ms = 0;
-  vTaskDelay(pdMS_TO_TICKS(ms));
+  while (ms > 0) {
+    lua_abort_if_ota(L);
+    int slice = ms > 50 ? 50 : ms;
+    vTaskDelay(pdMS_TO_TICKS(slice));
+    ms -= slice;
+  }
   return 0;
 }
 
@@ -312,12 +332,28 @@ static int rtos_receive(lua_State *L) {
   }
 
   int timeout = (int) luaL_optinteger(L, 1, -1);
-  TickType_t ticks = (timeout < 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout);
-
   RtosMsg msg{0, 0, 0};
-  if (xQueueReceive(ctx->queue, &msg, ticks) != pdTRUE) {
-    lua_pushinteger(L, -1);
-    return 1;
+  if (timeout < 0) {
+    while (true) {
+      lua_abort_if_ota(L);
+      if (xQueueReceive(ctx->queue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
+        break;
+      }
+    }
+  } else {
+    int remaining = timeout;
+    while (true) {
+      lua_abort_if_ota(L);
+      int slice = remaining > 100 ? 100 : remaining;
+      if (xQueueReceive(ctx->queue, &msg, pdMS_TO_TICKS(slice)) == pdTRUE) {
+        break;
+      }
+      remaining -= slice;
+      if (remaining <= 0) {
+        lua_pushinteger(L, -1);
+        return 1;
+      }
+    }
   }
 
   // auto GC policy: run on receive boundary
@@ -773,12 +809,33 @@ void LuaRuntime::dump_config() {
 
 void LuaRuntime::mark_task_done(const std::string &path) { release_run_path(path); }
 
+void LuaRuntime::set_ota_active(bool active) {
+#ifndef LUA_RUNTIME_STUB
+  g_ota_active = active;
+  ESP_LOGI(TAG, "OTA guard %s", active ? "enabled" : "disabled");
+#else
+  (void) active;
+#endif
+}
+
+bool LuaRuntime::is_ota_active() const {
+#ifndef LUA_RUNTIME_STUB
+  return g_ota_active;
+#else
+  return false;
+#endif
+}
+
 bool LuaRuntime::run_file(const std::string &path) {
 #ifdef LUA_RUNTIME_STUB
   ESP_LOGE(TAG, "Lua runtime is in stub mode. Add Lua sources and disable enable_stub.");
   ESP_LOGE(TAG, "Requested: %s", path.c_str());
   return false;
 #else
+  if (ota_is_active()) {
+    ESP_LOGW(TAG, "Skip Lua file while OTA is in progress: %s", path.c_str());
+    return false;
+  }
   std::ifstream file(path, std::ios::in | std::ios::binary);
   if (!file.is_open()) {
     ESP_LOGE(TAG, "Failed to open Lua file: %s", path.c_str());
@@ -814,6 +871,7 @@ bool LuaRuntime::run_file(const std::string &path) {
   luaL_openlibs(L);
   register_base_api(L, path);
   set_package_path(L, path);
+  lua_sethook(L, lua_ota_hook, LUA_MASKCOUNT, 1000);
 
   int load_status = luaL_loadbuffer(L, script.data(), script.size(), path.c_str());
   if (load_status != LUA_OK) {
@@ -865,6 +923,10 @@ bool LuaRuntime::run_file_async(const std::string &path) {
   ESP_LOGE(TAG, "Requested: %s", path.c_str());
   return false;
 #else
+  if (ota_is_active()) {
+    ESP_LOGW(TAG, "Skip async Lua file while OTA is in progress: %s", path.c_str());
+    return false;
+  }
   if (!claim_run_path(path)) {
     ESP_LOGW(TAG, "Lua task already running, skip: %s", path.c_str());
     return false;

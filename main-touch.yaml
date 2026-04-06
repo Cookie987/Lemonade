@@ -50,18 +50,6 @@ packages:
   # 聊天
   - !include packages/s3_touch/features/message/message.yaml
 
-
-sd_file_server:
-  id: file_server
-  url_prefix: file
-  root_path: "/"
-  enable_deletion: true
-  enable_download: true
-  enable_upload: true
-
-web_server:
-  port: 80
-
 wireguard:
   address: 10.1.0.100
   private_key: !secret wg_privkey

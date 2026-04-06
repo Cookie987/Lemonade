@@ -374,6 +374,7 @@ lv.obj_add_event_cb(page, function(e)
     local code = lv.event_get_code(e)
     if code == lv.EVENT_SCREEN_UNLOAD_START then
         reset_page_state()
+        collectgarbage("collect")
     end
 end, lv.EVENT_SCREEN_UNLOAD_START)
 
