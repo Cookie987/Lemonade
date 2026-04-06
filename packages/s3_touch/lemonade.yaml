@@ -16,6 +16,7 @@ esphome:
       then:
         - script.execute: littlefs_init
         - script.execute: sdcard_init
+        - lambda: id(acc).turn_on();
     - priority: 400
       then:
         - script.execute: prase_iot_info
@@ -61,6 +62,13 @@ esphome:
               lambda: 'return id(buzzer_switch).state && id(buzzer_startup_switch).state;'
             then:
               - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
+        - if:
+            condition:
+              lambda: 'return id(invert_color_switch).state;'
+            then:
+              - lambda: id(watchface)->set_command(0x21);
+            else:
+              - lambda: id(watchface)->set_command(0x20);
         - lvgl.widget.hide: boot_screen
         - lambda: |
             const esp_partition_t *running = esp_ota_get_running_partition();
