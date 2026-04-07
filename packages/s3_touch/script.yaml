@@ -36,7 +36,8 @@ script:
           lvgl_id: lvgl_1
       - light.turn_off:
           id: backlight
-          transition_length: 0.5s
+          transition_length: 0.2s
+      - delay: 200ms
       # display off
       - lambda: id(watchface)->set_command(0x28);
       # sleep in
@@ -51,7 +52,7 @@ script:
       - lambda: id(is_sleeping)=false;
       - light.turn_on:
           id: backlight
-          transition_length: 0.5s
+          transition_length: 0.2s
       # sleep out
       - lambda: id(watchface)->set_command(0x11);
       - delay: 120ms
