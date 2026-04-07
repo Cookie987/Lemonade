@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "platform": ["s3_t"],
+  "name": "2048",
+  "description": "2048",
+  "author": "LemonadeOS Team",
+  "icon": "assets/icon.png"
+}

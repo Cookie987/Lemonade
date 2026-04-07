@@ -25,6 +25,16 @@ local angle_mode = "DEG"
 local has_error = false
 local clear_btn_label = nil
 
+local function with_batch(fn)
+    lv.batch_begin()
+    local ok, result = pcall(fn)
+    lv.batch_end()
+    if not ok then
+        error(result)
+    end
+    return result
+end
+
 lv.obj_set_style_bg_color(page, 0xFFFFFF, 0)
 
 local display_panel = lv.obj_create(page)
@@ -66,13 +76,15 @@ local function trim_expression(text)
 end
 
 local function update_display()
-    lv.label_set_text(mode_label, angle_mode)
-    lv.label_set_text(hint_label, "Ans = " .. last_result)
-    lv.label_set_text(display_label, trim_expression(expression))
-    if clear_btn_label then
-        local clear_text = (expression == "0" and not has_error) and "AC" or "C"
-        lv.label_set_text(clear_btn_label, clear_text)
-    end
+    with_batch(function()
+        lv.label_set_text(mode_label, angle_mode)
+        lv.label_set_text(hint_label, "Ans = " .. last_result)
+        lv.label_set_text(display_label, trim_expression(expression))
+        if clear_btn_label then
+            local clear_text = (expression == "0" and not has_error) and "AC" or "C"
+            lv.label_set_text(clear_btn_label, clear_text)
+        end
+    end)
 end
 
 local function is_digit(ch)
@@ -527,35 +539,37 @@ local buttons = {
     "0", ".", "atan", "+", "=",
 }
 
-for _, txt in ipairs(buttons) do
-    local btn = lv.btn_create(btn_grid)
-    lv.obj_set_size(btn, 58, 20)
+with_batch(function()
+    for _, txt in ipairs(buttons) do
+        local btn = lv.btn_create(btn_grid)
+        lv.obj_set_size(btn, 58, 20)
 
-    local lbl = lv.label_create(btn)
-    lv.label_set_text(lbl, txt)
-    lv.obj_center(lbl)
+        local lbl = lv.label_create(btn)
+        lv.label_set_text(lbl, txt)
+        lv.obj_center(lbl)
 
-    if txt == "AC" then
-        clear_btn_label = lbl
+        if txt == "AC" then
+            clear_btn_label = lbl
+        end
+
+        if txt == "AC" or txt == "DEL" then
+            lv.obj_set_style_bg_color(btn, 0xC0392B, 0)
+        elseif txt == "DEG" or txt == "RAD" or txt == "=" then
+            lv.obj_set_style_bg_color(btn, 0x2E86C1, 0)
+        elseif txt == "/" or txt == "*" or txt == "-" or txt == "+" or txt == "^" then
+            lv.obj_set_style_bg_color(btn, 0x333333, 0)
+        elseif txt == "sin" or txt == "cos" or txt == "tan"
+            or txt == "asin" or txt == "acos" or txt == "atan"
+            or txt == "sqrt" or txt == "ln" or txt == "log" or txt == "abs"
+            or txt == "pi" or txt == "e" or txt == "ans" then
+            lv.obj_set_style_bg_color(btn, 0x566573, 0)
+        else
+            lv.obj_set_style_bg_color(btn, 0x1A1A1A, 0)
+        end
+
+        lv.obj_add_event_cb(btn, on_btn_click, lv.EVENT_CLICKED)
     end
-
-    if txt == "AC" or txt == "DEL" then
-        lv.obj_set_style_bg_color(btn, 0xC0392B, 0)
-    elseif txt == "DEG" or txt == "RAD" or txt == "=" then
-        lv.obj_set_style_bg_color(btn, 0x2E86C1, 0)
-    elseif txt == "/" or txt == "*" or txt == "-" or txt == "+" or txt == "^" then
-        lv.obj_set_style_bg_color(btn, 0x333333, 0)
-    elseif txt == "sin" or txt == "cos" or txt == "tan"
-        or txt == "asin" or txt == "acos" or txt == "atan"
-        or txt == "sqrt" or txt == "ln" or txt == "log" or txt == "abs"
-        or txt == "pi" or txt == "e" or txt == "ans" then
-        lv.obj_set_style_bg_color(btn, 0x566573, 0)
-    else
-        lv.obj_set_style_bg_color(btn, 0x1A1A1A, 0)
-    end
-
-    lv.obj_add_event_cb(btn, on_btn_click, lv.EVENT_CLICKED)
-end
+end)
 
 update_display()
 

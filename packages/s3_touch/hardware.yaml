@@ -178,7 +178,7 @@ sensor:
 
 sd_mmc_card:
   id: sd
-  mode_1bit: true
+  mode_1bit: false
   clk_pin: GPIO21
   cmd_pin: GPIO47
   data0_pin: GPIO14

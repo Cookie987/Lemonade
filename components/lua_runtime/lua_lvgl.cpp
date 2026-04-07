@@ -1,6 +1,7 @@
 #include "lua_lvgl.h"
 
 #include <cctype>
+#include <functional>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -61,6 +62,8 @@ enum class LuaFontKind : uint8_t {
 struct LuaLvglContext {
   QueueHandle_t queue{nullptr};
   volatile bool alive{true};
+  bool fatal_error_reported{false};
+  std::string script_path;
   std::unordered_map<lv_timer_t *, LuaTimerCb *> timers;
   std::unordered_map<lv_font_t *, LuaFontKind> fonts;
 };
@@ -157,6 +160,8 @@ static lv_obj_t *check_obj(lua_State *L, int idx) {
 
 static QueueHandle_t g_lvgl_job_queue = nullptr;
 static void *g_lvgl_owner_task = nullptr;
+static SemaphoreHandle_t g_lvgl_batch_lock = nullptr;
+static std::unordered_map<void *, int> g_lvgl_batch_depths;
 
 struct LvglJobBase {
   TaskHandle_t waiter{nullptr};
@@ -182,6 +187,9 @@ static void ensure_lvgl_job_queue() {
   if (g_lvgl_job_queue == nullptr) {
     g_lvgl_job_queue = xQueueCreate(32, sizeof(LvglJobBase *));
   }
+  if (g_lvgl_batch_lock == nullptr) {
+    g_lvgl_batch_lock = xSemaphoreCreateMutex();
+  }
 }
 
 void set_lvgl_owner_task(void *task_handle) {
@@ -199,6 +207,7 @@ void process_lvgl_jobs() {
       job->run();
       job->done = true;
       if (job->waiter != nullptr) xTaskNotifyGive(job->waiter);
+      if (job->waiter == nullptr) delete job;
     }
     if (++processed >= 256) break;
   }
@@ -210,11 +219,61 @@ static void wait_job_done(LvglJobBase *job) {
   }
 }
 
+static int get_lvgl_batch_depth_for_task(void *task) {
+  ensure_lvgl_job_queue();
+  if (g_lvgl_batch_lock == nullptr || task == nullptr) return 0;
+  xSemaphoreTake(g_lvgl_batch_lock, portMAX_DELAY);
+  int depth = 0;
+  auto it = g_lvgl_batch_depths.find(task);
+  if (it != g_lvgl_batch_depths.end()) depth = it->second;
+  xSemaphoreGive(g_lvgl_batch_lock);
+  return depth;
+}
+
+static void set_lvgl_batch_depth_for_task(void *task, int depth) {
+  ensure_lvgl_job_queue();
+  if (g_lvgl_batch_lock == nullptr || task == nullptr) return;
+  xSemaphoreTake(g_lvgl_batch_lock, portMAX_DELAY);
+  if (depth > 0) {
+    g_lvgl_batch_depths[task] = depth;
+  } else {
+    g_lvgl_batch_depths.erase(task);
+  }
+  xSemaphoreGive(g_lvgl_batch_lock);
+}
+
+static void flush_lvgl_jobs_for_current_task() {
+  ensure_lvgl_job_queue();
+  void *self = (void *) xTaskGetCurrentTaskHandle();
+  if (g_lvgl_owner_task == nullptr || self == g_lvgl_owner_task || g_lvgl_job_queue == nullptr) return;
+
+  LvglJobVoid<std::function<void()>> job([]() {});
+  job.waiter = xTaskGetCurrentTaskHandle();
+  LvglJobBase *base = &job;
+  if (xQueueSend(g_lvgl_job_queue, &base, portMAX_DELAY) != pdTRUE) {
+    ESP_LOGW(TAG, "flush_lvgl_jobs_for_current_task: queue send failed");
+    job.run();
+    return;
+  }
+  wait_job_done(&job);
+}
+
 template<typename F> static void lvgl_call_void(F &&fn) {
   ensure_lvgl_job_queue();
   void *self = (void *) xTaskGetCurrentTaskHandle();
   if (g_lvgl_owner_task == nullptr || self == g_lvgl_owner_task || g_lvgl_job_queue == nullptr) {
     fn();
+    return;
+  }
+
+  if (get_lvgl_batch_depth_for_task(self) > 0) {
+    auto *job = new LvglJobVoid<std::decay_t<F>>(std::forward<F>(fn));
+    LvglJobBase *base = job;
+    if (xQueueSend(g_lvgl_job_queue, &base, portMAX_DELAY) != pdTRUE) {
+      ESP_LOGW(TAG, "lvgl_call_void: batched queue send failed, execute directly");
+      job->run();
+      delete job;
+    }
     return;
   }
 
@@ -237,6 +296,10 @@ template<typename F> static auto lvgl_call_ret(F &&fn) -> decltype(fn()) {
     return fn();
   }
 
+  if (get_lvgl_batch_depth_for_task(self) > 0) {
+    flush_lvgl_jobs_for_current_task();
+  }
+
   LvglJobRet<R, F> job(std::forward<F>(fn));
   job.waiter = xTaskGetCurrentTaskHandle();
   LvglJobBase *base = &job;
@@ -247,6 +310,27 @@ template<typename F> static auto lvgl_call_ret(F &&fn) -> decltype(fn()) {
   }
   wait_job_done(&job);
   return job.result;
+}
+
+static int l_batch_begin(lua_State *L) {
+  (void) L;
+  void *self = (void *) xTaskGetCurrentTaskHandle();
+  int depth = get_lvgl_batch_depth_for_task(self);
+  set_lvgl_batch_depth_for_task(self, depth + 1);
+  return 0;
+}
+
+static int l_batch_end(lua_State *L) {
+  (void) L;
+  void *self = (void *) xTaskGetCurrentTaskHandle();
+  int depth = get_lvgl_batch_depth_for_task(self);
+  if (depth <= 0) return 0;
+  depth--;
+  set_lvgl_batch_depth_for_task(self, depth);
+  if (depth == 0) {
+    flush_lvgl_jobs_for_current_task();
+  }
+  return 0;
 }
 
 #define LUA_LVGL_IMPL
@@ -278,10 +362,16 @@ struct LuaLvglMsg {
   void *cb;
   void *target;
   int code;
+  bool has_point;
+  lv_point_t point;
+  bool has_gesture_dir;
+  lv_dir_t gesture_dir;
+  bool has_key;
+  uint32_t key;
 };
 
-static void push_lua_event(lua_State *L, lv_obj_t *target, int code, LuaEventCb *cb) {
-  lua_createtable(L, 0, 3);
+static void push_lua_event(lua_State *L, lv_obj_t *target, int code, LuaEventCb *cb, const LuaLvglMsg *msg) {
+  lua_createtable(L, 0, 5);
 
   lua_pushlightuserdata(L, target);
   lua_setfield(L, -2, "target");
@@ -295,6 +385,34 @@ static void push_lua_event(lua_State *L, lv_obj_t *target, int code, LuaEventCb 
     lua_pushnil(L);
   }
   lua_setfield(L, -2, "user_data");
+
+  if (msg != nullptr && msg->has_point) {
+    lua_createtable(L, 0, 2);
+    lua_pushinteger(L, (lua_Integer) msg->point.x);
+    lua_setfield(L, -2, "x");
+    lua_pushinteger(L, (lua_Integer) msg->point.y);
+    lua_setfield(L, -2, "y");
+    lua_setfield(L, -2, "point");
+  } else {
+    lua_pushnil(L);
+    lua_setfield(L, -2, "point");
+  }
+
+  if (msg != nullptr && msg->has_gesture_dir) {
+    lua_pushinteger(L, (lua_Integer) msg->gesture_dir);
+    lua_setfield(L, -2, "gesture_dir");
+  } else {
+    lua_pushnil(L);
+    lua_setfield(L, -2, "gesture_dir");
+  }
+
+  if (msg != nullptr && msg->has_key) {
+    lua_pushinteger(L, (lua_Integer) msg->key);
+    lua_setfield(L, -2, "key");
+  } else {
+    lua_pushnil(L);
+    lua_setfield(L, -2, "key");
+  }
 }
 
 static int l_event_get_code(lua_State *L) {
@@ -315,6 +433,44 @@ static int l_event_get_user_data(lua_State *L) {
   return 1;
 }
 
+static int l_indev_get_act(lua_State *L) {
+  lv_indev_t *indev = lvgl_call_ret([=]() -> lv_indev_t * { return lv_indev_get_act(); });
+  lua_pushlightuserdata(L, (void *) indev);
+  return 1;
+}
+
+static int l_indev_get_gesture_dir(lua_State *L) {
+  const lv_indev_t *indev = (const lv_indev_t *) lua_touserdata(L, 1);
+  if (indev == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lv_dir_t res = lvgl_call_ret([=]() -> lv_dir_t { return lv_indev_get_gesture_dir(indev); });
+  lua_pushinteger(L, (lua_Integer) res);
+  return 1;
+}
+
+static int l_indev_get_point(lua_State *L) {
+  const lv_indev_t *indev = (const lv_indev_t *) lua_touserdata(L, 1);
+  if (indev == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  lv_point_t point = lvgl_call_ret([=]() -> lv_point_t {
+    lv_point_t p{};
+    lv_indev_get_point(indev, &p);
+    return p;
+  });
+
+  lua_createtable(L, 0, 2);
+  lua_pushinteger(L, (lua_Integer) point.x);
+  lua_setfield(L, -2, "x");
+  lua_pushinteger(L, (lua_Integer) point.y);
+  lua_setfield(L, -2, "y");
+  return 1;
+}
+
 static void lua_event_trampoline(lv_event_t *e) {
   auto *cb = static_cast<LuaEventCb *>(lv_event_get_user_data(e));
   if (cb == nullptr || cb->ctx == nullptr || !cb->ctx->alive || cb->ctx->queue == nullptr) return;
@@ -323,7 +479,37 @@ static void lua_event_trampoline(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code != LV_EVENT_DELETE && cb->code_filter != LV_EVENT_ALL && code != cb->code_filter) return;
 
-  LuaLvglMsg msg{LuaLvglMsgKind::EVENT, cb, lv_event_get_target(e), (int) code};
+  LuaLvglMsg msg{};
+  msg.kind = LuaLvglMsgKind::EVENT;
+  msg.cb = cb;
+  msg.target = lv_event_get_target(e);
+  msg.code = (int) code;
+  msg.has_point = false;
+  msg.point.x = 0;
+  msg.point.y = 0;
+  msg.has_gesture_dir = false;
+  msg.gesture_dir = LV_DIR_NONE;
+  msg.has_key = false;
+  msg.key = 0;
+
+  if (code == LV_EVENT_PRESSED || code == LV_EVENT_PRESSING || code == LV_EVENT_RELEASED ||
+      code == LV_EVENT_CLICKED || code == LV_EVENT_SHORT_CLICKED || code == LV_EVENT_LONG_PRESSED ||
+      code == LV_EVENT_LONG_PRESSED_REPEAT || code == LV_EVENT_GESTURE || code == LV_EVENT_KEY) {
+    lv_indev_t *indev = lv_indev_get_act();
+    if (indev != nullptr) {
+      lv_indev_get_point(indev, &msg.point);
+      msg.has_point = true;
+      if (code == LV_EVENT_GESTURE) {
+        msg.gesture_dir = lv_indev_get_gesture_dir(indev);
+        msg.has_gesture_dir = true;
+      }
+      if (code == LV_EVENT_KEY) {
+        msg.key = lv_indev_get_key(indev);
+        msg.has_key = true;
+      }
+    }
+  }
+
   xQueueSend(cb->ctx->queue, &msg, 0);
 }
 
@@ -335,6 +521,20 @@ static void lua_timer_trampoline(lv_timer_t *timer) {
   LuaLvglMsg msg{LuaLvglMsgKind::TIMER, cb, timer, 0};
   xQueueSend(cb->ctx->queue, &msg, 0);
 }
+
+static int raise_callback_error(lua_State *L, LuaLvglContext *ctx, const char *prefix, const char *err) {
+  std::string error_message = std::string(prefix) + ": " + (err ? err : "(unknown)");
+  ESP_LOGE(TAG, "%s", error_message.c_str());
+
+  if (ctx != nullptr && !ctx->fatal_error_reported) {
+    ctx->fatal_error_reported = true;
+    ctx->alive = false;
+    show_lua_error_on_app_page(ctx->script_path, error_message);
+  }
+
+  return luaL_error(L, "%s", error_message.c_str());
+}
+
 static int l_poll_events(lua_State *L) {
   LuaLvglContext *ctx = get_lvgl_ctx(L);
   if (ctx == nullptr || !ctx->alive || ctx->queue == nullptr) {
@@ -364,11 +564,10 @@ static int l_poll_events(lua_State *L) {
             }
           } else if (cb->ref != LUA_NOREF) {
             lua_rawgeti(L, LUA_REGISTRYINDEX, cb->ref);
-            push_lua_event(L, obj, msg.code, cb);
+            push_lua_event(L, obj, msg.code, cb, &msg);
             if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
               const char *err = lua_tostring(L, -1);
-              ESP_LOGE(TAG, "event cb error: %s", err ? err : "(unknown)");
-              lua_pop(L, 1);
+              return raise_callback_error(L, ctx, "event cb error", err);
             }
           }
           processed++;
@@ -385,8 +584,7 @@ static int l_poll_events(lua_State *L) {
           }
           if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
             const char *err = lua_tostring(L, -1);
-            ESP_LOGE(TAG, "timer cb error: %s", err ? err : "(unknown)");
-            lua_pop(L, 1);
+            return raise_callback_error(L, ctx, "timer cb error", err);
           }
           processed++;
         }
@@ -419,7 +617,7 @@ static int l_obj_add_event_cb(lua_State *L) {
   }
 
   auto *cb = new LuaEventCb{ctx, ref, user_data_ref, code};
-  lvgl_call_void([&]() { lv_obj_add_event_cb(obj, lua_event_trampoline, LV_EVENT_ALL, cb); });
+  lvgl_call_void([=]() { lv_obj_add_event_cb(obj, lua_event_trampoline, LV_EVENT_ALL, cb); });
   return 0;
 }
 
@@ -427,12 +625,13 @@ static int l_btn_set_text(lua_State *L) {
   lv_obj_t *btn = check_obj(L, 1);
   const char *text = luaL_checkstring(L, 2);
   if (btn == nullptr) return 0;
-  lvgl_call_void([&]() {
+  std::string text_copy = text != nullptr ? text : "";
+  lvgl_call_void([=]() {
     lv_obj_t *label = lv_obj_get_child(btn, 0);
     if (label == nullptr) {
       label = lv_label_create(btn);
     }
-    lv_label_set_text(label, text);
+    lv_label_set_text(label, text_copy.c_str());
     lv_obj_center(label);
   });
   return 0;
@@ -450,7 +649,8 @@ static int l_label_set_text_fmt(lua_State *L) {
   if (!lua_isfunction(L, -1)) {
     lua_pop(L, 2);
     const char *fallback = luaL_checkstring(L, 2);
-    lvgl_call_void([&]() { lv_label_set_text(obj, fallback); });
+    std::string fallback_text = fallback != nullptr ? fallback : "";
+    lvgl_call_void([=]() { lv_label_set_text(obj, fallback_text.c_str()); });
     return 0;
   }
 
@@ -462,13 +662,15 @@ static int l_label_set_text_fmt(lua_State *L) {
     ESP_LOGE(TAG, "label_set_text_fmt error: %s", err ? err : "(unknown)");
     lua_pop(L, 2);
     const char *fallback = luaL_checkstring(L, 2);
-    lvgl_call_void([&]() { lv_label_set_text(obj, fallback); });
+    std::string fallback_text = fallback != nullptr ? fallback : "";
+    lvgl_call_void([=]() { lv_label_set_text(obj, fallback_text.c_str()); });
     return 0;
   }
 
   const char *text = lua_tostring(L, -1);
   if (text != nullptr) {
-    lvgl_call_void([&]() { lv_label_set_text(obj, text); });
+    std::string text_copy = text;
+    lvgl_call_void([=]() { lv_label_set_text(obj, text_copy.c_str()); });
   }
   lua_pop(L, 2);
   return 0;
@@ -486,9 +688,12 @@ static int l_dropdown_get_selected_str(lua_State *L) {
   if (size > 1024) size = 1024;
 
 #if defined(LV_USE_DROPDOWN) && LV_USE_DROPDOWN
-  std::vector<char> buf((size_t) size, '\0');
-  lvgl_call_void([&]() { lv_dropdown_get_selected_str(obj, buf.data(), (uint32_t) buf.size()); });
-  lua_pushstring(L, buf.data());
+  std::string selected = lvgl_call_ret([=]() -> std::string {
+    std::vector<char> buf((size_t) size, '\0');
+    lv_dropdown_get_selected_str(obj, buf.data(), (uint32_t) buf.size());
+    return std::string(buf.data());
+  });
+  lua_pushstring(L, selected.c_str());
 #else
   lua_pushnil(L);
 #endif
@@ -498,7 +703,7 @@ static int l_dropdown_get_selected_str(lua_State *L) {
 static int l_obj_center(lua_State *L) {
   lv_obj_t *obj = check_obj(L, 1);
   if (obj == nullptr) return 0;
-  lvgl_call_void([&]() { lv_obj_center(obj); });
+  lvgl_call_void([=]() { lv_obj_center(obj); });
   return 0;
 }
 
@@ -812,6 +1017,10 @@ void show_lua_error_on_app_page(const std::string &script_path, const std::strin
     lv_obj_clean(page);
     lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(page, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_grad_color(page, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_grad_dir(page, LV_GRAD_DIR_NONE, 0);
+    lv_obj_set_style_bg_main_stop(page, 255, 0);
+    lv_obj_set_style_bg_grad_stop(page, 255, 0);
     lv_obj_set_style_bg_opa(page, LV_OPA_COVER, 0);
 
     lv_obj_t *title = lv_label_create(page);
@@ -862,7 +1071,10 @@ static int l_img_set_src(lua_State *L) {
   }
 
   if (src == nullptr) return 0;
-  lvgl_call_void([&]() { lv_img_set_src(obj, src); });
+  lvgl_call_void([=]() {
+    const void *resolved_src = normalized_path.empty() ? src : normalized_path.c_str();
+    lv_img_set_src(obj, resolved_src);
+  });
   return 0;
 }
 
@@ -880,12 +1092,12 @@ static int l_font_load(lua_State *L) {
   lv_font_t *font = nullptr;
   LuaFontKind kind = LuaFontKind::BIN;
   if (is_bin_font) {
-    font = lvgl_call_ret([&]() -> lv_font_t * { return lv_font_load(path_str.c_str()); });
+    font = lvgl_call_ret([=]() -> lv_font_t * { return lv_font_load(path_str.c_str()); });
   } else {
     lv_coord_t font_size = (lv_coord_t) luaL_checkinteger(L, 2);
     size_t cache_size = (size_t) luaL_optinteger(L, 3, 4096);
 #if LV_USE_TINY_TTF && LV_TINY_TTF_FILE_SUPPORT
-    font = lvgl_call_ret([&]() -> lv_font_t * {
+    font = lvgl_call_ret([=]() -> lv_font_t * {
       return lv_tiny_ttf_create_file_ex(path_str.c_str(), font_size, cache_size);
     });
     kind = LuaFontKind::TINY_TTF;
@@ -911,7 +1123,7 @@ static int l_obj_set_style_pad_all(lua_State *L) {
   lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
   if (obj == nullptr) return 0;
 
-  lvgl_call_void([&]() { lv_obj_set_style_pad_all(obj, value, selector); });
+  lvgl_call_void([=]() { lv_obj_set_style_pad_all(obj, value, selector); });
   return 0;
 }
 
@@ -921,7 +1133,7 @@ static int l_obj_set_style_pad_hor(lua_State *L) {
   lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
   if (obj == nullptr) return 0;
 
-  lvgl_call_void([&]() { lv_obj_set_style_pad_hor(obj, value, selector); });
+  lvgl_call_void([=]() { lv_obj_set_style_pad_hor(obj, value, selector); });
   return 0;
 }
 
@@ -931,7 +1143,7 @@ static int l_obj_set_style_pad_ver(lua_State *L) {
   lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
   if (obj == nullptr) return 0;
 
-  lvgl_call_void([&]() { lv_obj_set_style_pad_ver(obj, value, selector); });
+  lvgl_call_void([=]() { lv_obj_set_style_pad_ver(obj, value, selector); });
   return 0;
 }
 
@@ -941,7 +1153,7 @@ static int l_obj_set_style_pad_gap(lua_State *L) {
   lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
   if (obj == nullptr) return 0;
 
-  lvgl_call_void([&]() { lv_obj_set_style_pad_gap(obj, value, selector); });
+  lvgl_call_void([=]() { lv_obj_set_style_pad_gap(obj, value, selector); });
   return 0;
 }
 
@@ -951,7 +1163,7 @@ static int l_obj_set_style_size(lua_State *L) {
   lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
   if (obj == nullptr) return 0;
 
-  lvgl_call_void([&]() { lv_obj_set_style_size(obj, value, selector); });
+  lvgl_call_void([=]() { lv_obj_set_style_size(obj, value, selector); });
   return 0;
 }
 
@@ -972,7 +1184,7 @@ static int l_font_free(lua_State *L) {
   }
   if (!owned) return 0;
 
-  lvgl_call_void([&]() {
+  lvgl_call_void([=]() {
     switch (kind) {
       case LuaFontKind::BIN:
         lv_font_free(font);
@@ -1005,7 +1217,7 @@ static int l_timer_create(lua_State *L) {
     cb->user_data_ref = luaL_ref(L, LUA_REGISTRYINDEX);
   }
 
-  lv_timer_t *timer = lvgl_call_ret([&]() -> lv_timer_t * {
+  lv_timer_t *timer = lvgl_call_ret([=]() -> lv_timer_t * {
     return lv_timer_create(lua_timer_trampoline, period, cb);
   });
   if (timer == nullptr) {
@@ -1047,7 +1259,7 @@ static int l_timer_del(lua_State *L) {
     }
   }
 
-  lvgl_call_void([&]() { lv_timer_del(timer); });
+  lvgl_call_void([=]() { lv_timer_del(timer); });
   return 0;
 }
 
@@ -1057,7 +1269,7 @@ static int l_btnmatrix_get_selected_btn(lua_State *L) {
     lua_pushnil(L);
     return 1;
   }
-  uint16_t res = lvgl_call_ret([&]() -> uint16_t {
+  uint16_t res = lvgl_call_ret([=]() -> uint16_t {
     return lv_btnmatrix_get_selected_btn(obj);
   });
   lua_pushinteger(L, (lua_Integer) res);
@@ -1071,7 +1283,7 @@ static int l_btnmatrix_get_btn_text(lua_State *L) {
     lua_pushnil(L);
     return 1;
   }
-  const char *res = lvgl_call_ret([&]() -> const char * {
+  const char *res = lvgl_call_ret([=]() -> const char * {
     return lv_btnmatrix_get_btn_text(obj, btn_id);
   });
   if (res) {
@@ -1088,7 +1300,7 @@ static int l_btnmatrix_get_map(lua_State *L) {
     lua_pushnil(L);
     return 1;
   }
-  const char **map = lvgl_call_ret([&]() -> const char ** {
+  const char **map = lvgl_call_ret([=]() -> const char ** {
     return lv_btnmatrix_get_map(obj);
   });
   if (map == nullptr) {
@@ -1118,6 +1330,7 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   auto *ctx = new LuaLvglContext;
   ctx->queue = xQueueCreate(16, sizeof(LuaLvglMsg));
   ctx->alive = true;
+  ctx->script_path = script_path;
   set_lvgl_ctx(L, ctx);
 
   lua_newtable(L);  // lvgl
@@ -1125,6 +1338,10 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "app_page");
   lua_pushcfunction(L, l_poll_events);
   lua_setfield(L, -2, "poll_events");
+  lua_pushcfunction(L, l_batch_begin);
+  lua_setfield(L, -2, "batch_begin");
+  lua_pushcfunction(L, l_batch_end);
+  lua_setfield(L, -2, "batch_end");
 
   register_lvgl_gen(L);
 
@@ -1136,6 +1353,12 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "event_get_target");
   lua_pushcfunction(L, l_event_get_user_data);
   lua_setfield(L, -2, "event_get_user_data");
+  lua_pushcfunction(L, l_indev_get_act);
+  lua_setfield(L, -2, "indev_get_act");
+  lua_pushcfunction(L, l_indev_get_gesture_dir);
+  lua_setfield(L, -2, "indev_get_gesture_dir");
+  lua_pushcfunction(L, l_indev_get_point);
+  lua_setfield(L, -2, "indev_get_point");
   lua_pushcfunction(L, l_btn_set_text);
   lua_setfield(L, -2, "btn_set_text");
   lua_pushcfunction(L, l_label_set_text_fmt);
@@ -1184,7 +1407,33 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   // flags
   set_int_field(L, "FLAG_HIDDEN", LV_OBJ_FLAG_HIDDEN);
   set_int_field(L, "FLAG_CLICKABLE", LV_OBJ_FLAG_CLICKABLE);
+  set_int_field(L, "FLAG_CLICK_FOCUSABLE", LV_OBJ_FLAG_CLICK_FOCUSABLE);
+  set_int_field(L, "FLAG_CHECKABLE", LV_OBJ_FLAG_CHECKABLE);
   set_int_field(L, "FLAG_SCROLLABLE", LV_OBJ_FLAG_SCROLLABLE);
+  set_int_field(L, "FLAG_SCROLL_ELASTIC", LV_OBJ_FLAG_SCROLL_ELASTIC);
+  set_int_field(L, "FLAG_SCROLL_MOMENTUM", LV_OBJ_FLAG_SCROLL_MOMENTUM);
+  set_int_field(L, "FLAG_SCROLL_ONE", LV_OBJ_FLAG_SCROLL_ONE);
+  set_int_field(L, "FLAG_SCROLL_CHAIN_HOR", LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
+  set_int_field(L, "FLAG_SCROLL_CHAIN_VER", LV_OBJ_FLAG_SCROLL_CHAIN_VER);
+  set_int_field(L, "FLAG_SCROLL_CHAIN", LV_OBJ_FLAG_SCROLL_CHAIN);
+  set_int_field(L, "FLAG_SCROLL_ON_FOCUS", LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+  set_int_field(L, "FLAG_SCROLL_WITH_ARROW", LV_OBJ_FLAG_SCROLL_WITH_ARROW);
+  set_int_field(L, "FLAG_SNAPPABLE", LV_OBJ_FLAG_SNAPPABLE);
+  set_int_field(L, "FLAG_PRESS_LOCK", LV_OBJ_FLAG_PRESS_LOCK);
+  set_int_field(L, "FLAG_EVENT_BUBBLE", LV_OBJ_FLAG_EVENT_BUBBLE);
+  set_int_field(L, "FLAG_GESTURE_BUBBLE", LV_OBJ_FLAG_GESTURE_BUBBLE);
+  set_int_field(L, "FLAG_ADV_HITTEST", LV_OBJ_FLAG_ADV_HITTEST);
+  set_int_field(L, "FLAG_IGNORE_LAYOUT", LV_OBJ_FLAG_IGNORE_LAYOUT);
+  set_int_field(L, "FLAG_FLOATING", LV_OBJ_FLAG_FLOATING);
+  set_int_field(L, "FLAG_OVERFLOW_VISIBLE", LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+  set_int_field(L, "FLAG_LAYOUT_1", LV_OBJ_FLAG_LAYOUT_1);
+  set_int_field(L, "FLAG_LAYOUT_2", LV_OBJ_FLAG_LAYOUT_2);
+  set_int_field(L, "FLAG_WIDGET_1", LV_OBJ_FLAG_WIDGET_1);
+  set_int_field(L, "FLAG_WIDGET_2", LV_OBJ_FLAG_WIDGET_2);
+  set_int_field(L, "FLAG_USER_1", LV_OBJ_FLAG_USER_1);
+  set_int_field(L, "FLAG_USER_2", LV_OBJ_FLAG_USER_2);
+  set_int_field(L, "FLAG_USER_3", LV_OBJ_FLAG_USER_3);
+  set_int_field(L, "FLAG_USER_4", LV_OBJ_FLAG_USER_4);
 
   // state
   set_int_field(L, "STATE_DEFAULT", LV_STATE_DEFAULT);
@@ -1293,6 +1542,8 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   set_int_field(L, "EVENT_LONG_PRESSED", LV_EVENT_LONG_PRESSED);
   set_int_field(L, "EVENT_LONG_PRESSED_REPEAT", LV_EVENT_LONG_PRESSED_REPEAT);
   set_int_field(L, "EVENT_VALUE_CHANGED", LV_EVENT_VALUE_CHANGED);
+  set_int_field(L, "EVENT_GESTURE", LV_EVENT_GESTURE);
+  set_int_field(L, "EVENT_KEY", LV_EVENT_KEY);
   set_int_field(L, "EVENT_FOCUSED", LV_EVENT_FOCUSED);
   set_int_field(L, "EVENT_DEFOCUSED", LV_EVENT_DEFOCUSED);
   set_int_field(L, "EVENT_DELETE", LV_EVENT_DELETE);
@@ -1339,7 +1590,7 @@ void cleanup_lvgl_api(lua_State *L) {
     lv_font_t *font = entry.first;
     LuaFontKind kind = entry.second;
     if (font == nullptr) continue;
-    lvgl_call_void([&]() {
+    lvgl_call_void([=]() {
       switch (kind) {
         case LuaFontKind::BIN:
           lv_font_free(font);

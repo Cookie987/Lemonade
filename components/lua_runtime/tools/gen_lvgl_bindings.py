@@ -181,10 +181,10 @@ def write_ret(ret_type: str, c_name: str, call_args):
     base = ret_type.replace("const ", "", 1).strip()
     lines = []
     if base == "void":
-        lines.append(f"lvgl_call_void([&]() {{ {c_name}({args_joined}); }});")
+        lines.append(f"lvgl_call_void([=]() {{ {c_name}({args_joined}); }});")
         lines.append("return 0;")
     elif ret_type in STRING_TYPES:
-        lines.append(f"{ret_type} res = lvgl_call_ret([&]() -> {ret_type} {{ return {c_name}({args_joined}); }});")
+        lines.append(f"{ret_type} res = lvgl_call_ret([=]() -> {ret_type} {{ return {c_name}({args_joined}); }});")
         lines.append("if (res) {")
         lines.append("  lua_pushstring(L, res);")
         lines.append("} else {")
@@ -192,15 +192,15 @@ def write_ret(ret_type: str, c_name: str, call_args):
         lines.append("}")
         lines.append("return 1;")
     elif base == "bool":
-        lines.append(f"bool res = lvgl_call_ret([&]() -> bool {{ return {c_name}({args_joined}); }});")
+        lines.append(f"bool res = lvgl_call_ret([=]() -> bool {{ return {c_name}({args_joined}); }});")
         lines.append("lua_pushboolean(L, res);")
         lines.append("return 1;")
     elif base == "lv_color_t":
-        lines.append(f"lv_color_t res = lvgl_call_ret([&]() -> lv_color_t {{ return {c_name}({args_joined}); }});")
+        lines.append(f"lv_color_t res = lvgl_call_ret([=]() -> lv_color_t {{ return {c_name}({args_joined}); }});")
         lines.append("lua_pushinteger(L, res.full);")
         lines.append("return 1;")
     elif ret_type.endswith(" *"):
-        lines.append(f"{ret_type} res = lvgl_call_ret([&]() -> {ret_type} {{ return {c_name}({args_joined}); }});")
+        lines.append(f"{ret_type} res = lvgl_call_ret([=]() -> {ret_type} {{ return {c_name}({args_joined}); }});")
         lines.append("if (res) {")
         lines.append("  lua_pushlightuserdata(L, (void *) res);")
         lines.append("} else {")
@@ -208,7 +208,7 @@ def write_ret(ret_type: str, c_name: str, call_args):
         lines.append("}")
         lines.append("return 1;")
     elif integer_like(ret_type):
-        lines.append(f"{ret_type} res = lvgl_call_ret([&]() -> {ret_type} {{ return {c_name}({args_joined}); }});")
+        lines.append(f"{ret_type} res = lvgl_call_ret([=]() -> {ret_type} {{ return {c_name}({args_joined}); }});")
         lines.append("lua_pushinteger(L, (lua_Integer) res);")
         lines.append("return 1;")
     else:
