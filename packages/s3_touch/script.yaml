@@ -315,9 +315,21 @@ script:
           // 充电电压补偿
           float v_est = v;
           if (charging) {
-            float comp = 0.21f;
-            if (v > 4.05f) comp -= (v - 4.05f) * 0.8f;
-            v_est = v - (comp < 0.03f ? 0.03f : comp);
+            // Charging raises the terminal voltage. Measured behavior shows
+            // 3.84V while charging can relax to about 3.77V after unplugging,
+            // so keep roughly 70mV compensation in the mid range and taper it
+            // down near full.
+            float comp = 0.07f;
+            if (v >= 4.15f) {
+              comp = 0.03f;
+            } else if (v >= 4.08f) {
+              comp = 0.04f;
+            } else if (v >= 4.00f) {
+              comp = 0.05f;
+            } else if (v >= 3.90f) {
+              comp = 0.06f;
+            }
+            v_est = v - comp;
           }
           v_est = std::max(3.30f, std::min(4.20f, v_est));
 
