@@ -1,6 +1,7 @@
 #include "sd_mmc_card.h"
 
 #include <algorithm>
+#include <iterator>
 
 #include "math.h"
 #include "esphome/core/log.h"
@@ -18,6 +19,7 @@ void SdMmc::loop() {}
 
 void SdMmc::dump_config() {
   ESP_LOGCONFIG(TAG, "SD MMC Component");
+  ESP_LOGCONFIG(TAG, "  Card Available: %s", TRUEFALSE(this->card_available_));
   ESP_LOGCONFIG(TAG, "  Mode 1 bit: %s", TRUEFALSE(this->mode_1bit_));
   ESP_LOGCONFIG(TAG, "  CLK Pin: %d", this->clk_pin_);
   ESP_LOGCONFIG(TAG, "  CMD Pin: %d", this->cmd_pin_);
@@ -41,6 +43,9 @@ void SdMmc::dump_config() {
       LOG_SENSOR("  ", "File size", sensor.sensor);
   }
 #endif
+#ifdef USE_BINARY_SENSOR
+  LOG_BINARY_SENSOR("  ", "Card detected", this->card_detected_binary_sensor_);
+#endif
 #ifdef USE_TEXT_SENSOR
   LOG_TEXT_SENSOR("  ", "SD Card Type", this->sd_card_type_text_sensor_);
 #endif
@@ -48,6 +53,10 @@ void SdMmc::dump_config() {
   if (this->is_failed()) {
     ESP_LOGE(TAG, "Setup failed : %s", SdMmc::error_code_to_string(this->init_error_).c_str());
     return;
+  }
+
+  if (!this->card_available_ && this->init_error_ != ErrorCode::ERR_NONE) {
+    ESP_LOGW(TAG, "  Current status: %s", SdMmc::error_code_to_string(this->init_error_).c_str());
   }
 }
 
@@ -64,7 +73,9 @@ void SdMmc::append_file(const char *path, const uint8_t *buffer, size_t len) {
 std::vector<std::string> SdMmc::list_directory(const char *path, uint8_t depth) {
   std::vector<std::string> list;
   std::vector<FileInfo> infos = list_directory_file_info(path, depth);
-  std::transform(infos.cbegin(), infos.cend(), list.begin(), [](FileInfo const &info) { return info.path; });
+  list.reserve(infos.size());
+  std::transform(infos.cbegin(), infos.cend(), std::back_inserter(list),
+                 [](FileInfo const &info) { return info.path; });
   return list;
 }
 
@@ -114,6 +125,8 @@ void SdMmc::set_power_ctrl_pin(GPIOPin *pin) { this->power_ctrl_pin_ = pin; }
 
 std::string SdMmc::error_code_to_string(SdMmc::ErrorCode code) {
   switch (code) {
+    case ErrorCode::ERR_NONE:
+      return "OK";
     case ErrorCode::ERR_PIN_SETUP:
       return "Failed to set pins";
     case ErrorCode::ERR_MOUNT:
@@ -123,6 +136,70 @@ std::string SdMmc::error_code_to_string(SdMmc::ErrorCode code) {
     default:
       return "Unknown error";
   }
+}
+
+void SdMmc::publish_card_state_(bool available) {
+  bool should_publish = !this->card_state_known_ || this->card_available_ != available;
+  this->card_state_known_ = true;
+  this->card_available_ = available;
+
+  if (!should_publish)
+    return;
+
+#ifdef USE_BINARY_SENSOR
+  if (this->card_detected_binary_sensor_ != nullptr)
+    this->card_detected_binary_sensor_->publish_state(available);
+#endif
+
+  if (!available) {
+#ifdef USE_TEXT_SENSOR
+    if (this->sd_card_type_text_sensor_ != nullptr)
+      this->sd_card_type_text_sensor_->publish_state("NONE");
+#endif
+    this->clear_sensors_();
+  }
+}
+
+void SdMmc::clear_sensors_() {
+#ifdef USE_SENSOR
+  if (this->used_space_sensor_ != nullptr)
+    this->used_space_sensor_->publish_state(NAN);
+  if (this->total_space_sensor_ != nullptr)
+    this->total_space_sensor_->publish_state(NAN);
+  if (this->free_space_sensor_ != nullptr)
+    this->free_space_sensor_->publish_state(NAN);
+
+  for (auto &sensor : this->file_size_sensors_) {
+    if (sensor.sensor != nullptr)
+      sensor.sensor->publish_state(NAN);
+  }
+#endif
+}
+
+void SdMmc::detect_card_state_() {
+  if (this->is_failed())
+    return;
+
+  if (this->card_available_) {
+    if (this->is_card_still_available_()) {
+      return;
+    }
+
+    ESP_LOGW(TAG, "SD card is no longer available, unmounting");
+    this->init_error_ = ErrorCode::ERR_NO_CARD;
+    this->umount();
+    return;
+  }
+
+  if (!this->mount_card_()) {
+    this->publish_card_state_(false);
+    return;
+  }
+
+  this->init_error_ = ErrorCode::ERR_NONE;
+  this->publish_card_state_(true);
+  ESP_LOGI(TAG, "SD card detected and mounted");
+  this->update_sensors();
 }
 
 long double convertBytes(uint64_t value, MemoryUnits unit) {

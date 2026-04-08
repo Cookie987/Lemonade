@@ -19,6 +19,8 @@ namespace esphome {
 namespace lua_runtime {
 
 void register_app_page(const std::string &, lv_obj_t *) {}
+void unregister_app_page(const std::string &) {}
+bool is_active_app_page() { return false; }
 void register_lvgl_api(lua_State *, const std::string &) {}
 void cleanup_lvgl_api(lua_State *) {}
 void show_lua_error_on_app_page(const std::string &, const std::string &) {}
@@ -81,6 +83,14 @@ void register_app_page(const std::string &app_dir, lv_obj_t *page) {
   ESP_LOGD(TAG, "register app page: %s -> %p", app_dir.c_str(), page);
 }
 
+void unregister_app_page(const std::string &app_dir) {
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  g_app_pages.erase(app_dir);
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  ESP_LOGD(TAG, "unregister app page: %s", app_dir.c_str());
+}
+
 static lv_obj_t *get_app_page(const std::string &app_dir) {
   ensure_page_lock();
   if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
@@ -89,6 +99,26 @@ static lv_obj_t *get_app_page(const std::string &app_dir) {
   if (it != g_app_pages.end()) page = it->second;
   if (g_page_lock) xSemaphoreGive(g_page_lock);
   return page;
+}
+
+static bool is_registered_app_page(lv_obj_t *page) {
+  if (page == nullptr)
+    return false;
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  bool found = false;
+  for (const auto &entry : g_app_pages) {
+    if (entry.second == page) {
+      found = true;
+      break;
+    }
+  }
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  return found;
+}
+
+bool is_active_app_page() {
+  return is_registered_app_page(lv_scr_act());
 }
 
 static std::string dir_from_path(const std::string &path) {

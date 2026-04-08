@@ -144,6 +144,10 @@ lvgl:
               IconItem *icons;
               size_t icon_count;
             };
+            struct RefreshContext {
+              EditState *state;
+              lv_obj_t *tile_appcenter;
+            };
             struct Helper {
               static bool str_eq(const char *a, const char *b) {
                 if (a == nullptr || b == nullptr) return false;
@@ -349,6 +353,9 @@ lvgl:
             static std::string icon_main_paths[MAX_ICONS];
             static bool icon_main_ran[MAX_ICONS];
             static lv_obj_t *icon_pages[MAX_ICONS];
+            static bool icon_event_bound[MAX_ICONS];
+            static bool page_refresh_cb_bound = false;
+            static RefreshContext refresh_ctx;
             static EditState st = {
               false,
               false,
@@ -516,7 +523,7 @@ lvgl:
 
             Helper::load_layout(&st);
 
-            auto icon_event_cb = [](lv_event_t *e) {
+            static auto icon_event_cb = [](lv_event_t *e) {
               EditState *st = (EditState *) lv_event_get_user_data(e);
               if (st == nullptr) return;
               lv_obj_t *obj = lv_event_get_target(e);
@@ -658,7 +665,10 @@ lvgl:
 
             for (size_t i = 0; i < st.icon_count; i++) {
               if (st.icons[i].obj == nullptr) continue;
-              lv_obj_add_event_cb(st.icons[i].obj, icon_event_cb, LV_EVENT_ALL, &st);
+              if (!icon_event_bound[i]) {
+                lv_obj_add_event_cb(st.icons[i].obj, icon_event_cb, LV_EVENT_ALL, &st);
+                icon_event_bound[i] = true;
+              }
             }
 
             if (btn_done != nullptr) {
@@ -677,6 +687,158 @@ lvgl:
                 Helper::save_layout(st);
                 lv_obj_add_flag(id(btn_edit_done), LV_OBJ_FLAG_HIDDEN);
               }, LV_EVENT_CLICKED, &st);
+            }
+
+            refresh_ctx.state = &st;
+            refresh_ctx.tile_appcenter = tile_appcenter;
+            if (!page_refresh_cb_bound) {
+              page_refresh_cb_bound = true;
+              lv_obj_add_event_cb(id(page_main)->obj, [](lv_event_t *e) {
+                if (lv_event_get_code(e) != LV_EVENT_REFRESH) return;
+                auto *ctx = (RefreshContext *) lv_event_get_user_data(e);
+                if (ctx == nullptr || ctx->state == nullptr) return;
+                EditState *st = ctx->state;
+                lv_obj_t *tile_appcenter = ctx->tile_appcenter;
+                if (tile_appcenter == nullptr) {
+                  ESP_LOGD("AppScan", "Refresh skipped (tile_appcenter is null)");
+                  return;
+                }
+
+                if (st->edit_mode) {
+                  st->edit_mode = false;
+                  st->suppress_click = true;
+                  id(app_edit_mode) = false;
+                  if (st->tileview) {
+                    lv_obj_add_flag(st->tileview, LV_OBJ_FLAG_SCROLLABLE);
+                  }
+                  Helper::stop_all_wiggle(st);
+                  lv_obj_add_flag(id(btn_edit_done), LV_OBJ_FLAG_HIDDEN);
+                }
+
+                size_t previous_count = st->icon_count;
+                for (size_t i = BASE_ICONS; i < previous_count; i++) {
+                  std::string app_dir = icon_main_paths[i].empty() ? std::string() : icon_main_paths[i].substr(0, icon_main_paths[i].find_last_of('/'));
+                  if (!app_dir.empty()) {
+                    esphome::lua_runtime::unregister_app_page(app_dir);
+                  }
+                  if (icon_pages[i] != nullptr) {
+                    lv_obj_del(icon_pages[i]);
+                    icon_pages[i] = nullptr;
+                  }
+                  if (icons[i].obj != nullptr) {
+                    lv_obj_del(icons[i].obj);
+                  }
+                  icons[i] = {nullptr, nullptr, nullptr, nullptr, 0, 0};
+                  icon_ids[i].clear();
+                  icon_titles[i].clear();
+                  icon_paths[i].clear();
+                  icon_page_ids[i].clear();
+                  icon_init_paths[i].clear();
+                  icon_init_ran[i] = false;
+                  icon_main_paths[i].clear();
+                  icon_main_ran[i] = false;
+                  icon_event_bound[i] = false;
+                }
+                st->icon_count = BASE_ICONS;
+
+                const char *base = "/sdcard/opt";
+                ESP_LOGD("AppScan", "Refresh scanning %s", base);
+                DIR *dirp = opendir(base);
+                if (dirp != nullptr) {
+                  struct dirent *ent;
+                  while ((ent = readdir(dirp)) != nullptr) {
+                    const char *name = ent->d_name;
+                    if (name == nullptr) continue;
+                    if (strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+                    if (st->icon_count >= MAX_ICONS) break;
+
+                    std::string pkg = name;
+                    std::string app_dir = std::string(base) + "/" + pkg;
+                    struct stat stbuf;
+                    if (stat(app_dir.c_str(), &stbuf) != 0 || !S_ISDIR(stbuf.st_mode)) {
+                      continue;
+                    }
+
+                    std::string manifest_path = app_dir + "/manifest.json";
+                    std::ifstream file(manifest_path);
+                    if (!file.is_open()) {
+                      continue;
+                    }
+                    JsonDocument doc;
+                    DeserializationError err = deserializeJson(doc, file);
+                    file.close();
+                    if (err) {
+                      continue;
+                    }
+
+                    bool platform_ok = false;
+                    if (doc["platform"].is<JsonArray>()) {
+                      for (JsonVariant v : doc["platform"].as<JsonArray>()) {
+                        const char *p = v.as<const char *>();
+                        if (p != nullptr && Helper::str_eq(p, "s3_t")) {
+                          platform_ok = true;
+                          break;
+                        }
+                      }
+                    }
+                    if (!platform_ok) {
+                      continue;
+                    }
+
+                    const char *app_name = doc["name"] | pkg.c_str();
+                    const char *icon_rel = doc["icon"] | "";
+                    if (icon_rel[0] == '\0') {
+                      continue;
+                    }
+
+                    size_t idx = st->icon_count;
+                    icon_ids[idx] = pkg;
+                    icon_titles[idx] = app_name;
+                    icon_paths[idx] = std::string("A:") + app_dir + "/" + icon_rel;
+                    icon_init_paths[idx] = app_dir + "/init.lua";
+                    icon_init_ran[idx] = false;
+                    icon_main_paths[idx] = app_dir + "/main.lua";
+                    icon_main_ran[idx] = false;
+
+                    lv_obj_t *img = lv_img_create(tile_appcenter);
+                    lv_obj_set_size(img, 96, 96);
+                    lv_img_set_src(img, icon_paths[idx].c_str());
+
+                    icon_page_ids[idx] = std::string("lv_page_") + pkg;
+                    for (auto &ch : icon_page_ids[idx]) {
+                      if (ch == '.') ch = '_';
+                    }
+
+                    lv_obj_t *page = lv_obj_create(NULL);
+                    lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
+                    lv_obj_set_size(page, 320, 240);
+                    lv_obj_set_style_bg_color(page, lv_color_hex(0xffffff), 0);
+                    lv_obj_set_user_data(page, (void *) icon_page_ids[idx].c_str());
+                    esphome::lua_runtime::register_app_page(app_dir, page);
+
+                    icons[idx] = {icon_ids[idx].c_str(), icon_titles[idx].c_str(), img, page, 0, 0};
+                    icon_pages[idx] = page;
+                    st->icon_count++;
+                  }
+                  closedir(dirp);
+                }
+
+                for (size_t i = 0; i < st->icon_count; i++) {
+                  if (st->icons[i].obj == nullptr) continue;
+                  lv_obj_add_flag(st->icons[i].obj, LV_OBJ_FLAG_CLICKABLE);
+                  int16_t off_x = st->grid_x[i % st->grid_x_count];
+                  size_t row = i / st->grid_x_count;
+                  int16_t off_y = st->grid_y[row < st->grid_y_count ? row : (st->grid_y_count - 1)];
+                  Helper::set_offset_pos(st->icons[i].obj, off_x, off_y);
+                  st->icons[i].default_x = off_x;
+                  st->icons[i].default_y = off_y;
+                  if (!icon_event_bound[i]) {
+                    lv_obj_add_event_cb(st->icons[i].obj, icon_event_cb, LV_EVENT_ALL, st);
+                    icon_event_bound[i] = true;
+                  }
+                }
+                Helper::load_layout(st);
+              }, LV_EVENT_ALL, &refresh_ctx);
             }
       on_unload:
         - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]

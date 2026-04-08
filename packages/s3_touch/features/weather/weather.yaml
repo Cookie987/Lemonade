@@ -8,9 +8,9 @@ interval:
     then:
       - script.execute: weather_update
 
-time:
-  - id: !extend ntp_time
-    on_time_sync:
+mqtt:
+  on_connect:
+    then:
       - script.execute: weather_update
 
 mapping:

@@ -52,7 +52,6 @@ local state = {
     board = {},
     tiles = {},
     tile_labels = {},
-    status_label = nil,
     score_label = nil,
     best_label = nil,
     overlay = nil,
@@ -482,16 +481,10 @@ update_board_ui = function()
         lv.label_set_text(state.best_label, tostring(get_best_tile(state.board)))
 
         if state.game_over then
-            lv.label_set_text(state.status_label, "游戏结束")
             lv.label_set_text(state.overlay_label, "游戏结束\n点击新游戏重新开始")
             set_overlay_visible(not state.animating)
         else
             local best = get_best_tile(state.board)
-            if best == 2048 then
-                lv.label_set_text(state.status_label, "2048!")
-            else
-                lv.label_set_text(state.status_label, "游玩中")
-            end
             set_overlay_visible(false)
         end
     end)
@@ -631,149 +624,146 @@ local function on_board_touch(e)
     end
 end
 
-lv.obj_set_style_bg_color(page, COLORS.bg, 0)
-lv.obj_set_style_bg_grad_color(page, 0xF3EEE6, 0)
-lv.obj_set_style_bg_grad_dir(page, lv.GRAD_DIR_VER, 0)
-lv.obj_set_style_border_width(page, 0, 0)
-lv.obj_clear_flag(page, lv.FLAG_SCROLLABLE)
+with_batch(function()
+    lv.obj_set_style_bg_color(page, COLORS.bg, 0)
+    lv.obj_set_style_bg_grad_color(page, 0xF3EEE6, 0)
+    lv.obj_set_style_bg_grad_dir(page, lv.GRAD_DIR_VER, 0)
+    lv.obj_set_style_border_width(page, 0, 0)
+    lv.obj_clear_flag(page, lv.FLAG_SCROLLABLE)
 
-state.status_label = lv.label_create(page)
-lv.label_set_text(state.status_label, "进行中")
-lv.obj_set_style_text_color(state.status_label, COLORS.text_dark, 0)
-lv.obj_align(state.status_label, lv.ALIGN_TOP_LEFT, 10, 26)
+    local score_panel = lv.obj_create(page)
+    lv.obj_set_size(score_panel, 58, 34)
+    lv.obj_align(score_panel, lv.ALIGN_TOP_LEFT, 15, 48)
+    lv.obj_set_style_bg_color(score_panel, COLORS.panel, 0)
+    lv.obj_set_style_border_width(score_panel, 0, 0)
+    lv.obj_set_style_radius(score_panel, 8, 0)
+    lv.obj_set_style_pad_all(score_panel, 2, 0)
 
-local score_panel = lv.obj_create(page)
-lv.obj_set_size(score_panel, 58, 34)
-lv.obj_align(score_panel, lv.ALIGN_TOP_LEFT, 15, 48)
-lv.obj_set_style_bg_color(score_panel, COLORS.panel, 0)
-lv.obj_set_style_border_width(score_panel, 0, 0)
-lv.obj_set_style_radius(score_panel, 8, 0)
-lv.obj_set_style_pad_all(score_panel, 2, 0)
+    local score_title = lv.label_create(score_panel)
+    lv.label_set_text(score_title, "分数")
+    lv.obj_set_style_text_color(score_title, COLORS.text_light, 0)
+    -- lv.obj_set_style_text_font(score_title, lv.font_montserrat_10, 0)
+    lv.obj_align(score_title, lv.ALIGN_TOP_MID, 0, 0)
 
-local score_title = lv.label_create(score_panel)
-lv.label_set_text(score_title, "分数")
-lv.obj_set_style_text_color(score_title, COLORS.text_light, 0)
--- lv.obj_set_style_text_font(score_title, lv.font_montserrat_10, 0)
-lv.obj_align(score_title, lv.ALIGN_TOP_MID, 0, 0)
+    state.score_label = lv.label_create(score_panel)
+    lv.label_set_text(state.score_label, "0")
+    lv.obj_set_style_text_color(state.score_label, COLORS.text_light, 0)
+    -- lv.obj_set_style_text_font(state.score_label, lv.font_montserrat_16, 0)
+    lv.obj_align(state.score_label, lv.ALIGN_BOTTOM_MID, 0, -1)
 
-state.score_label = lv.label_create(score_panel)
-lv.label_set_text(state.score_label, "0")
-lv.obj_set_style_text_color(state.score_label, COLORS.text_light, 0)
--- lv.obj_set_style_text_font(state.score_label, lv.font_montserrat_16, 0)
-lv.obj_align(state.score_label, lv.ALIGN_BOTTOM_MID, 0, -1)
+    local best_panel = lv.obj_create(page)
+    lv.obj_set_size(best_panel, 58, 34)
+    lv.obj_align(best_panel, lv.ALIGN_TOP_LEFT, 15, 88)
+    lv.obj_set_style_bg_color(best_panel, COLORS.panel, 0)
+    lv.obj_set_style_border_width(best_panel, 0, 0)
+    lv.obj_set_style_radius(best_panel, 8, 0)
+    lv.obj_set_style_pad_all(best_panel, 2, 0)
 
-local best_panel = lv.obj_create(page)
-lv.obj_set_size(best_panel, 58, 34)
-lv.obj_align(best_panel, lv.ALIGN_TOP_LEFT, 15, 88)
-lv.obj_set_style_bg_color(best_panel, COLORS.panel, 0)
-lv.obj_set_style_border_width(best_panel, 0, 0)
-lv.obj_set_style_radius(best_panel, 8, 0)
-lv.obj_set_style_pad_all(best_panel, 2, 0)
+    local best_title = lv.label_create(best_panel)
+    lv.label_set_text(best_title, "最大数")
+    lv.obj_set_style_text_color(best_title, COLORS.text_light, 0)
+    -- lv.obj_set_style_text_font(best_title, lv.font_montserrat_10, 0)
+    lv.obj_align(best_title, lv.ALIGN_TOP_MID, 0, 0)
 
-local best_title = lv.label_create(best_panel)
-lv.label_set_text(best_title, "最大数")
-lv.obj_set_style_text_color(best_title, COLORS.text_light, 0)
--- lv.obj_set_style_text_font(best_title, lv.font_montserrat_10, 0)
-lv.obj_align(best_title, lv.ALIGN_TOP_MID, 0, 0)
+    state.best_label = lv.label_create(best_panel)
+    lv.label_set_text(state.best_label, "0")
+    lv.obj_set_style_text_color(state.best_label, COLORS.text_light, 0)
+    -- lv.obj_set_style_text_font(state.best_label, lv.font_montserrat_16, 0)
+    lv.obj_align(state.best_label, lv.ALIGN_BOTTOM_MID, 0, -1)
 
-state.best_label = lv.label_create(best_panel)
-lv.label_set_text(state.best_label, "0")
-lv.obj_set_style_text_color(state.best_label, COLORS.text_light, 0)
--- lv.obj_set_style_text_font(state.best_label, lv.font_montserrat_16, 0)
-lv.obj_align(state.best_label, lv.ALIGN_BOTTOM_MID, 0, -1)
+    local restart_btn = lv.btn_create(page)
+    lv.obj_set_size(restart_btn, 72, 26)
+    lv.obj_align(restart_btn, lv.ALIGN_TOP_LEFT, 15, 128)
+    lv.obj_set_style_bg_color(restart_btn, COLORS.restart, 0)
+    lv.obj_set_style_border_width(restart_btn, 0, 0)
+    lv.obj_set_style_radius(restart_btn, 8, 0)
+    lv.obj_set_style_shadow_width(restart_btn, 0, 0)
 
-local restart_btn = lv.btn_create(page)
-lv.obj_set_size(restart_btn, 72, 26)
-lv.obj_align(restart_btn, lv.ALIGN_TOP_LEFT, 15, 128)
-lv.obj_set_style_bg_color(restart_btn, COLORS.restart, 0)
-lv.obj_set_style_border_width(restart_btn, 0, 0)
-lv.obj_set_style_radius(restart_btn, 8, 0)
-lv.obj_set_style_shadow_width(restart_btn, 0, 0)
+    local restart_label = lv.label_create(restart_btn)
+    lv.label_set_text(restart_label, "新游戏")
+    lv.obj_set_style_text_color(restart_label, COLORS.text_light, 0)
+    lv.obj_center(restart_label)
 
-local restart_label = lv.label_create(restart_btn)
-lv.label_set_text(restart_label, "新游戏")
-lv.obj_set_style_text_color(restart_label, COLORS.text_light, 0)
-lv.obj_center(restart_label)
+    local board_panel = lv.obj_create(page)
+    lv.obj_set_size(board_panel, BOARD_SIZE, BOARD_SIZE)
+    lv.obj_align(board_panel, lv.ALIGN_BOTTOM_MID, BOARD_X_OFFSET, -8)
+    lv.obj_set_style_bg_color(board_panel, COLORS.panel, 0)
+    lv.obj_set_style_border_width(board_panel, 0, 0)
+    lv.obj_set_style_radius(board_panel, 12, 0)
+    lv.obj_set_style_pad_all(board_panel, BOARD_PAD, 0)
+    lv.obj_set_style_pad_gap(board_panel, TILE_GAP, 0)
+    lv.obj_set_flex_flow(board_panel, lv.FLEX_FLOW_ROW_WRAP)
+    lv.obj_set_style_shadow_width(board_panel, 8, 0)
+    lv.obj_set_style_shadow_color(board_panel, COLORS.panel_shadow, 0)
+    lv.obj_set_style_shadow_opa(board_panel, lv.OPA_COVER, 0)
+    lv.obj_set_style_shadow_ofs_y(board_panel, 2, 0)
 
-local board_panel = lv.obj_create(page)
-lv.obj_set_size(board_panel, BOARD_SIZE, BOARD_SIZE)
-lv.obj_align(board_panel, lv.ALIGN_BOTTOM_MID, BOARD_X_OFFSET, -8)
-lv.obj_set_style_bg_color(board_panel, COLORS.panel, 0)
-lv.obj_set_style_border_width(board_panel, 0, 0)
-lv.obj_set_style_radius(board_panel, 12, 0)
-lv.obj_set_style_pad_all(board_panel, BOARD_PAD, 0)
-lv.obj_set_style_pad_gap(board_panel, TILE_GAP, 0)
-lv.obj_set_flex_flow(board_panel, lv.FLEX_FLOW_ROW_WRAP)
-lv.obj_set_style_shadow_width(board_panel, 8, 0)
-lv.obj_set_style_shadow_color(board_panel, COLORS.panel_shadow, 0)
-lv.obj_set_style_shadow_opa(board_panel, lv.OPA_COVER, 0)
-lv.obj_set_style_shadow_ofs_y(board_panel, 2, 0)
+    for row = 1, MATRIX_SIZE do
+        state.tiles[row] = {}
+        state.tile_labels[row] = {}
+        for col = 1, MATRIX_SIZE do
+            local tile = lv.obj_create(board_panel)
+            lv.obj_set_size(tile, TILE_SIZE, TILE_SIZE)
+            lv.obj_set_style_bg_color(tile, COLORS.tile_empty, 0)
+            lv.obj_set_style_border_width(tile, 0, 0)
+            lv.obj_set_style_radius(tile, 6, 0)
+            lv.obj_set_style_shadow_width(tile, 0, 0)
+            lv.obj_set_style_transform_pivot_x(tile, math.floor(TILE_SIZE / 2), 0)
+            lv.obj_set_style_transform_pivot_y(tile, math.floor(TILE_SIZE / 2), 0)
+            lv.obj_set_style_transform_zoom(tile, TILE_ZOOM_DEFAULT, 0)
+            lv.obj_clear_flag(tile, lv.FLAG_SCROLLABLE)
+            lv.obj_add_flag(tile, lv.FLAG_CLICKABLE)
 
-for row = 1, MATRIX_SIZE do
-    state.tiles[row] = {}
-    state.tile_labels[row] = {}
-    for col = 1, MATRIX_SIZE do
-        local tile = lv.obj_create(board_panel)
-        lv.obj_set_size(tile, TILE_SIZE, TILE_SIZE)
-        lv.obj_set_style_bg_color(tile, COLORS.tile_empty, 0)
-        lv.obj_set_style_border_width(tile, 0, 0)
-        lv.obj_set_style_radius(tile, 6, 0)
-        lv.obj_set_style_shadow_width(tile, 0, 0)
-        lv.obj_set_style_transform_pivot_x(tile, math.floor(TILE_SIZE / 2), 0)
-        lv.obj_set_style_transform_pivot_y(tile, math.floor(TILE_SIZE / 2), 0)
-        lv.obj_set_style_transform_zoom(tile, TILE_ZOOM_DEFAULT, 0)
-        lv.obj_clear_flag(tile, lv.FLAG_SCROLLABLE)
-        lv.obj_add_flag(tile, lv.FLAG_CLICKABLE)
+            local label = lv.label_create(tile)
+            lv.label_set_text(label, "")
+            -- lv.obj_set_style_text_font(label, lv.font_montserrat_18, 0)
+            lv.obj_center(label)
 
-        local label = lv.label_create(tile)
-        lv.label_set_text(label, "")
-        -- lv.obj_set_style_text_font(label, lv.font_montserrat_18, 0)
-        lv.obj_center(label)
+            lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_PRESSED)
+            lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_RELEASED)
 
-        lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_PRESSED)
-        lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_RELEASED)
-
-        state.tiles[row][col] = tile
-        state.tile_labels[row][col] = label
+            state.tiles[row][col] = tile
+            state.tile_labels[row][col] = label
+        end
     end
-end
 
-state.overlay = lv.obj_create(board_panel)
-lv.obj_set_size(state.overlay, BOARD_SIZE - 16, BOARD_SIZE - 16)
-lv.obj_add_flag(state.overlay, lv.FLAG_IGNORE_LAYOUT)
-lv.obj_align(state.overlay, lv.ALIGN_CENTER, 0, 0)
-lv.obj_set_style_bg_color(state.overlay, 0xF2E9DC, 0)
-lv.obj_set_style_bg_opa(state.overlay, 220, 0)
-lv.obj_set_style_border_width(state.overlay, 0, 0)
-lv.obj_set_style_radius(state.overlay, 10, 0)
+    state.overlay = lv.obj_create(board_panel)
+    lv.obj_set_size(state.overlay, BOARD_SIZE - 16, BOARD_SIZE - 16)
+    lv.obj_add_flag(state.overlay, lv.FLAG_IGNORE_LAYOUT)
+    lv.obj_align(state.overlay, lv.ALIGN_CENTER, 0, 0)
+    lv.obj_set_style_bg_color(state.overlay, 0xF2E9DC, 0)
+    lv.obj_set_style_bg_opa(state.overlay, 220, 0)
+    lv.obj_set_style_border_width(state.overlay, 0, 0)
+    lv.obj_set_style_radius(state.overlay, 10, 0)
 
-state.overlay_label = lv.label_create(state.overlay)
-lv.label_set_text(state.overlay_label, "游戏结束")
-lv.obj_set_style_text_color(state.overlay_label, COLORS.text_dark, 0)
--- lv.obj_set_style_text_font(state.overlay_label, lv.font_montserrat_22, 0)
-lv.obj_set_style_text_align(state.overlay_label, lv.TEXT_ALIGN_CENTER, 0)
-lv.obj_center(state.overlay_label)
-lv.obj_add_flag(state.overlay, lv.FLAG_HIDDEN)
-lv.obj_add_flag(state.overlay, lv.FLAG_CLICKABLE)
-lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_PRESSED)
-lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_RELEASED)
+    state.overlay_label = lv.label_create(state.overlay)
+    lv.label_set_text(state.overlay_label, "游戏结束")
+    lv.obj_set_style_text_color(state.overlay_label, COLORS.text_dark, 0)
+    -- lv.obj_set_style_text_font(state.overlay_label, lv.font_montserrat_22, 0)
+    lv.obj_set_style_text_align(state.overlay_label, lv.TEXT_ALIGN_CENTER, 0)
+    lv.obj_center(state.overlay_label)
+    lv.obj_add_flag(state.overlay, lv.FLAG_HIDDEN)
+    lv.obj_add_flag(state.overlay, lv.FLAG_CLICKABLE)
+    lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_PRESSED)
+    lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_RELEASED)
 
-lv.obj_add_event_cb(restart_btn, function(e)
-    if lv.event_get_code(e) == lv.EVENT_CLICKED then
-        new_game()
-    end
-end, lv.EVENT_CLICKED)
+    lv.obj_add_event_cb(restart_btn, function(e)
+        if lv.event_get_code(e) == lv.EVENT_CLICKED then
+            new_game()
+        end
+    end, lv.EVENT_CLICKED)
 
-lv.obj_add_flag(board_panel, lv.FLAG_CLICKABLE)
-lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_PRESSED)
-lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_RELEASED)
+    lv.obj_add_flag(board_panel, lv.FLAG_CLICKABLE)
+    lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_PRESSED)
+    lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_RELEASED)
 
-lv.obj_add_event_cb(page, function(e)
-    if lv.event_get_code(e) == lv.EVENT_SCREEN_UNLOAD_START then
-        clear_animations()
-        collectgarbage("collect")
-    end
-end, lv.EVENT_SCREEN_UNLOAD_START)
+    lv.obj_add_event_cb(page, function(e)
+        if lv.event_get_code(e) == lv.EVENT_SCREEN_UNLOAD_START then
+            clear_animations()
+            collectgarbage("collect")
+        end
+    end, lv.EVENT_SCREEN_UNLOAD_START)
+end)
 
 new_game()
 

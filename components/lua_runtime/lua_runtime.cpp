@@ -77,13 +77,32 @@ struct RtosContext {
 static SemaphoreHandle_t g_run_lock = nullptr;
 static std::unordered_map<std::string, bool> g_run_paths;
 static const char *CTX_KEY = "lua_runtime.ctx";
+static const char *ABORT_GEN_KEY = "lua_runtime.abort_generation";
 static volatile bool g_ota_active = false;
+static volatile uint32_t g_abort_generation = 0;
 
 static bool ota_is_active() { return g_ota_active; }
+
+static void set_abort_generation(lua_State *L, uint32_t generation) {
+  lua_pushlightuserdata(L, (void *) &ABORT_GEN_KEY);
+  lua_pushinteger(L, generation);
+  lua_settable(L, LUA_REGISTRYINDEX);
+}
+
+static uint32_t get_abort_generation(lua_State *L) {
+  lua_pushlightuserdata(L, (void *) &ABORT_GEN_KEY);
+  lua_gettable(L, LUA_REGISTRYINDEX);
+  uint32_t generation = (uint32_t) lua_tointeger(L, -1);
+  lua_pop(L, 1);
+  return generation;
+}
 
 static void lua_abort_if_ota(lua_State *L) {
   if (ota_is_active()) {
     luaL_error(L, "Lua script aborted because OTA is in progress");
+  }
+  if (get_abort_generation(L) != g_abort_generation) {
+    luaL_error(L, "Lua script aborted because runtime abort was requested");
   }
 }
 
@@ -826,6 +845,13 @@ bool LuaRuntime::is_ota_active() const {
 #endif
 }
 
+void LuaRuntime::abort_all() {
+#ifndef LUA_RUNTIME_STUB
+  g_abort_generation++;
+  ESP_LOGI(TAG, "Requested abort for all running Lua scripts");
+#endif
+}
+
 bool LuaRuntime::run_file(const std::string &path) {
 #ifdef LUA_RUNTIME_STUB
   ESP_LOGE(TAG, "Lua runtime is in stub mode. Add Lua sources and disable enable_stub.");
@@ -869,6 +895,7 @@ bool LuaRuntime::run_file(const std::string &path) {
   }
 
   luaL_openlibs(L);
+  set_abort_generation(L, g_abort_generation);
   register_base_api(L, path);
   set_package_path(L, path);
   lua_sethook(L, lua_ota_hook, LUA_MASKCOUNT, 1000);
@@ -893,7 +920,10 @@ bool LuaRuntime::run_file(const std::string &path) {
     cleanup_lvgl_api(L);
     lua_close(L);
     rtos_cleanup(ctx);
-    show_lua_error_on_app_page(path, error_message);
+    if (error_message != "Lua script aborted because runtime abort was requested" &&
+        error_message != "Lua script aborted because OTA is in progress") {
+      show_lua_error_on_app_page(path, error_message);
+    }
     return false;
   }
 

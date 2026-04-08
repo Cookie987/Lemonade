@@ -13,10 +13,7 @@ namespace sd_mmc_card {
 
 static const char *TAG = "sd_mmc_card_esp32_arduino";
 
-void SdMmc::setup() {
-  if (this->power_ctrl_pin_ != nullptr)
-    this->power_ctrl_pin_->setup();
-
+bool SdMmc::mount_card_() {
   bool setPinResult = this->mode_1bit_ ? SD_MMC.setPins(this->clk_pin_, this->cmd_pin_, this->data0_pin_)
                                        : SD_MMC.setPins(this->clk_pin_, this->cmd_pin_, this->data0_pin_,
                                                         this->data1_pin_, this->data2_pin_, this->data3_pin_);
@@ -24,30 +21,43 @@ void SdMmc::setup() {
   if (!setPinResult) {
     this->init_error_ = ErrorCode::ERR_PIN_SETUP;
     this->mark_failed();
-    return;
+    return false;
   }
 
   bool beginResult = this->mode_1bit_ ? SD_MMC.begin("/sdcard", this->mode_1bit_) : SD_MMC.begin();
   if (!beginResult) {
     this->init_error_ = ErrorCode::ERR_MOUNT;
-    this->mark_failed();
-    return;
+    return false;
   }
 
   uint8_t cardType = SD_MMC.cardType();
+  if (cardType == CARD_NONE) {
+    this->init_error_ = ErrorCode::ERR_NO_CARD;
+    SD_MMC.end();
+    return false;
+  }
 
 #ifdef USE_TEXT_SENSOR
   if (this->sd_card_type_text_sensor_ != nullptr)
     this->sd_card_type_text_sensor_->publish_state(sd_card_type_to_string(cardType));
 #endif
 
-  if (cardType == CARD_NONE) {
-    this->init_error_ = ErrorCode::ERR_NO_CARD;
-    this->mark_failed();
-    return;
-  }
+  return true;
+}
 
-  update_sensors();
+bool SdMmc::is_card_still_available_() { return SD_MMC.cardType() != CARD_NONE; }
+
+void SdMmc::setup() {
+  if (this->power_ctrl_pin_ != nullptr)
+    this->power_ctrl_pin_->setup();
+
+  this->set_interval("sd-card-detect", 1000, [this]() { this->detect_card_state_(); });
+  this->detect_card_state_();
+}
+
+void SdMmc::umount() {
+  SD_MMC.end();
+  this->publish_card_state_(false);
 }
 
 void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
@@ -110,7 +120,7 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
 
 std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
-  ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
+  ESP_LOGV(TAG, "Listing directory file info: %s", path);
 
   File root = SD_MMC.open(path);
   if (!root) {
@@ -167,6 +177,9 @@ std::string SdMmc::sd_card_type_to_string(int type) const {
 
 void SdMmc::update_sensors() {
 #ifdef USE_SENSOR
+  if (!this->card_available_)
+    return;
+
   uint64_t used_bytes = SD_MMC.usedBytes();
   uint64_t total_bytes = SD_MMC.totalBytes();
   if (this->used_space_sensor_ != nullptr)

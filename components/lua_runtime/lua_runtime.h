@@ -8,6 +8,8 @@
 namespace esphome {
 namespace lua_runtime {
 
+bool is_active_app_page();
+
 class LuaRuntime : public Component {
  public:
   void setup() override;
@@ -16,6 +18,7 @@ class LuaRuntime : public Component {
   bool run_file(const std::string &path);
   bool run_file_async(const std::string &path);
   void mark_task_done(const std::string &path);
+  void abort_all();
   void set_async_core(int async_core) { this->async_core_ = async_core; }
   void set_ota_active(bool active);
   bool is_ota_active() const;

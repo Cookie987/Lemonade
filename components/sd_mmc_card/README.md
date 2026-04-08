@@ -233,6 +233,20 @@ sd card type (MMC, SDSC, ...)
 
 * All the [text sensor](https://esphome.io/components/text_sensor/) options
 
+## Binary Sensor
+
+```yaml
+binary_sensor:
+  - platform: sd_mmc_card
+    card_detected:
+      name: "SD card detected"
+```
+
+`card_detected` reports whether the card is currently available and mounted.
+This software check works even if no dedicated card-detect pin is wired.
+
+* All the [binary sensor](https://esphome.io/components/binary_sensor/) options
+
 ## Others
 
 ### List Directory

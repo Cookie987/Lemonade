@@ -115,6 +115,16 @@ binary_sensor:
         - logger.log: Charger disconnected
         - script.execute: update_date
 
+  - platform: sd_mmc_card
+    card_detected:
+      id: sd_card_detected
+      on_press:
+        then:
+          - script.execute: sd_card_inserted
+      on_release:
+        then:
+          - script.execute: sd_card_removed
+
 sensor:
   - platform: adc
     pin: GPIO1

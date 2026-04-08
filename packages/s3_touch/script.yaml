@@ -49,17 +49,17 @@ script:
   - id: wakeup_script
     then:
       - switch.turn_on: switch_powermanage_lock_apb
+      # normalize main loop
+      - lambda: App.set_loop_interval(16);
       - lambda: id(is_sleeping)=false;
+      # sleep out
+      - lambda: id(watchface)->set_command(0x11);
       - light.turn_on:
           id: backlight
           transition_length: 0.2s
-      # sleep out
-      - lambda: id(watchface)->set_command(0x11);
-      - delay: 120ms
+      # - delay: 200ms
       # display on
       - lambda: id(watchface)->set_command(0x29);
-      # normalize main loop
-      - lambda: App.set_loop_interval(16);
       - lvgl.resume:
           lvgl_id: lvgl_1
 
@@ -69,6 +69,38 @@ script:
       - lambda: |
           for (auto const & file : id(sd)->list_directory("/lemonade", 3))
             ESP_LOGI("SD", "File: %s\n", file.c_str());
+
+  - id: refresh_external_apps
+    mode: restart
+    then:
+      - lambda: |
+          lv_event_send(id(page_main)->obj, LV_EVENT_REFRESH, nullptr);
+
+  - id: sd_card_inserted
+    mode: restart
+    then:
+      - lambda: |
+          id(show_notification)->execute("SD 卡已插入", "SD 卡", 2000);
+      - script.execute: refresh_external_apps
+
+  - id: sd_card_removed
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return esphome::lua_runtime::is_active_app_page();'
+          then:
+            - lvgl.page.show:
+                id: page_main
+                animation: FADE_IN
+                time: 200ms
+            - delay: 400ms
+      - lambda: |
+          id(lua).abort_all();
+      - delay: 100ms
+      - lambda: |
+          id(show_notification)->execute("SD 卡已拔出", "SD 卡", 2000);
+      - script.execute: refresh_external_apps
 
   - id: littlefs_init
     mode: single

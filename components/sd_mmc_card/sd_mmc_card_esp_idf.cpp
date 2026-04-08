@@ -20,10 +20,7 @@ static const std::string MOUNT_POINT("/sdcard");
 
 std::string build_path(const char *path) { return MOUNT_POINT + path; }
 
-void SdMmc::setup() {
-  if (this->power_ctrl_pin_ != nullptr)
-    this->power_ctrl_pin_->setup();
-
+bool SdMmc::mount_card_() {
   esp_vfs_fat_sdmmc_mount_config_t mount_config = {
       .format_if_mount_failed = false, .max_files = 5, .allocation_unit_size = 16 * 1024};
 
@@ -48,21 +45,15 @@ void SdMmc::setup() {
   }
 #endif
 
-  // Enable internal pullups on enabled pins. The internal pullups
-  // are insufficient however, please make sure 10k external pullups are
-  // connected on the bus. This is for debug / example purpose only.
+  // Internal pullups help during bring-up, but the bus still needs proper external pullups.
   slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
 
   auto ret = esp_vfs_fat_sdmmc_mount(MOUNT_POINT.c_str(), &host, &slot_config, &mount_config, &this->card_);
 
   if (ret != ESP_OK) {
-    if (ret == ESP_FAIL) {
-      this->init_error_ = ErrorCode::ERR_MOUNT;
-    } else {
-      this->init_error_ = ErrorCode::ERR_NO_CARD;
-    }
-    mark_failed();
-    return;
+    this->card_ = nullptr;
+    this->init_error_ = (ret == ESP_FAIL) ? ErrorCode::ERR_MOUNT : ErrorCode::ERR_NO_CARD;
+    return false;
   }
 
 #ifdef USE_TEXT_SENSOR
@@ -70,34 +61,45 @@ void SdMmc::setup() {
     this->sd_card_type_text_sensor_->publish_state(sd_card_type());
 #endif
 
-  update_sensors();
+  return true;
+}
+
+bool SdMmc::is_card_still_available_() {
+  if (this->card_ == nullptr)
+    return false;
+  return sdmmc_get_status(this->card_) == ESP_OK;
+}
+
+void SdMmc::setup() {
+  if (this->power_ctrl_pin_ != nullptr)
+    this->power_ctrl_pin_->setup();
+
+  this->set_interval("sd-card-detect", 1000, [this]() { this->detect_card_state_(); });
+  this->detect_card_state_();
 }
 
 void SdMmc::umount() {
   if (this->card_ == nullptr) {
-    ESP_LOGW(TAG, "No SD card mounted to unmount");
+    this->publish_card_state_(false);
     return;
   }
 
-  // 调用 ESP-IDF 的卸载函数
   esp_err_t ret = esp_vfs_fat_sdcard_unmount(MOUNT_POINT.c_str(), this->card_);
-
-  if (ret != ESP_OK) {
+  if (ret != ESP_OK)
     ESP_LOGE(TAG, "Failed to unmount SD card: %s", esp_err_to_name(ret));
-    return;
-  }
 
-  // 释放 card 指针资源
   this->card_ = nullptr;
+  this->publish_card_state_(false);
 
-  ESP_LOGI(TAG, "SD card unmounted successfully");
+  if (ret == ESP_OK)
+    ESP_LOGI(TAG, "SD card unmounted successfully");
 }
 
 void SdMmc::write_file(const char *path, const uint8_t *buffer, size_t len, const char *mode) {
   std::string absolut_path = build_path(path);
-  FILE *file = NULL;
+  FILE *file = nullptr;
   file = fopen(absolut_path.c_str(), mode);
-  if (file == NULL) {
+  if (file == nullptr) {
     ESP_LOGE(TAG, "Failed to open file for writing");
     return;
   }
@@ -164,7 +166,7 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
   res.resize(fileSize);
   size_t len = fread(res.data(), 1, fileSize, file);
   fclose(file);
-  if (len < 0) {
+  if (len < fileSize) {
     ESP_LOGE(TAG, "Failed to read file: %s", strerror(errno));
     return std::vector<uint8_t>();
   }
@@ -174,7 +176,7 @@ std::vector<uint8_t> SdMmc::read_file(char const *path) {
 
 std::vector<FileInfo> &SdMmc::list_directory_file_info_rec(const char *path, uint8_t depth,
                                                            std::vector<FileInfo> &list) {
-  ESP_LOGV(TAG, "Listing directory file info: %s\n", path);
+  ESP_LOGV(TAG, "Listing directory file info: %s", path);
   std::string absolut_path = build_path(path);
   DIR *dir = opendir(absolut_path.c_str());
   if (!dir) {
@@ -223,7 +225,6 @@ bool SdMmc::is_directory(const char *path) {
 size_t SdMmc::file_size(const char *path) {
   std::string absolut_path = build_path(path);
   struct stat info;
-  size_t file_size = 0;
   if (stat(absolut_path.c_str(), &info) < 0) {
     ESP_LOGE(TAG, "Failed to stat file: %s", strerror(errno));
     return -1;
@@ -232,6 +233,8 @@ size_t SdMmc::file_size(const char *path) {
 }
 
 std::string SdMmc::sd_card_type() const {
+  if (this->card_ == nullptr)
+    return "NONE";
   if (this->card_->is_sdio) {
     return "SDIO";
   } else if (this->card_->is_mmc) {

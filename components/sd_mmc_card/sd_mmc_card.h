@@ -6,6 +6,9 @@
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
 #endif
+#ifdef USE_BINARY_SENSOR
+#include "esphome/components/binary_sensor/binary_sensor.h"
+#endif
 #ifdef USE_TEXT_SENSOR
 #include "esphome/components/text_sensor/text_sensor.h"
 #endif
@@ -43,11 +46,15 @@ class SdMmc : public Component {
   SUB_SENSOR(total_space)
   SUB_SENSOR(free_space)
 #endif
+#ifdef USE_BINARY_SENSOR
+  SUB_BINARY_SENSOR(card_detected)
+#endif
 #ifdef USE_TEXT_SENSOR
   SUB_TEXT_SENSOR(sd_card_type)
 #endif
  public:
   enum ErrorCode {
+    ERR_NONE,
     ERR_PIN_SETUP,
     ERR_MOUNT,
     ERR_NO_CARD,
@@ -85,29 +92,39 @@ class SdMmc : public Component {
   void set_data3_pin(uint8_t);
   void set_mode_1bit(bool);
   void set_power_ctrl_pin(GPIOPin *);
+  bool is_card_available() const { return this->card_available_; }
 
  protected:
-  ErrorCode init_error_;
+  ErrorCode init_error_{ErrorCode::ERR_NONE};
+  bool card_available_{false};
+  bool card_state_known_{false};
   uint8_t clk_pin_;
   uint8_t cmd_pin_;
   uint8_t data0_pin_;
   uint8_t data1_pin_;
   uint8_t data2_pin_;
   uint8_t data3_pin_;
-  bool mode_1bit_;
+  bool mode_1bit_{false};
   GPIOPin *power_ctrl_pin_{nullptr};
 
 #ifdef USE_ESP_IDF
-  sdmmc_card_t *card_;
+  sdmmc_card_t *card_{nullptr};
 #endif
 #ifdef USE_SENSOR
   std::vector<FileSizeSensor> file_size_sensors_{};
 #endif
+  void publish_card_state_(bool available);
+  void clear_sensors_();
+  void detect_card_state_();
   void update_sensors();
 #ifdef USE_ESP32_FRAMEWORK_ARDUINO
+  bool mount_card_();
+  bool is_card_still_available_();
   std::string sd_card_type_to_string(int) const;
 #endif
 #ifdef USE_ESP_IDF
+  bool mount_card_();
+  bool is_card_still_available_();
   std::string sd_card_type() const;
 #endif
   std::vector<FileInfo> &list_directory_file_info_rec(const char *path, uint8_t depth, std::vector<FileInfo> &list);
