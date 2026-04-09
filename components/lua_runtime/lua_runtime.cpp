@@ -13,15 +13,16 @@
 #include "freertos/task.h"
 
 #include "esp_heap_caps.h"
+#include "esp_random.h"
 #include "esp_system.h"
 #include "esp_timer.h"
-#include "esp_random.h"
 
 #ifdef LUA_RUNTIME_STUB
 // Stub mode: no Lua linked. Build succeeds but run_file always fails.
 #else
 #include "lua.hpp"
 extern "C" int luaopen_json(lua_State *L);
+extern "C" int luaopen_http(lua_State *L);
 #endif
 
 namespace esphome {
@@ -97,7 +98,7 @@ static uint32_t get_abort_generation(lua_State *L) {
   return generation;
 }
 
-static void lua_abort_if_ota(lua_State *L) {
+void lua_abort_if_ota(lua_State *L) {
   if (ota_is_active()) {
     luaL_error(L, "Lua script aborted because OTA is in progress");
   }
@@ -797,6 +798,8 @@ static void register_base_api(lua_State *L, const std::string &script_path) {
   register_esp_api(L);
   register_lvgl_api(L, script_path);
   luaL_requiref(L, "json", luaopen_json, 1);
+  lua_pop(L, 1);
+  luaL_requiref(L, "http", luaopen_http, 1);
   lua_pop(L, 1);
 
   lua_pushcfunction(L, lua_delay_ms);

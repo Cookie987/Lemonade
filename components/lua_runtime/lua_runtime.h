@@ -5,10 +5,13 @@
 #include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 
+struct lua_State;
+
 namespace esphome {
 namespace lua_runtime {
 
 bool is_active_app_page();
+void lua_abort_if_ota(lua_State *L);
 
 class LuaRuntime : public Component {
  public:

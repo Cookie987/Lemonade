@@ -1,6 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
+from esphome.components import esp32
 from esphome.const import CONF_ID, CONF_PATH, CONF_SUBSTITUTIONS
 from esphome.core import CORE
 from pathlib import Path
@@ -44,6 +45,10 @@ def FILTER_SOURCE_FILES():
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
+
+    if CORE.is_esp32:
+        esp32.include_builtin_idf_component("esp_http_client")
+        esp32.add_idf_sdkconfig_option("CONFIG_MBEDTLS_CERTIFICATE_BUNDLE", True)
 
     if config[CONF_ENABLE_STUB]:
         cg.add_define("LUA_RUNTIME_STUB")
