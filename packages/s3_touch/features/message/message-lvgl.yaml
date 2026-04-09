@@ -406,6 +406,84 @@ lvgl:
                             - lvgl.widget.hide: obj_contact_action_overlay
 
         - obj:
+            id: obj_message_action_overlay
+            hidden: true
+            align: CENTER
+            width: 320
+            height: 240
+            border_width: 0
+            bg_color: 0x000000
+            bg_opa: 60%
+            radius: 0
+            widgets:
+              - obj:
+                  id: obj_message_action_dialog
+                  width: 260
+                  height: 180
+                  align: CENTER
+                  bg_color: 0xFFFFFF
+                  radius: 8
+                  pad_all: 10
+                  widgets:
+                    - label:
+                        align: TOP_MID
+                        y: 5
+                        text: "消息操作"
+                    - label:
+                        id: lbl_message_action_sender
+                        align: TOP_MID
+                        y: 28
+                        width: 220
+                        text_align: CENTER
+                        text_color: 0x666666
+                        long_mode: DOT
+                        text: "发送人："
+                    - button:
+                        id: btn_message_action_quote
+                        width: 200
+                        height: 32
+                        align: TOP_MID
+                        y: 58
+                        bg_color: !lambda return lv_color_hex(0x1f95f6);
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "引用"
+                        on_click:
+                          then:
+                            - script.execute: message_action_quote
+                            - lvgl.widget.hide: obj_message_action_overlay
+                    - button:
+                        id: btn_message_action_mention
+                        width: 200
+                        height: 32
+                        align: TOP_MID
+                        y: 98
+                        bg_color: !lambda return lv_color_hex(0x35A16B);
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "@"
+                        on_click:
+                          then:
+                            - script.execute: message_action_mention
+                            - lvgl.widget.hide: obj_message_action_overlay
+                    - button:
+                        id: btn_message_action_cancel
+                        width: 200
+                        height: 32
+                        align: TOP_MID
+                        y: 138
+                        bg_color: !lambda return lv_color_hex(0x7A7A7A);
+                        widgets:
+                          - label:
+                              align: CENTER
+                              text: "取消"
+                        on_click:
+                          then:
+                            - lvgl.widget.hide: obj_message_action_overlay
+
+        - obj:
             id: obj_message_candidate_list
             scrollable: true
             scroll_dir: HOR
