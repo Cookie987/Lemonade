@@ -77,15 +77,17 @@ script:
           lv_event_send(id(page_main)->obj, LV_EVENT_REFRESH, nullptr);
 
   - id: sd_card_inserted
-    mode: restart
+    mode: single
     then:
       - lambda: |
-          id(show_notification)->execute("SD 卡已插入", "SD 卡", 2000);
+          id(show_notification)->execute("SD 卡已插入", "卡已拔出", 2000);
       - script.execute: refresh_external_apps
 
   - id: sd_card_removed
-    mode: restart
+    mode: single
     then:
+      - lvgl.resume:
+          lvgl_id: lvgl_1
       - if:
           condition:
             lambda: 'return esphome::lua_runtime::is_active_app_page();'
@@ -99,8 +101,15 @@ script:
           id(lua).abort_all();
       - delay: 100ms
       - lambda: |
-          id(show_notification)->execute("SD 卡已拔出", "SD 卡", 2000);
+          id(show_notification)->execute("SD 卡已拔出", "卡已插入", 2000);
       - script.execute: refresh_external_apps
+      - if:
+          condition:
+            lambda: 'return id(is_sleeping);'
+          then:
+            - lvgl.pause:
+                show_snow: false
+                lvgl_id: lvgl_1
 
   - id: littlefs_init
     mode: single
@@ -614,8 +623,10 @@ script:
       notification_message: string
       suffix: string
       delay_ms: int
-    mode: queued
+    mode: parallel
     then:
+      - lvgl.resume:
+          lvgl_id: lvgl_1
       - lambda: |
           lv_obj_t * screen = lv_disp_get_layer_top(lvgl_1->get_disp());
           lv_obj_t * target_bar = nullptr;
@@ -729,6 +740,13 @@ script:
           then:
             - delay: !lambda 'return delay_ms;'
             - lambda: id(close_notification)->execute(notification_message);
+      - if:
+          condition:
+            lambda: 'return id(is_sleeping);'
+          then:
+            - lvgl.pause:
+                show_snow: false
+                lvgl_id: lvgl_1
   # 关闭通知
   # para1: 要关闭的通知消息的后缀
   - id: close_notification

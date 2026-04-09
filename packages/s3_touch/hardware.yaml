@@ -127,11 +127,11 @@ binary_sensor:
       then:
         - logger.log: Dock connected
         - lambda: |
-            id(show_notification)->execute("底座已连接", "底座", 2000);
+            id(show_notification)->execute("底座已连接", "底座已断开", 2000);
     on_release:
       then:
         - lambda: |
-            id(show_notification)->execute("底座已断开", "底座", 2000);
+            id(show_notification)->execute("底座已断开", "底座已连接", 2000);
 
   - platform: sd_mmc_card
     card_detected:
