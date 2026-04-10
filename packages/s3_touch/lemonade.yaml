@@ -97,6 +97,7 @@ esp32:
     components:
       - name: joltwallet/littlefs
         source: https://github.com/joltwallet/esp_littlefs.git
+      - espressif/zlib~1.3
     advanced:
       execute_from_psram: yes
       disable_vfs_support_termios: false
@@ -543,6 +544,7 @@ light:
     default_transition_length: 0s
 
 http_request:
+  id: http_request_component
   useragent: "Lemonade/${lemonade_version} (https://cookie987.top)"
   watchdog_timeout: 10s
 

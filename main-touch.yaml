@@ -14,6 +14,7 @@ substitutions:
   lemonade_device_model: "智能时钟_T"
   lemonade_version: "1.5.1 Canary"
   lemonade_ota_password: !secret ota_password
+  lemonade_app_store_index_url: "***REMOVED***lemonade/s3-touch/store/index.json"
   lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
   lemonade_ibeacon_major: "987"
   lemonade_ibeacon_minor: "114"
@@ -43,6 +44,7 @@ packages:
   # - !include packages/storage.yaml
   # 设置
   - !include packages/s3_touch/features/setting/setting.yaml
+  - !include packages/s3_touch/features/app_store/app_store.yaml
   # 秒表
   - !include packages/s3_touch/features/timer/timer.yaml
   # 天气与日历

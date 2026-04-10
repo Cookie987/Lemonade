@@ -1,0 +1,412 @@
+app_store:
+  id: app_store_component
+  http_request_id: http_request_component
+  lua_runtime_id: lua
+  index_url: ${lemonade_app_store_index_url}
+  platform: s3_t
+
+image:
+  rgb565:
+    - file: "imgs/icon/app/appstore-96x.png"
+      transparency: alpha_channel
+      id: app_store_icon
+      resize: 96x96
+
+globals:
+  - id: app_store_list_offset
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+script:
+  - id: refresh_app_store_widgets
+    mode: restart
+    then:
+      - lambda: |
+          auto update_item = [&](size_t slot, lv_obj_t *btn, lv_obj_t *title, lv_obj_t *meta) {
+            size_t index = static_cast<size_t>(id(app_store_list_offset) + static_cast<int>(slot));
+            if (!id(app_store_component).has_entry(index)) {
+              lv_obj_add_flag(btn, LV_OBJ_FLAG_HIDDEN);
+              return;
+            }
+            lv_obj_clear_flag(btn, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text(title, id(app_store_component).get_entry_name(index).c_str());
+            lv_label_set_text(meta, id(app_store_component).get_entry_meta(index).c_str());
+          };
+
+          if (id(app_store_list_offset) < 0) {
+            id(app_store_list_offset) = 0;
+          }
+
+          update_item(0, id(btn_app_store_item_0), id(lbl_app_store_item_0_title), id(lbl_app_store_item_0_meta));
+          update_item(1, id(btn_app_store_item_1), id(lbl_app_store_item_1_title), id(lbl_app_store_item_1_meta));
+          update_item(2, id(btn_app_store_item_2), id(lbl_app_store_item_2_title), id(lbl_app_store_item_2_meta));
+          lv_obj_add_flag(id(btn_app_store_item_3), LV_OBJ_FLAG_HIDDEN);
+
+          if (id(app_store_list_offset) <= 0) {
+            lv_obj_add_flag(id(btn_app_store_prev), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_clear_flag(id(btn_app_store_prev), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          if (id(app_store_component).has_more_entries(static_cast<size_t>(id(app_store_list_offset)), 3)) {
+            lv_obj_clear_flag(id(btn_app_store_next), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(btn_app_store_next), LV_OBJ_FLAG_HIDDEN);
+          }
+
+          lv_label_set_text(id(lbl_app_store_status), id(app_store_component).get_status_message().c_str());
+          lv_label_set_text(id(lbl_app_store_detail_body), id(app_store_component).get_selected_detail_text().c_str());
+          lv_label_set_text(id(lbl_app_store_action_install), id(app_store_component).get_selected_primary_action_label().c_str());
+
+          if (id(app_store_component).is_busy()) {
+            lv_obj_add_state(id(btn_app_store_action_install), LV_STATE_DISABLED);
+            lv_obj_add_state(id(btn_app_store_action_uninstall), LV_STATE_DISABLED);
+          } else {
+            lv_obj_clear_state(id(btn_app_store_action_install), LV_STATE_DISABLED);
+            lv_obj_clear_state(id(btn_app_store_action_uninstall), LV_STATE_DISABLED);
+          }
+
+          if (id(app_store_component).selected_can_uninstall()) {
+            lv_obj_clear_flag(id(btn_app_store_action_uninstall), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(btn_app_store_action_uninstall), LV_OBJ_FLAG_HIDDEN);
+          }
+
+interval:
+  - interval: 500ms
+    then:
+      - lambda: |
+          bool refresh_ui = id(app_store_component).consume_ui_refresh_requested();
+          bool refresh_apps = id(app_store_component).consume_external_apps_refresh_requested();
+          std::string notification_message;
+          int notification_delay_ms = 0;
+          if (refresh_ui) {
+            id(refresh_app_store_widgets)->execute();
+          }
+          if (refresh_apps) {
+            id(refresh_external_apps)->execute();
+          }
+          if (id(app_store_component).consume_notification(notification_message, notification_delay_ms)) {
+            id(show_notification)->execute(notification_message, "", notification_delay_ms);
+          }
+
+lvgl:
+  top_layer:
+    widgets:
+      - button:
+          id: btn_back_appstore
+          width: 48
+          height: 24
+          x: -6
+          y: 20
+          align: TOP_RIGHT
+          bg_color: !lambda return lv_color_hex(0x1f95f6);
+          widgets:
+            - label:
+                align: CENTER
+                y: 2
+                text: "\uF2EA"  # rotate-left
+          hidden: true
+          on_release:
+            then:
+              - lvgl.page.show:
+                  id: page_app_store
+                  animation: MOVE_RIGHT
+                  time: 200ms
+  pages:
+    - id: !extend page_main
+      widgets:
+        - tileview:
+            id: !extend tileview_main
+            tiles:
+              - id: !extend tile_appcenter
+                widgets:
+                  - image:
+                      src: app_store_icon
+                      id: img_app_store_app
+                      width: 96
+                      height: 96
+                      x: 0
+                      y: 45
+                      align: CENTER
+                      on_click:
+                        then:
+                          - if:
+                              condition:
+                                lambda: 'return !id(app_edit_mode);'
+                              then:
+                                - lvgl.page.show:
+                                    id: page_app_store
+                                    animation: FADE_IN
+                                    time: 200ms
+    - id: page_app_store
+      skip: true
+      on_load:
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "应用商店"
+        - lambda: |
+            id(app_store_component).request_refresh_if_empty();
+            id(refresh_app_store_widgets)->execute();
+      widgets:
+        - button:
+            id: btn_app_store_refresh
+            x: 258
+            y: 22
+            width: 52
+            height: 28
+            bg_color: !lambda return lv_color_hex(0x1f95f6);
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "刷新"
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    id(app_store_component).request_refresh();
+                    id(refresh_app_store_widgets)->execute();
+        - button:
+            id: btn_app_store_item_0
+            x: 8
+            y: 24
+            width: 244
+            height: 58
+            hidden: true
+            bg_color: 0x1f1f1f
+            widgets:
+              - label:
+                  id: lbl_app_store_item_0_title
+                  align: TOP_LEFT
+                  x: 8
+                  y: 7
+                  text: ""
+                  text_font: chinese_font14
+              - label:
+                  id: lbl_app_store_item_0_meta
+                  align: TOP_LEFT
+                  x: 8
+                  y: 28
+                  text: ""
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    int index = id(app_store_list_offset);
+                    if (id(app_store_component).has_entry(index)) {
+                      id(app_store_component).set_selected_index(index);
+                      id(refresh_app_store_widgets)->execute();
+                    }
+                - lvgl.page.show:
+                    id: page_app_store_detail
+                    animation: MOVE_LEFT
+                    time: 200ms
+        - button:
+            id: btn_app_store_item_1
+            x: 8
+            y: 88
+            width: 244
+            height: 58
+            hidden: true
+            bg_color: 0x1f1f1f
+            widgets:
+              - label:
+                  id: lbl_app_store_item_1_title
+                  align: TOP_LEFT
+                  x: 8
+                  y: 7
+                  text: ""
+                  text_font: chinese_font14
+              - label:
+                  id: lbl_app_store_item_1_meta
+                  align: TOP_LEFT
+                  x: 8
+                  y: 28
+                  text: ""
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    int index = id(app_store_list_offset) + 1;
+                    if (id(app_store_component).has_entry(index)) {
+                      id(app_store_component).set_selected_index(index);
+                      id(refresh_app_store_widgets)->execute();
+                    }
+                - lvgl.page.show:
+                    id: page_app_store_detail
+                    animation: MOVE_LEFT
+                    time: 200ms
+        - button:
+            id: btn_app_store_item_2
+            x: 8
+            y: 152
+            width: 244
+            height: 58
+            hidden: true
+            bg_color: 0x1f1f1f
+            widgets:
+              - label:
+                  id: lbl_app_store_item_2_title
+                  align: TOP_LEFT
+                  x: 8
+                  y: 7
+                  text: ""
+                  text_font: chinese_font14
+              - label:
+                  id: lbl_app_store_item_2_meta
+                  align: TOP_LEFT
+                  x: 8
+                  y: 28
+                  text: ""
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    int index = id(app_store_list_offset) + 2;
+                    if (id(app_store_component).has_entry(index)) {
+                      id(app_store_component).set_selected_index(index);
+                      id(refresh_app_store_widgets)->execute();
+                    }
+                - lvgl.page.show:
+                    id: page_app_store_detail
+                    animation: MOVE_LEFT
+                    time: 200ms
+        - button:
+            id: btn_app_store_item_3
+            x: 8
+            y: 168
+            width: 244
+            height: 46
+            hidden: true
+            bg_color: 0x1f1f1f
+            widgets:
+              - label:
+                  id: lbl_app_store_item_3_title
+                  align: TOP_LEFT
+                  x: 8
+                  y: 5
+                  text: ""
+                  text_font: chinese_font14
+              - label:
+                  id: lbl_app_store_item_3_meta
+                  align: TOP_LEFT
+                  x: 8
+                  y: 23
+                  text: ""
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    int index = id(app_store_list_offset) + 3;
+                    if (id(app_store_component).has_entry(index)) {
+                      id(app_store_component).set_selected_index(index);
+                      id(refresh_app_store_widgets)->execute();
+                    }
+                - lvgl.page.show:
+                    id: page_app_store_detail
+                    animation: MOVE_LEFT
+                    time: 200ms
+        - button:
+            id: btn_app_store_prev
+            x: 258
+            y: 88
+            width: 52
+            height: 58
+            hidden: true
+            bg_color: 0x5a5a5a
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "上页"
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    id(app_store_list_offset) = id(app_store_list_offset) - 3;
+                    if (id(app_store_list_offset) < 0) {
+                      id(app_store_list_offset) = 0;
+                    }
+                    id(refresh_app_store_widgets)->execute();
+        - button:
+            id: btn_app_store_next
+            x: 258
+            y: 152
+            width: 52
+            height: 58
+            hidden: true
+            bg_color: 0x5a5a5a
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "下页"
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    id(app_store_list_offset) = id(app_store_list_offset) + 3;
+                    id(refresh_app_store_widgets)->execute();
+        - label:
+            id: lbl_app_store_status
+            x: 8
+            y: 210
+            width: 304
+            height: 24
+            long_mode: DOT
+            text: "应用商店未加载"
+            text_font: chinese_font14
+    - id: page_app_store_detail
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_appstore
+        - lambda: |
+            lv_label_set_text(id(lbl_topbar_title), id(app_store_component).get_selected_name().c_str());
+            id(refresh_app_store_widgets)->execute();
+      on_unload:
+        - lvgl.widget.hide: btn_back_appstore
+      widgets:
+        - label:
+            id: lbl_app_store_detail_body
+            x: 8
+            y: 24
+            width: 304
+            height: 150
+            long_mode: WRAP
+            text: "请选择一个应用。"
+            text_font: chinese_font14
+        - button:
+            id: btn_app_store_action_install
+            x: 8
+            y: 186
+            width: 146
+            height: 38
+            bg_color: !lambda return lv_color_hex(0x1f95f6);
+            widgets:
+              - label:
+                  id: lbl_app_store_action_install
+                  align: CENTER
+                  text: "安装"
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    id(app_store_component).request_install_selected();
+                    id(refresh_app_store_widgets)->execute();
+        - button:
+            id: btn_app_store_action_uninstall
+            x: 166
+            y: 186
+            width: 146
+            height: 38
+            hidden: true
+            bg_color: 0xaa3333
+            widgets:
+              - label:
+                  align: CENTER
+                  text: "卸载"
+                  text_font: chinese_font14
+            on_click:
+              then:
+                - lambda: |
+                    id(app_store_component).request_uninstall_selected();
+                    id(refresh_app_store_widgets)->execute();

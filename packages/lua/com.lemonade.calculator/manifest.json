@@ -1,9 +1,10 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "manifest_version": 1,
+  "id": "com.lemonade.calculator",
   "platform": ["s3_t"],
   "name": "计算器",
-  "description": "计算器",
+  "description": "一款实用的计算器应用，支持基本的算术运算和一些科学计算功能。",
   "author": "LemonadeOS Team",
   "icon": "assets/icon.png"
 }
