@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "id": "com.lemonade.dictionary",
+  "platform": ["s3_t"],
+  "name": "英语词典",
+  "description": "一款基于在线接口的英语词典，支持查询音标、释义、短语、例句和近义词。",
+  "author": "LemonadeOS Team",
+  "icon": "assets/icon.png"
+}
