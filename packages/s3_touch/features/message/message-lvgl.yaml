@@ -30,6 +30,44 @@ lvgl:
                   id: contacts_delete
                   contact: !lambda 'return id(pending_delete_contact);'
               - lvgl.widget.hide: msgbox_delete_contact
+    - id: msgbox_clear_public_history
+      close_button: false
+      title: 清空频道记录
+      text_font: chinese_font14
+      body:
+        text: "确定清空本地频道聊天记录吗？"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_clear_public_history_cancel
+          text: "不"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_clear_public_history
+        - id: btn_clear_public_history_ok
+          text: "好"
+          on_click:
+            then:
+              - script.execute: chat_public_clear_local
+              - lvgl.widget.hide: msgbox_clear_public_history
+    - id: msgbox_clear_private_history
+      close_button: false
+      title: 清空私聊记录
+      text_font: chinese_font14
+      body:
+        text: "确定清空本地私聊聊天记录吗？"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_clear_private_history_cancel
+          text: "不"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_clear_private_history
+        - id: btn_clear_private_history_ok
+          text: "好"
+          on_click:
+            then:
+              - script.execute: chat_private_clear_local
+              - lvgl.widget.hide: msgbox_clear_private_history
 
   pages:
     - id: !extend page_main
@@ -79,6 +117,7 @@ lvgl:
             id: lbl_topbar_title
             text: "消息"
         - lambda: id(unread_messages_amount_private) = 0;
+        - lambda: id(unread_messages_amount_private_favorite) = 0;
         - lambda: id(unread_messages_amount_public) = 0;
         - lambda: lv_obj_add_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
         - lambda: |
@@ -90,9 +129,17 @@ lvgl:
         - script.execute:
             id: close_notification
             notification_message: "条新消息"
+        - script.execute:
+            id: close_notification
+            notification_message: "条私聊消息"
+        - script.execute:
+            id: close_notification
+            notification_message: "条私聊消息（特别关心）"
         - script.execute: contacts_refresh_list
         - script.execute: message_init_unread_dots
         - script.execute: message_update_unread_indicators
+      on_unload:
+        - script.execute: message_refresh_alert_indicator
         # - script.execute: chat_public_load
         # - script.execute: contacts_close_chat
       widgets:
@@ -161,6 +208,121 @@ lvgl:
                           - lvgl.keyboard.update:
                               id: keyboard_message_input
                               textarea: textarea_message_public_input
+              - name: 设置
+                scrollable: true
+                scroll_dir: "VER"
+                widgets:
+                  - obj:
+                      align: TOP_MID
+                      y: -15
+                      scroll_dir: "VER"
+                      width: 320
+                      height: 335
+                      border_width: 0
+                      pad_all: 0
+                      widgets:
+                        - label:
+                            text: "勿扰模式"
+                            text_font: chinese_font14
+                            x: 14
+                            y: 18
+                        - switch:
+                            id: switch_message_dnd
+                            x: 246
+                            y: 15
+                            on_change:
+                              then:
+                                - script.execute: message_settings_refresh
+                        - label:
+                            text: "屏蔽全部消息提醒"
+                            text_font: chinese_font14
+                            text_color: 0x666666
+                            x: 14
+                            y: 38
+                        - label:
+                            text: "频道勿扰"
+                            text_font: chinese_font14
+                            x: 14
+                            y: 70
+                        - switch:
+                            id: switch_message_channel_dnd
+                            x: 246
+                            y: 67
+                            on_change:
+                              then:
+                                - script.execute: message_settings_refresh
+                        - label:
+                            text: "仅屏蔽频道消息提醒"
+                            text_font: chinese_font14
+                            text_color: 0x666666
+                            x: 14
+                            y: 90
+                        - label:
+                            text: "仅提示特别关心"
+                            text_font: chinese_font14
+                            x: 14
+                            y: 122
+                        - switch:
+                            id: switch_message_only_favorite
+                            x: 246
+                            y: 119
+                            on_change:
+                              then:
+                                - script.execute: message_settings_refresh
+                        - label:
+                            text: "仅特别关心私聊显示通知和红点"
+                            text_font: chinese_font14
+                            text_color: 0x666666
+                            x: 14
+                            y: 142
+                        - label:
+                            text: "特别关心全局通知"
+                            text_font: chinese_font14
+                            x: 14
+                            y: 174
+                        - switch:
+                            id: switch_message_favorite_global
+                            x: 246
+                            y: 171
+                            on_change:
+                              then:
+                                - script.execute: message_settings_refresh
+                        - label:
+                            text: "除位于特别关心页面外时都将显示通知"
+                            text_font: chinese_font14
+                            text_color: 0x666666
+                            x: 14
+                            y: 194
+                        - button:
+                            id: btn_message_clear_public_local
+                            x: 14
+                            y: 248
+                            width: 292
+                            height: 34
+                            bg_color: !lambda return lv_color_hex(0xD96C3F);
+                            widgets:
+                              - label:
+                                  align: CENTER
+                                  text: "清空本地频道聊天记录"
+                                  text_font: chinese_font14
+                            on_click:
+                              then:
+                                - lvgl.widget.show: msgbox_clear_public_history
+                        - button:
+                            id: btn_message_clear_private_local
+                            x: 14
+                            y: 290
+                            width: 292
+                            height: 34
+                            bg_color: !lambda return lv_color_hex(0xC94C4C);
+                            widgets:
+                              - label:
+                                  align: CENTER
+                                  text: "清空本地私聊聊天记录"
+                                  text_font: chinese_font14
+                            on_click:
+                              then:
+                                - lvgl.widget.show: msgbox_clear_private_history
         - obj:
             id: dot_tab_contacts
             width: 8

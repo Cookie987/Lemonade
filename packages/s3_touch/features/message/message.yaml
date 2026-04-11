@@ -21,6 +21,10 @@ globals:
     type: uint8_t
     restore_value: no
     initial_value: '0'
+  - id: unread_messages_amount_private_favorite
+    type: uint8_t
+    restore_value: no
+    initial_value: '0'
   - id: unread_messages_amount_public
     type: uint8_t
     restore_value: no
@@ -54,7 +58,87 @@ globals:
     restore_value: no
     initial_value: 'false'
 
+switch:
+  - platform: lvgl
+    id: message_dnd_switch
+    widget: switch_message_dnd
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: lvgl
+    id: message_channel_dnd_switch
+    widget: switch_message_channel_dnd
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: lvgl
+    id: message_only_favorite_switch
+    widget: switch_message_only_favorite
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: lvgl
+    id: message_favorite_global_switch
+    widget: switch_message_favorite_global
+    restore_mode: RESTORE_DEFAULT_OFF
+
 script:
+  - id: message_settings_refresh
+    mode: restart
+    then:
+      - lambda: global_preferences->sync();
+      - script.execute:
+          id: close_notification
+          notification_message: "消息"
+      - script.execute: contacts_refresh_list
+      - script.execute: message_update_unread_indicators
+      - script.execute: message_refresh_alert_indicator
+
+  - id: message_refresh_alert_indicator
+    mode: restart
+    then:
+      - lambda: |
+          bool show_private = false;
+          bool show_public = false;
+          bool global_dnd = id(message_dnd_switch).state;
+          bool channel_dnd = id(message_channel_dnd_switch).state;
+          bool only_favorite = id(message_only_favorite_switch).state;
+
+          if (!global_dnd) {
+            std::ifstream file("/data/contacts.json");
+            std::string config_json;
+            if (file.is_open()) {
+              std::string line;
+              while (std::getline(file, line)) config_json += line + "";
+              file.close();
+            }
+
+            if (!config_json.empty()) {
+              JsonDocument doc;
+              DeserializationError error = deserializeJson(doc, config_json);
+              if (!error) {
+                JsonObject contacts = doc["contacts"].as<JsonObject>();
+                if (!contacts.isNull()) {
+                  for (JsonPair kv : contacts) {
+                    bool favorite = kv.value()["favorite"] | false;
+                    uint8_t unread = kv.value()["unread"] | 0;
+                    if (unread > 0 && (!only_favorite || favorite)) {
+                      show_private = true;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          if (!global_dnd && !channel_dnd && !only_favorite && id(unread_messages_public_badge) > 0) {
+            show_public = true;
+          }
+
+          if (show_private || show_public) {
+            lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
+          }
+
   - id: contacts_init_file
     then:
       - lambda: |
@@ -121,6 +205,8 @@ script:
           if (contacts.isNull()) {
             contacts = doc["contacts"].to<JsonObject>();
           }
+          bool global_dnd = id(message_dnd_switch).state;
+          bool only_favorite = id(message_only_favorite_switch).state;
 
           ESP_LOGD("Chat", "contacts.size(): %u", (unsigned)contacts.size());
           if (contacts.size() == 0) {
@@ -142,7 +228,8 @@ script:
                 lv_obj_set_style_bg_opa(btn, LV_OPA_50, 0);
                 lv_obj_set_style_text_color(btn, lv_color_hex(0xffffff), 0);
               }
-              if (unread > 0) {
+              bool show_unread_dot = unread > 0 && !global_dnd && (!only_favorite || favorite);
+              if (show_unread_dot) {
                 lv_obj_t * dot = lv_obj_create(btn);
                 lv_obj_set_size(dot, 8, 8);
                 lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
@@ -566,6 +653,7 @@ script:
 
           id(contacts_refresh_list)->execute();
           id(message_update_unread_indicators)->execute();
+          id(message_refresh_alert_indicator)->execute();
 
   - id: contacts_clear_unread
     mode: queued
@@ -610,6 +698,7 @@ script:
 
           id(contacts_refresh_list)->execute();
           id(message_update_unread_indicators)->execute();
+          id(message_refresh_alert_indicator)->execute();
 
   - id: message_init_unread_dots
     then:
@@ -619,7 +708,7 @@ script:
             lv_obj_set_parent(id(dot_tab_contacts), tab_btns);
             lv_obj_set_parent(id(dot_tab_public), tab_btns);
             lv_coord_t w = lv_obj_get_width(tab_btns);
-            lv_coord_t tab_w = w / 2;
+            lv_coord_t tab_w = w / 3;
             lv_obj_align(id(dot_tab_contacts), LV_ALIGN_TOP_LEFT, tab_w - 14, 6);
             lv_obj_align(id(dot_tab_public), LV_ALIGN_TOP_LEFT, (tab_w * 2) - 14, 6);
           }
@@ -632,6 +721,9 @@ script:
           bool other_private = false;
           bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
           std::string active = id(current_contact_uid);
+          bool global_dnd = id(message_dnd_switch).state;
+          bool channel_dnd = id(message_channel_dnd_switch).state;
+          bool only_favorite = id(message_only_favorite_switch).state;
 
           std::ifstream file("/data/contacts.json");
           std::string config_json;
@@ -648,8 +740,10 @@ script:
               if (!contacts.isNull()) {
                 for (JsonPair kv : contacts) {
                   std::string contact = kv.key().c_str();
+                  bool favorite = kv.value()["favorite"] | false;
                   uint8_t unread = kv.value()["unread"] | 0;
-                  if (unread > 0) {
+                  bool show_contact_unread = unread > 0 && !global_dnd && (!only_favorite || favorite);
+                  if (show_contact_unread) {
                     any_private = true;
                     if (!(chat_open && !active.empty() && contact == active)) {
                       other_private = true;
@@ -666,13 +760,14 @@ script:
             lv_obj_add_flag(id(dot_tab_contacts), LV_OBJ_FLAG_HIDDEN);
           }
 
-          if (id(unread_messages_public_badge) > 0) {
+          bool show_public = !global_dnd && !channel_dnd && !only_favorite && (id(unread_messages_public_badge) > 0);
+          if (show_public) {
             lv_obj_clear_flag(id(dot_tab_public), LV_OBJ_FLAG_HIDDEN);
           } else {
             lv_obj_add_flag(id(dot_tab_public), LV_OBJ_FLAG_HIDDEN);
           }
 
-          bool show_back = chat_open && (other_private || (id(unread_messages_public_badge) > 0));
+          bool show_back = chat_open && (other_private || show_public);
           if (show_back) {
             lv_obj_clear_flag(id(dot_back_unread), LV_OBJ_FLAG_HIDDEN);
           } else {
@@ -693,6 +788,62 @@ script:
             f2 << "{\"messages\":[]}";
             f2.close();
           }
+
+  - id: chat_public_clear_local
+    mode: queued
+    then:
+      - lambda: |
+          std::ofstream f("/data/chat_public.json", std::ios::trunc);
+          f << "{\"messages\":[]}";
+          f.close();
+
+          lv_obj_t *list = id(list_message_public);
+          if (list != nullptr) {
+            lv_obj_clean(list);
+            lv_list_add_text(list, "系统消息");
+            lv_list_add_btn(list, NULL, "[系统] 聊天记录将保存至云端。");
+          }
+
+          id(unread_messages_public_badge) = 0;
+          id(message_update_unread_indicators)->execute();
+          id(message_refresh_alert_indicator)->execute();
+          id(show_notification)->execute("已清空本地频道聊天记录", "", 2000);
+
+  - id: chat_private_clear_local
+    mode: queued
+    then:
+      - lambda: |
+          std::ofstream legacy("/data/chat_private.json", std::ios::trunc);
+          legacy << "{\"contacts\":{}}";
+          legacy.close();
+
+          DIR *dir = opendir("/data");
+          if (dir != nullptr) {
+            struct dirent *ent;
+            while ((ent = readdir(dir)) != nullptr) {
+              const char *name = ent->d_name;
+              if (name == nullptr) continue;
+              std::string filename = name;
+              bool match_prefix = filename.rfind("chat_private_", 0) == 0;
+              bool match_suffix = filename.size() >= 5 && filename.substr(filename.size() - 5) == ".json";
+              if (match_prefix && match_suffix) {
+                std::string path = std::string("/data/") + filename;
+                remove(path.c_str());
+              }
+            }
+            closedir(dir);
+          }
+
+          if (!id(current_contact_uid).empty()) {
+            lv_obj_t *list = id(list_message_friend);
+            if (list != nullptr) {
+              lv_obj_clean(list);
+              lv_list_add_text(list, "系统消息");
+              lv_list_add_btn(list, NULL, "[系统] 聊天记录将保存至云端。");
+            }
+          }
+
+          id(show_notification)->execute("已清空本地私聊聊天记录", "", 2000);
 
   - id: chat_private_append
     mode: queued
@@ -1118,19 +1269,24 @@ script:
               bool page_show = id(page_message).is_showing();
               bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
               bool on_public_tab = page_show && !chat_open && (lv_tabview_get_tab_act(tabview_message) == 1);
+              bool global_dnd = id(message_dnd_switch).state;
+              bool channel_dnd = id(message_channel_dnd_switch).state;
+              bool only_favorite = id(message_only_favorite_switch).state;
+              bool public_alert_enabled = !global_dnd && !channel_dnd && !only_favorite;
 
               if (!on_public_tab) {
                 if (id(unread_messages_public_badge) < 255) {
                   id(unread_messages_public_badge)++;
                 }
                 id(message_update_unread_indicators)->execute();
+                id(message_refresh_alert_indicator)->execute();
               } else if (id(unread_messages_public_badge) > 0) {
                 id(unread_messages_public_badge) = 0;
                 id(message_update_unread_indicators)->execute();
+                id(message_refresh_alert_indicator)->execute();
               }
 
-              if(!page_show) {
-                lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
+              if(!page_show && public_alert_enabled) {
                 if (id(unread_messages_amount_public) < 255) {
                   id(unread_messages_amount_public)++;
                   id(show_notification)->execute(
@@ -1142,6 +1298,7 @@ script:
                   id(show_notification)->execute(
                     std::string("收到 255+ 条频道消息"), std::string("条频道消息"), 0);
                 }
+                id(message_refresh_alert_indicator)->execute();
               }
               // 只保留最近的100条，但是名称标签也算子对象
               uint32_t children_count = lv_obj_get_child_cnt(list_message_public);

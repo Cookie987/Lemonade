@@ -73,9 +73,35 @@ script:
                     std::string content = root["payload"]["content"] | "";
 
                     if (sub_type == "p2p"){
+                      bool page_show = id(page_message).is_showing();
                       bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
                       std::string active_contact = id(current_contact_uid);
-                      bool is_active_contact = chat_open && !active_contact.empty() && (from_name == active_contact || from_name == id(uid));
+                      bool is_active_contact = page_show && chat_open && !active_contact.empty() && (from_name == active_contact || from_name == id(uid));
+                      bool contact_favorite = false;
+                      {
+                        std::ifstream file("/data/contacts.json");
+                        std::string config_json;
+                        if (file.is_open()) {
+                          std::string line;
+                          while (std::getline(file, line)) config_json += line + "";
+                          file.close();
+                        }
+                        if (!config_json.empty()) {
+                          JsonDocument contact_doc;
+                          DeserializationError contact_error = deserializeJson(contact_doc, config_json);
+                          if (!contact_error) {
+                            JsonObject contacts = contact_doc["contacts"].as<JsonObject>();
+                            if (!contacts.isNull() && !contacts[from_name.c_str()].isNull()) {
+                              contact_favorite = contacts[from_name.c_str()]["favorite"] | false;
+                            }
+                          }
+                        }
+                      }
+                      bool global_dnd = id(message_dnd_switch).state;
+                      bool only_favorite = id(message_only_favorite_switch).state;
+                      bool favorite_global = id(message_favorite_global_switch).state;
+                      bool private_alert_enabled = !global_dnd && (!only_favorite || contact_favorite);
+                      bool should_raise_global_alert = false;
 
                       std::string time_str = esp_time.strftime("%Y-%m-%d %H:%M:%S");
                       if (from_name == id(uid)) {
@@ -92,18 +118,39 @@ script:
                         }
                       }
 
-                      if(!id(page_message).is_showing()) {
-                        lv_obj_clear_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
-                        if (id(unread_messages_amount_private) < 255) {
+                      if (to_name == id(uid) && from_name != id(uid) && private_alert_enabled) {
+                        if (!page_show) {
+                          should_raise_global_alert = true;
+                        } else if (contact_favorite && favorite_global && !is_active_contact) {
+                          should_raise_global_alert = true;
+                        }
+                      }
+
+                      if (should_raise_global_alert) {
+                        if (contact_favorite) {
+                          if (id(unread_messages_amount_private_favorite) < 255) {
+                            id(unread_messages_amount_private_favorite)++;
+                            id(show_notification)->execute(
+                              std::string("收到 ") +
+                              std::to_string(id(unread_messages_amount_private_favorite)) +
+                              std::string(" 条私聊消息（特别关心）"),
+                              "条私聊消息（特别关心）", 0);
+                          } else {
+                            id(show_notification)->execute("收到 255+ 条私聊消息（特别关心）", "条私聊消息（特别关心）", 0);
+                          }
+                        }
+                        else if (id(unread_messages_amount_private) < 255) {
                           id(unread_messages_amount_private)++;
                           id(show_notification)->execute(
                             std::string("收到 ") +
                             std::to_string(id(unread_messages_amount_private)) +
-                            std::string(" 条私聊消息"), std::string("条私聊消息"), 0);
+                            std::string(" 条私聊消息"),
+                            "条私聊消息", 0);
                         }
                         else{
                           id(show_notification)->execute("收到 255+ 条私聊消息", "条私聊消息", 0);
                         }
+                        id(message_refresh_alert_indicator)->execute();
                       }
                       if (is_active_contact) {
                         lv_list_add_text(id(list_message_friend),
