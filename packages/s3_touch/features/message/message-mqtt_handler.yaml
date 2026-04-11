@@ -153,15 +153,36 @@ script:
                         id(message_refresh_alert_indicator)->execute();
                       }
                       if (is_active_contact) {
-                        lv_list_add_text(id(list_message_friend),
+                        lv_obj_t * friend_list = id(list_message_friend);
+                        int32_t friend_scroll_top = 0;
+                        bool keep_friend_bottom = false;
+                        if (friend_list != nullptr) {
+                          auto near_bottom_threshold = [](lv_obj_t * list_obj) -> int32_t {
+                            if (list_obj == nullptr) return 12;
+                            uint32_t child_count = lv_obj_get_child_cnt(list_obj);
+                            int32_t threshold = 0;
+                            uint8_t counted_messages = 0;
+                            for (int32_t i = static_cast<int32_t>(child_count) - 1; i >= 0 && counted_messages < 2; --i) {
+                              lv_obj_t * child = lv_obj_get_child(list_obj, static_cast<uint32_t>(i));
+                              if (child == nullptr) continue;
+                              threshold += lv_obj_get_height(child);
+                              if ((i % 2) == 1) counted_messages++;
+                            }
+                            if (threshold <= 0) threshold = 12;
+                            return threshold;
+                          };
+                          friend_scroll_top = lv_obj_get_scroll_top(friend_list);
+                          keep_friend_bottom = lv_obj_get_scroll_bottom(friend_list) <= near_bottom_threshold(friend_list);
+                        }
+                        lv_list_add_text(friend_list,
                                           (
                                             time_str +
                                             std::string(" - ") +
                                             from_name
                                           ).c_str()
                                         );
-                        lv_obj_t * list_btn = lv_list_add_btn(list_message_friend, NULL, content.c_str());
-                        bind_message_long_press(id(list_message_friend), list_btn);
+                        lv_obj_t * list_btn = lv_list_add_btn(friend_list, NULL, content.c_str());
+                        bind_message_long_press(friend_list, list_btn);
                         // 只保留最近的100条，但是名称标签也算，所以是200
                         uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
                         if (children_count > 200) {
@@ -169,7 +190,12 @@ script:
                             lv_obj_del(lv_obj_get_child(list_message_friend, 0));
                           }
                         }
-                        lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
+                        lv_obj_update_layout(friend_list);
+                        if (keep_friend_bottom) {
+                          lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
+                        } else {
+                          lv_obj_scroll_to_y(friend_list, friend_scroll_top, LV_ANIM_OFF);
+                        }
                       }
                     }
                   }

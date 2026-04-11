@@ -696,9 +696,6 @@ script:
           // ensure keyboard is above overlays
           lv_obj_move_foreground(kb);
 
-          // 高度动画回调
-          auto anim_height_cb = [](void * var, int32_t v) { lv_obj_set_height((lv_obj_t *)var, v); };
-
           lv_anim_t a;
           lv_anim_init(&a);
           lv_anim_set_time(&a, 300);
@@ -710,29 +707,13 @@ script:
           lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
           lv_anim_start(&a);
 
-          // --- Public 输入框：滑动到确定的 -80 ---
-          lv_anim_set_var(&a, pub_input);
-          lv_anim_set_values(&a, 15, -80);
-          lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
-          lv_anim_start(&a);
-
-          // --- Public 列表：高度收缩到确定的 60 ---
-          lv_anim_set_var(&a, pub_list);
-          lv_anim_set_values(&a, lv_obj_get_height(pub_list), 60);
-          lv_anim_set_exec_cb(&a, anim_height_cb);
-          lv_anim_start(&a);
-
-          // --- Friend 输入框：滑动到确定的 -80 ---
-          lv_anim_set_var(&a, fri_input);
-          lv_anim_set_values(&a, 15, -80);
-          lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)lv_obj_set_y);
-          lv_anim_start(&a);
-
-          // --- Friend 列表：高度收缩到确定的 70 ---
-          lv_anim_set_var(&a, fri_list);
-          lv_anim_set_values(&a, lv_obj_get_height(fri_list), 73);
-          lv_anim_set_exec_cb(&a, anim_height_cb);
-          lv_anim_start(&a);
+          // 直接调整消息列表和输入框，避免布局动画把滚动位置冲回顶部
+          lv_obj_set_y(pub_input, -80);
+          lv_obj_set_height(pub_list, 60);
+          lv_obj_set_y(fri_input, -80);
+          lv_obj_set_height(fri_list, 73);
+          lv_obj_update_layout(pub_list);
+          lv_obj_update_layout(fri_list);
           id(keyboard_showing) = true;
 
   - id: keyboard_message_hide

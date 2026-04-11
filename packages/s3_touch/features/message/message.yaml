@@ -1194,6 +1194,27 @@ script:
 
           std::string message_content = lv_textarea_get_text(textarea_message_public_input);
           if (message_content.empty()) return;
+          lv_obj_t * public_list = id(list_message_public);
+          bool keep_public_bottom = false;
+          int32_t public_scroll_top = 0;
+          if (public_list != nullptr) {
+            auto near_bottom_threshold = [](lv_obj_t * list_obj) -> int32_t {
+              if (list_obj == nullptr) return 12;
+              uint32_t child_count = lv_obj_get_child_cnt(list_obj);
+              int32_t threshold = 0;
+              uint8_t counted_messages = 0;
+              for (int32_t i = static_cast<int32_t>(child_count) - 1; i >= 0 && counted_messages < 2; --i) {
+                lv_obj_t * child = lv_obj_get_child(list_obj, static_cast<uint32_t>(i));
+                if (child == nullptr) continue;
+                threshold += lv_obj_get_height(child);
+                if ((i % 2) == 1) counted_messages++;
+              }
+              if (threshold <= 0) threshold = 12;
+              return threshold;
+            };
+            public_scroll_top = lv_obj_get_scroll_top(public_list);
+            keep_public_bottom = lv_obj_get_scroll_bottom(public_list) <= near_bottom_threshold(public_list);
+          }
           id(mqtt_client).publish("smck/glousr",(
                                     id(uid) +
                                     std::string(":") +
@@ -1201,11 +1222,18 @@ script:
                                   ).c_str()
                     );
           std::string time_str = t.strftime("%Y-%m-%d %H:%M:%S");
-          std::string sender = id(uid);
           uint32_t children_count = lv_obj_get_child_cnt(id(list_message_public));
           if (children_count > 200) {
             for (uint32_t i = 0; i < children_count - 200; i++) {
               lv_obj_del(lv_obj_get_child(id(list_message_public), 0));
+            }
+            lv_obj_update_layout(id(list_message_public));
+            if (keep_public_bottom) {
+              lv_obj_scroll_to_y(id(list_message_public),
+                                lv_obj_get_scroll_y(id(list_message_public)) + lv_obj_get_scroll_bottom(id(list_message_public)),
+                                LV_ANIM_OFF);
+            } else {
+              lv_obj_scroll_to_y(id(list_message_public), public_scroll_top, LV_ANIM_OFF);
             }
           }
           lv_textarea_set_text(textarea_message_public_input, "");
@@ -1256,7 +1284,28 @@ script:
               // 获取当前时间
               auto t = id(ntp_time).now();
               std::string time_str = t.strftime("%Y-%m-%d %H:%M:%S");
-              lv_list_add_text(id(list_message_public),
+              lv_obj_t * public_list = id(list_message_public);
+              int32_t public_scroll_top = 0;
+              bool keep_public_bottom = false;
+              if (public_list != nullptr) {
+                auto near_bottom_threshold = [](lv_obj_t * list_obj) -> int32_t {
+                  if (list_obj == nullptr) return 12;
+                  uint32_t child_count = lv_obj_get_child_cnt(list_obj);
+                  int32_t threshold = 0;
+                  uint8_t counted_messages = 0;
+                  for (int32_t i = static_cast<int32_t>(child_count) - 1; i >= 0 && counted_messages < 2; --i) {
+                    lv_obj_t * child = lv_obj_get_child(list_obj, static_cast<uint32_t>(i));
+                    if (child == nullptr) continue;
+                    threshold += lv_obj_get_height(child);
+                    if ((i % 2) == 1) counted_messages++;
+                  }
+                  if (threshold <= 0) threshold = 12;
+                  return threshold;
+                };
+                public_scroll_top = lv_obj_get_scroll_top(public_list);
+                keep_public_bottom = lv_obj_get_scroll_bottom(public_list) <= near_bottom_threshold(public_list);
+              }
+              lv_list_add_text(public_list,
                                 (
                                   time_str +
                                   std::string(" - ") +
@@ -1264,8 +1313,8 @@ script:
                                 ).c_str()
                               );
               id(chat_public_append)->execute(sender, content, time_str);
-              lv_obj_t * list_btn = lv_list_add_btn(list_message_public, NULL, content.c_str());
-              bind_message_long_press(id(list_message_public), list_btn);
+              lv_obj_t * list_btn = lv_list_add_btn(public_list, NULL, content.c_str());
+              bind_message_long_press(public_list, list_btn);
               bool page_show = id(page_message).is_showing();
               bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
               bool on_public_tab = page_show && !chat_open && (lv_tabview_get_tab_act(tabview_message) == 1);
@@ -1303,9 +1352,14 @@ script:
               // 只保留最近的100条，但是名称标签也算子对象
               uint32_t children_count = lv_obj_get_child_cnt(list_message_public);
               if (children_count > 200) {
-                for (uint32_t i = 0; i < children_count - 200; i++) {
-                  lv_obj_del(lv_obj_get_child(list_message_public, 0));
-                }
+                  for (uint32_t i = 0; i < children_count - 200; i++) {
+                    lv_obj_del(lv_obj_get_child(list_message_public, 0));
+                  }
               }
-              lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
+              lv_obj_update_layout(public_list);
+              if (keep_public_bottom) {
+                lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
+              } else {
+                lv_obj_scroll_to_y(public_list, public_scroll_top, LV_ANIM_OFF);
+              }
           });
