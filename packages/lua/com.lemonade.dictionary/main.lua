@@ -299,20 +299,17 @@ local function query_word(word)
 
     if not ok then
         render_error(normalized, "HTTP 请求异常: " .. tostring(code))
-        ui.show_notification("请求失败", "dict", 1800)
         return
     end
 
     if code ~= 200 or type(body) ~= "string" or body == "" then
         render_error(normalized, "接口返回异常，状态码: " .. tostring(code))
-        ui.show_notification("接口返回失败", "dict", 1800)
         return
     end
 
     local parsed_ok, payload = pcall(json.decode, body)
     if not parsed_ok or type(payload) ~= "table" then
         render_error(normalized, "JSON 解析失败，请稍后重试。")
-        ui.show_notification("解析失败", "dict", 1800)
         return
     end
 
@@ -322,7 +319,6 @@ local function query_word(word)
             error_text = "接口没有返回有效的单词数据。"
         end
         render_error(normalized, error_text)
-        ui.show_notification("没有查到结果", "dict", 1800)
         return
     end
 
