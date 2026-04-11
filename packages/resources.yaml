@@ -26,6 +26,7 @@ font:
           "\uF7C2",  # sd-card
           "\uF6A8",  # volume
           "\uF005",  # star
+          "\uF2F1",  # rotate
         ]   # arrow-left, arrow-right, rotate-left
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [

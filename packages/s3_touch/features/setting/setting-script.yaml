@@ -1,4 +1,273 @@
+globals:
+  - id: setting_update_checking
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: setting_update_has_update
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: setting_update_latest_version
+    type: std::string
+    restore_value: no
+    initial_value: '"未知"'
+  - id: setting_update_status_text
+    type: std::string
+    restore_value: no
+    initial_value: '"尚未检查更新"'
+  - id: setting_update_checked_at
+    type: std::string
+    restore_value: no
+    initial_value: '"未检查"'
+  - id: setting_update_changelog
+    type: std::string
+    restore_value: no
+    initial_value: '"点击刷新以检查更新日志"'
+  - id: setting_update_ota_url
+    type: std::string
+    restore_value: no
+    initial_value: '"${lemonade_ota_url}"'
+  - id: setting_update_ota_md5_url
+    type: std::string
+    restore_value: no
+    initial_value: '"${lemonade_ota_md5_url}"'
+
 script:
+  - id: render_system_update_page
+    mode: restart
+    then:
+      - lambda: |
+          std::string latest_version = id(setting_update_latest_version);
+          if (latest_version.empty()) {
+            latest_version = "未知";
+          }
+
+          std::string status_text = id(setting_update_status_text);
+          if (status_text.empty()) {
+            status_text = "尚未检查更新";
+          }
+
+          std::string checked_at = id(setting_update_checked_at);
+          if (checked_at.empty()) {
+            checked_at = "未检查";
+          }
+
+          std::string summary =
+              std::string("当前版本：${lemonade_version}\n") +
+              "最新版本：" + latest_version + "\n" +
+              "状态：" + status_text + "\n" +
+              "检查时间：" + checked_at;
+          lv_label_set_text(id(lbl_update_summary), summary.c_str());
+
+          std::string changelog = id(setting_update_changelog);
+          std::string changelog_view;
+          changelog_view.reserve(changelog.size());
+          int lines = 0;
+          for (char c : changelog) {
+            if (c == '\r') {
+              continue;
+            }
+            if (c == '\n') {
+              lines++;
+              if (lines >= 7) {
+                break;
+              }
+            }
+            if (changelog_view.size() >= 260) {
+              break;
+            }
+            changelog_view.push_back(c);
+          }
+          if (changelog_view.empty()) {
+            changelog_view = "暂无更新日志";
+          } else if (changelog_view.size() < changelog.size()) {
+            changelog_view += "\n...";
+          }
+          lv_label_set_text(
+              id(lbl_update_changelog),
+              (std::string("更新日志\n") + changelog_view).c_str());
+
+          if (id(setting_update_checking)) {
+            lv_label_set_text(id(lbl_check_system_update), "检查中...");
+            lv_obj_add_state(id(btn_check_system_update), LV_STATE_DISABLED);
+            lv_label_set_text(id(lbl_update_system_action), "准备中...");
+            lv_obj_add_state(id(btn_update_system), LV_STATE_DISABLED);
+            return;
+          }
+
+          lv_label_set_text(id(lbl_check_system_update), "刷新");
+          lv_obj_clear_state(id(btn_check_system_update), LV_STATE_DISABLED);
+
+          if (id(setting_update_has_update)) {
+            lv_label_set_text(
+                id(lbl_update_system_action),
+                (std::string("安装 ") + latest_version).c_str());
+            lv_obj_clear_state(id(btn_update_system), LV_STATE_DISABLED);
+          } else {
+            lv_label_set_text(id(lbl_update_system_action), "已是最新版本");
+            lv_obj_add_state(id(btn_update_system), LV_STATE_DISABLED);
+          }
+
+  - id: check_system_update
+    mode: restart
+    then:
+      - lambda: |
+          id(setting_update_checking) = true;
+          id(setting_update_has_update) = false;
+          id(setting_update_status_text) = "正在检查更新...";
+          id(setting_update_checked_at) = "进行中";
+          id(setting_update_changelog) = "正在从服务器获取更新日志...";
+          id(setting_update_ota_url) = "${lemonade_ota_url}";
+          id(setting_update_ota_md5_url) = "${lemonade_ota_md5_url}";
+      - script.execute: render_system_update_page
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - http_request.send_async:
+                method: GET
+                id: http_request_component
+                url: ${lemonade_update_info_url}
+                capture_response: true
+                max_response_buffer_size: 4kB
+                on_response:
+                  then:
+                    - lambda: |
+                        auto mark_checked_now = [&]() {
+                          auto now = id(ntp_time).now();
+                          if (now.is_valid()) {
+                            id(setting_update_checked_at) = now.strftime("%Y-%m-%d %H:%M:%S");
+                          } else {
+                            id(setting_update_checked_at) = "刚刚";
+                          }
+                        };
+                        auto read_string = [](JsonVariantConst root, std::initializer_list<const char *> keys) {
+                          for (const char *key : keys) {
+                            if (!root[key].isNull()) {
+                              return root[key].as<std::string>();
+                            }
+                          }
+                          return std::string();
+                        };
+
+                        id(setting_update_checking) = false;
+                        mark_checked_now();
+
+                        if (response->status_code != 200) {
+                          id(setting_update_latest_version) = "未知";
+                          id(setting_update_status_text) =
+                              std::string("检查失败（HTTP ") + std::to_string(response->status_code) + ")";
+                          id(setting_update_changelog) = "请确认更新接口地址和服务器状态。";
+                          return;
+                        }
+
+                        JsonDocument doc;
+                        DeserializationError error = deserializeJson(doc, body);
+                        if (error) {
+                          id(setting_update_latest_version) = "未知";
+                          id(setting_update_status_text) = "更新信息解析失败";
+                          id(setting_update_changelog) =
+                              std::string("JSON 解析失败：") + error.c_str();
+                          return;
+                        }
+
+                        JsonVariantConst root = doc.as<JsonVariantConst>();
+                        std::string latest_version =
+                            read_string(root, {"latest_version", "version", "tag_name", "name"});
+                        std::string changelog =
+                            read_string(root, {"changelog", "release_notes", "body", "description"});
+                        std::string ota_url =
+                            read_string(root, {"ota_url", "firmware_url", "url"});
+                        std::string md5_url =
+                            read_string(root, {"md5_url", "ota_md5_url"});
+
+                        if (root["ota"].is<JsonObjectConst>()) {
+                          JsonVariantConst ota = root["ota"].as<JsonVariantConst>();
+                          if (ota_url.empty()) {
+                            ota_url = read_string(ota, {"url", "ota_url", "firmware_url"});
+                          }
+                          if (md5_url.empty()) {
+                            md5_url = read_string(ota, {"md5_url", "ota_md5_url"});
+                          }
+                        }
+
+                        if (changelog.empty() && root["changes"].is<JsonArrayConst>()) {
+                          bool first_line = true;
+                          for (JsonVariantConst item : root["changes"].as<JsonArrayConst>()) {
+                            std::string line = item.as<std::string>();
+                            if (line.empty()) {
+                              continue;
+                            }
+                            if (!first_line) {
+                              changelog += "\n";
+                            }
+                            changelog += "- " + line;
+                            first_line = false;
+                          }
+                        }
+
+                        if (latest_version.empty()) {
+                          latest_version = "未知";
+                        }
+                        if (changelog.empty()) {
+                          changelog = "暂无更新日志";
+                        }
+                        if (ota_url.empty()) {
+                          ota_url = "${lemonade_ota_url}";
+                        }
+                        if (md5_url.empty()) {
+                          md5_url = "${lemonade_ota_md5_url}";
+                        }
+
+                        id(setting_update_latest_version) = latest_version;
+                        id(setting_update_changelog) = changelog;
+                        id(setting_update_ota_url) = ota_url;
+                        id(setting_update_ota_md5_url) = md5_url;
+
+                        bool has_update =
+                            latest_version != "未知" &&
+                            latest_version != std::string("${lemonade_version}");
+                        id(setting_update_has_update) = has_update;
+                        if (has_update) {
+                          id(setting_update_status_text) =
+                              std::string("发现新版本 ") + latest_version;
+                          id(show_notification)->execute(
+                              std::string("发现新版本 ") + latest_version, "", 4000);
+                        } else {
+                          id(setting_update_status_text) = "当前已是最新版本";
+                        }
+                    - script.execute: render_system_update_page
+                on_error:
+                  then:
+                    - lambda: |
+                        id(setting_update_checking) = false;
+                        id(setting_update_has_update) = false;
+                        id(setting_update_latest_version) = "未知";
+                        id(setting_update_status_text) = "检查更新失败";
+                        id(setting_update_changelog) =
+                            "请确认网络连接、证书配置或更新接口地址。";
+                        auto now = id(ntp_time).now();
+                        if (now.is_valid()) {
+                          id(setting_update_checked_at) = now.strftime("%Y-%m-%d %H:%M:%S");
+                        } else {
+                          id(setting_update_checked_at) = "刚刚";
+                        }
+                    - script.execute: render_system_update_page
+          else:
+            - lambda: |
+                id(setting_update_checking) = false;
+                id(setting_update_has_update) = false;
+                id(setting_update_latest_version) = "未知";
+                id(setting_update_status_text) = "Wi-Fi 未连接";
+                id(setting_update_changelog) = "连接网络后可检查最新版本和更新日志。";
+                auto now = id(ntp_time).now();
+                if (now.is_valid()) {
+                  id(setting_update_checked_at) = now.strftime("%Y-%m-%d %H:%M:%S");
+                } else {
+                  id(setting_update_checked_at) = "刚刚";
+                }
+            - script.execute: render_system_update_page
+
   - id: restore_default_wifi_json
     mode: queued
     then:

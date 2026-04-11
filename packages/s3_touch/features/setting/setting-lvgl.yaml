@@ -120,8 +120,14 @@ lvgl:
               - lvgl.page.show: page_ota
               - delay: 200ms
               - ota.http_request.flash:
-                  md5_url: ${lemonade_ota_md5_url}
-                  url: ${lemonade_ota_url}
+                  md5_url: !lambda |-
+                    return id(setting_update_ota_md5_url).empty()
+                               ? std::string("${lemonade_ota_md5_url}")
+                               : id(setting_update_ota_md5_url);
+                  url: !lambda |-
+                    return id(setting_update_ota_url).empty()
+                               ? std::string("${lemonade_ota_url}")
+                               : id(setting_update_ota_url);
   pages:
     - id: page_setting_menu
       on_load:
@@ -159,6 +165,7 @@ lvgl:
                         time: 200ms
               - text: "系统"
                 list_text: {}
+
               - text: "\uF53F 显示"
                 id: btn_display_setting
                 list_button: {}
@@ -203,6 +210,15 @@ lvgl:
                   then:
                     - lvgl.page.show:
                         id: system_setting_power_page
+                        animation: MOVE_LEFT
+                        time: 200ms
+              - text: "\uF2F1 系统更新"
+                id: btn_system_update_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_update_page
                         animation: MOVE_LEFT
                         time: 200ms
               - text: "\uF05A 关于"
@@ -640,26 +656,11 @@ lvgl:
         - lvgl.widget.hide: btn_back_setting
       widgets:
         - button:
-            id: btn_update_system
-            align: CENTER
-            x: -60
-            y: 70
-            width: 180
-            height: 32
-            widgets:
-              - label:
-                  align: CENTER
-                  text_font: chinese_font14
-                  text: "执行系统更新"
-            on_click:
-              then:
-                - lvgl.widget.show: msgbox_update_message
-        - button:
             id: btn_halt
             align: CENTER
-            x: 90
-            y: 70
-            width: 100
+            x: 0
+            y: 78
+            width: 120
             height: 32
             widgets:
               - label:
@@ -674,8 +675,83 @@ lvgl:
             align: CENTER
             text_align: CENTER
             width: 100%
-            y: -25
+            y: -18
             text: "加载中..."
+            text_font: chinese_font14
+
+    - id: system_setting_update_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "系统更新"
+        - script.execute: render_system_update_page
+        - script.execute: check_system_update
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+        - label:
+            id: lbl_update_summary
+            align: TOP_MID
+            x: 0
+            y: 28
+            width: 280
+            text_align: LEFT
+            text: "当前版本：${lemonade_version}\n最新版本：未知\n状态：尚未检查更新\n检查时间：未检查"
+            text_font: chinese_font14
+        - button:
+            id: btn_check_system_update
+            align: TOP_MID
+            x: -68
+            y: 102
+            width: 112
+            height: 32
+            widgets:
+              - label:
+                  id: lbl_check_system_update
+                  align: CENTER
+                  text_font: chinese_font14
+                  text: "刷新"
+            on_click:
+              then:
+                - script.execute: check_system_update
+        - button:
+            id: btn_update_system
+            align: TOP_MID
+            x: 68
+            y: 102
+            width: 132
+            height: 32
+            widgets:
+              - label:
+                  id: lbl_update_system_action
+                  align: CENTER
+                  text_font: chinese_font14
+                  text: "已是最新版本"
+            on_click:
+              then:
+                - lambda: |
+                    std::string target_version = id(setting_update_latest_version);
+                    if (target_version.empty() || target_version == "未知") {
+                      target_version = "最新版本";
+                    }
+                    std::string message =
+                        std::string("将更新至 ") + target_version +
+                        "，系统将暂时无响应(~60s)，请确保电量充足，网络连接稳定。系统将自动重启。";
+                    lv_obj_t *msgbox_text = lv_msgbox_get_text(msgbox_update_message);
+                    if (msgbox_text != nullptr) {
+                      lv_label_set_text(msgbox_text, message.c_str());
+                    }
+                - lvgl.widget.show: msgbox_update_message
+        - label:
+            id: lbl_update_changelog
+            align: TOP_MID
+            x: 0
+            y: 146
+            width: 280
+            text_align: LEFT
+            text: "更新日志\n点击刷新以检查更新日志"
             text_font: chinese_font14
 
     - id: system_setting_storage_page

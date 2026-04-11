@@ -21,6 +21,7 @@ substitutions:
   lemonade_ibeacon_measured_power: "-59"
   lemonade_ota_md5_url: ***REMOVED***lemonade/s3-touch/lemonade.md5
   lemonade_ota_url: ***REMOVED***lemonade/s3-touch/firmware.ota.bin
+  lemonade_update_info_url: ***REMOVED***lemonade/s3-touch/release.json
 ***REMOVED***  log_level: WARN
 
 esp32_ble_beacon: !remove

@@ -123,6 +123,15 @@ lvgl:
         - lambda: |
             bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
             if (chat_open) lv_label_set_text(lbl_topbar_title, id(current_contact_uid).c_str());
+        - if:
+            condition:
+              lambda: |
+                bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
+                return chat_open && !id(current_contact_uid).empty();
+            then:
+              - script.execute:
+                  id: contacts_open_chat
+                  contact: !lambda 'return id(current_contact_uid);'
         - script.execute:
             id: close_notification
             notification_message: "消息"
@@ -288,7 +297,7 @@ lvgl:
                               then:
                                 - script.execute: message_settings_refresh
                         - label:
-                            text: "除位于特别关心页面外时都将显示通知"
+                            text: "位于特别关心页面外时都显示通知"
                             text_font: chinese_font14
                             text_color: 0x666666
                             x: 14
