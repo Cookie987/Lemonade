@@ -183,6 +183,7 @@ script:
                                         );
                         lv_obj_t * list_btn = lv_list_add_btn(friend_list, NULL, content.c_str());
                         bind_message_long_press(friend_list, list_btn);
+                        lv_label_set_recolor(lv_obj_get_child(list_btn, 0), true);
                         // 只保留最近的100条，但是名称标签也算，所以是200
                         uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
                         if (children_count > 200) {
