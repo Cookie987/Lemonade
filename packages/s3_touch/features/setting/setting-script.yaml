@@ -1,4 +1,21 @@
 script:
+  - id: restore_default_wifi_json
+    mode: queued
+    then:
+      - lambda: |
+          static const char *const DEFAULT_WIFI_JSON =
+              "{\"statusCode\":200,\"error\":null,\"wifis\":[{\"ssid\":\"SEEWO\",\"password\":\"SEEWOSEEWO\"}]}";
+          std::ofstream file("/data/wifilist.json");
+          if (!file.is_open()) {
+            ESP_LOGE("CookieIoT", "Failed to open /data/wifilist.json for reset");
+            lv_label_set_text(lbl_wifi_get_info, "恢复默认网络配置失败：无法写入文件");
+            return;
+          }
+          file << DEFAULT_WIFI_JSON;
+          file.close();
+          ESP_LOGI("CookieIoT", "Restored default WiFi config");
+      - script.execute: prase_wifi_list
+
   - id: append_wifi_to_json
     mode: queued
     parameters:
@@ -6,49 +23,83 @@ script:
       password: string
     then:
       - lambda: |
-          ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
-          std::ifstream file("/data/wifilist.json");
-          if (!file.is_open()) {
-              ESP_LOGW("CookieIoT", "Config file not found.");
-          }
-          std::string line;
-          std::string config_json;
-          while (std::getline(file, line)) {
-              config_json += line + "\n";
-          }
-          file.close();
+          auto trim_copy = [](std::string value) {
+            size_t start = value.find_first_not_of(" \t\r\n");
+            if (start == std::string::npos) {
+              return std::string();
+            }
+            size_t end = value.find_last_not_of(" \t\r\n");
+            return value.substr(start, end - start + 1);
+          };
 
-          // 2. 分配 JsonDocument
-          // 建议根据 JSON 大小预估内存，或者在 V7 中直接使用 JsonDocument doc;
+          std::string normalized_ssid = trim_copy(ssid);
+          std::string normalized_password = password;
+          if (normalized_ssid.empty()) {
+            ESP_LOGW("CookieIoT", "Skip append_wifi_to_json: empty SSID");
+            return;
+          }
+
           JsonDocument doc;
-
-          // 3. 反序列化 (解析) 字符串
-          DeserializationError error = deserializeJson(doc, config_json);
-
-          if (error) {
-              // 解析失败处理
-              ESP_LOGW("CookieIoT", "Failed to parse JSON: %s", error.c_str());
-              return;
+          bool loaded_existing = false;
+          std::ifstream file("/data/wifilist.json");
+          if (file.is_open()) {
+            std::string config_json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            file.close();
+            if (!config_json.empty()) {
+              DeserializationError error = deserializeJson(doc, config_json);
+              if (error) {
+                ESP_LOGW("CookieIoT", "Failed to parse existing wifilist.json: %s", error.c_str());
+              } else {
+                loaded_existing = true;
+              }
+            }
+          } else {
+            ESP_LOGW("CookieIoT", "Config file not found, recreating /data/wifilist.json");
           }
 
-          // 4. 获取 wifis 数组
-          // 如果 wifis 不存在，doc["wifis"].to<JsonArray>() 会创建一个
-          JsonArray wifis = doc["wifis"].as<JsonArray>();
+          if (!loaded_existing) {
+            doc["statusCode"] = 200;
+            doc["error"] = nullptr;
+            doc["wifis"].to<JsonArray>();
+          }
 
-          // 5. 创建新的 WiFi 对象并添加到数组中
-          JsonObject newWifi = wifis.add<JsonObject>();
-          newWifi["ssid"] = ssid;
-          newWifi["password"] = password;
+          doc["statusCode"] = 200;
+          doc["error"] = nullptr;
+          JsonArray wifis;
+          if (doc["wifis"].is<JsonArray>()) {
+            wifis = doc["wifis"].as<JsonArray>();
+          } else {
+            wifis = doc["wifis"].to<JsonArray>();
+          }
 
-          ESP_LOGI("CookieIoT", "Added WiFi: %s", ssid.c_str());
-          // 6. 将修改后的对象序列化回 std::string
+          bool updated = false;
+          for (JsonObject item : wifis) {
+            std::string current_ssid = item["ssid"] | "";
+            if (trim_copy(current_ssid) == normalized_ssid) {
+              item["ssid"] = normalized_ssid;
+              item["password"] = normalized_password;
+              updated = true;
+              ESP_LOGI("CookieIoT", "Updated WiFi: %s", normalized_ssid.c_str());
+              break;
+            }
+          }
+
+          if (!updated) {
+            JsonObject new_wifi = wifis.add<JsonObject>();
+            new_wifi["ssid"] = normalized_ssid;
+            new_wifi["password"] = normalized_password;
+            ESP_LOGI("CookieIoT", "Added WiFi: %s", normalized_ssid.c_str());
+          }
+
           std::string output;
           serializeJson(doc, output);
-
-          // 7. 将修改后的对象写入文件
-          std::ofstream file1("/data/wifilist.json");
-          file1 << output;
-          file1.close();
+          std::ofstream output_file("/data/wifilist.json");
+          if (!output_file.is_open()) {
+            ESP_LOGE("CookieIoT", "Failed to open /data/wifilist.json for write");
+            return;
+          }
+          output_file << output;
+          output_file.close();
 
   - id: delete_wifi_from_json
     mode: queued
@@ -56,243 +107,324 @@ script:
       ssid: string
     then:
       - lambda: |
-          // 1. 解析原始字符串
-          ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
+          if (ssid.empty()) {
+            ESP_LOGW("CookieIoT", "Skip delete_wifi_from_json: empty SSID");
+            return;
+          }
+
+          JsonDocument doc;
           std::ifstream file("/data/wifilist.json");
           if (!file.is_open()) {
-              ESP_LOGW("CookieIoT", "Config file not found.");
+            ESP_LOGW("CookieIoT", "Config file not found.");
+            return;
           }
-          std::string line;
-          std::string config_json;
-          while (std::getline(file, line)) {
-              config_json += line + "\n";
-          }
+
+          std::string config_json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
           file.close();
-          JsonDocument doc;
+
           DeserializationError error = deserializeJson(doc, config_json);
           if (error) {
-              ESP_LOGW("CookieIoT", "Failed to parse JSON: %s", error.c_str());
-              return; // 解析失败
+            ESP_LOGW("CookieIoT", "Failed to parse JSON: %s", error.c_str());
+            return;
           }
 
-          // 2. 获取 wifis 数组
-          JsonArray wifis = doc["wifis"].as<JsonArray>();
-
-          // 3. 遍历并查找匹配项
-          // 注意：使用迭代器进行删除是最安全的方式
+          JsonArray wifis;
+          if (doc["wifis"].is<JsonArray>()) {
+            wifis = doc["wifis"].as<JsonArray>();
+          } else {
+            wifis = doc["wifis"].to<JsonArray>();
+          }
+          bool deleted = false;
           for (JsonArray::iterator it = wifis.begin(); it != wifis.end(); ++it) {
-              // 检查当前对象的 "ssid" 是否匹配
-              if ((*it)["ssid"] == ssid) {
-                  wifis.remove(it); // 找到匹配项并删除
-                  ESP_LOGI("CookieIoT", "Deleted WiFi: %s", ssid.c_str());
-                  break;            // 如果只需删除第一个匹配项，直接跳出循环
-              }
+            std::string current_ssid = (*it)["ssid"] | "";
+            if (current_ssid == ssid) {
+              wifis.remove(it);
+              deleted = true;
+              ESP_LOGI("CookieIoT", "Deleted WiFi: %s", ssid.c_str());
+              break;
+            }
           }
 
-          // 4. 将结果序列化回字符串
+          if (!deleted) {
+            ESP_LOGW("CookieIoT", "WiFi not found in JSON: %s", ssid.c_str());
+          }
+
           std::string output;
           serializeJson(doc, output);
-
-          // 7. 将修改后的对象写入文件
-          std::ofstream file1("/data/wifilist.json");
-          file1 << output;
-          file1.close();
+          std::ofstream output_file("/data/wifilist.json");
+          if (!output_file.is_open()) {
+            ESP_LOGE("CookieIoT", "Failed to open /data/wifilist.json for write");
+            return;
+          }
+          output_file << output;
+          output_file.close();
 
   - id: prase_wifi_list
     then:
       - lambda: |
-          // 读取Wi-Fi配置文件
-          ESP_LOGD("CookieIoT", "Started parsing wifilist.json");
+          auto wifi = wifi::global_wifi_component;
+          if (wifi == nullptr) {
+            ESP_LOGE("CookieIoT", "WiFi component unavailable");
+            lv_label_set_text(lbl_wifi_get_info, "WiFi组件不可用");
+            return;
+          }
+
           std::ifstream file("/data/wifilist.json");
           if (!file.is_open()) {
-              ESP_LOGW("CookieIoT", "Config file not found.");
+            ESP_LOGW("CookieIoT", "Config file not found.");
+            lv_label_set_text(lbl_wifi_get_info, "未找到 WiFi 配置文件");
+            return;
           }
-          std::string line;
-          std::string config_json;
-          while (std::getline(file, line)) {
-              config_json += line + "\n";
-          }
+
+          std::string config_json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
           file.close();
-          ESP_LOGD("CookieIoT", "Config file content:\n%s", config_json.c_str());
-          json::parse_json(config_json, [&](JsonVariant root) -> bool {
-            if (root["statusCode"] == 200){
-              ESP_LOGI("CookieIoT", "Clearing WiFi STA");
-              auto wifi = wifi::global_wifi_component;
-              wifi->clear_saved_wifi_stas();
-              JsonArray wifis = root["wifis"];
-              int i = 0;
-              for (JsonObject item : wifis) {
-                wifi->append_wifi_sta(item["ssid"].as<std::string>(), item["password"].as<std::string>());
-                ESP_LOGI("CookieIoT", "Saved WiFi STA: %s", item["ssid"].as<std::string>().c_str());
-                i++;
-              }
-              global_preferences->sync();
-              lv_label_set_text(lbl_wifi_get_info,(
-                                std::string("保存了") +
-                                std::to_string(i) +
-                                std::string("个WiFi。请关闭并重新打开WiFi")).c_str());
+          if (config_json.empty()) {
+            ESP_LOGW("CookieIoT", "WiFi config file is empty");
+            lv_label_set_text(lbl_wifi_get_info, "WiFi 配置为空");
+            return;
+          }
+
+          JsonDocument doc;
+          DeserializationError error = deserializeJson(doc, config_json);
+          if (error) {
+            ESP_LOGW("CookieIoT", "Failed to parse JSON: %s", error.c_str());
+            lv_label_set_text(lbl_wifi_get_info, "WiFi 配置解析失败");
+            return;
+          }
+
+          int status_code = doc["statusCode"] | 500;
+          if (status_code != 200) {
+            std::string err = doc["error"] | "未知错误";
+            lv_label_set_text(lbl_wifi_get_info, (std::string("获取WiFi信息失败：") + err).c_str());
+            return;
+          }
+
+          if (!doc["wifis"].is<JsonArray>()) {
+            lv_label_set_text(lbl_wifi_get_info, "WiFi 配置格式错误");
+            return;
+          }
+
+          JsonArray wifis = doc["wifis"].as<JsonArray>();
+          wifi->clear_saved_wifi_stas();
+
+          int applied = 0;
+          int skipped = 0;
+          for (JsonObject item : wifis) {
+            std::string wifi_ssid = item["ssid"] | "";
+            std::string wifi_password = item["password"] | "";
+            if (wifi_ssid.empty()) {
+              skipped++;
+              continue;
             }
-            return true;
-          });
+            wifi->append_wifi_sta(wifi_ssid, wifi_password);
+            ESP_LOGI("CookieIoT", "Saved WiFi STA: %s", wifi_ssid.c_str());
+            applied++;
+          }
+
+          global_preferences->sync();
+          std::string message = std::string("保存了") + std::to_string(applied) + std::string("个WiFi。");
+          if (skipped > 0) {
+            message += std::string(" 跳过") + std::to_string(skipped) + std::string("个无效条目。");
+          }
+          message += " 请关闭并重新打开WiFi";
+          lv_label_set_text(lbl_wifi_get_info, message.c_str());
+      - script.execute: refresh_wifi_list
 
   - id: refresh_wifi_list
     then:
       - lambda: |
           auto wifi = wifi::global_wifi_component;
-          auto &saved_wifis = wifi->get_sta_list();
-          for (const auto &ap : saved_wifis) {
-            ESP_LOGD("Setting", "Saved SSID: %s", ap.get_ssid().c_str());
+          if (wifi == nullptr) {
+            ESP_LOGW("Setting", "Skip refresh_wifi_list: wifi component unavailable");
+            return;
           }
-          ESP_LOGD("Setting", "Connected Wi-Fi SSID: %s", id(ssid).state.c_str());
-          // 获取扫描结果
-          ESP_LOGD("Setting", "Wi-Fi Scan Results: %s\n", id(wifi_scan_results).state.c_str());
+
           lv_obj_t *list_obj = id(list_scanned_wifi);
           if (list_obj == nullptr || !lv_obj_is_valid(list_obj)) {
             ESP_LOGW("Setting", "Skip refresh_wifi_list: list_scanned_wifi invalid (%p)", list_obj);
             return;
           }
-          lv_obj_clean(list_obj);
-          ESP_LOGD("Setting", "Cleaned list_scanned_wifi.");
-          lv_list_add_text(list_obj, "扫描到的Wi-Fi");
-          std::string wifi_list = id(wifi_scan_results).state;
-          struct WifiEntry {
-              std::string line;
-              int rssi;
+
+          auto trim_copy = [](std::string value) {
+            size_t start = value.find_first_not_of(" \t\r\n");
+            if (start == std::string::npos) {
+              return std::string();
+            }
+            size_t end = value.find_last_not_of(" \t\r\n");
+            return value.substr(start, end - start + 1);
           };
-          std::vector<WifiEntry> wifis;
-          size_t start = 0, end = 0;
-
-          // 1. 获取当前已连接的 SSID
-          std::string connected_ssid = id(ssid).state;
-
-          // 2. 解析数据并提取 RSSI
-          while ((end = wifi_list.find('\n', start)) != std::string::npos) {
-              std::string line = wifi_list.substr(start, end - start);
-              if (line.length() > 2) {
-                  int rssi_val = -100;
-                  size_t colon_pos = line.find_last_of(':');
-                  if (colon_pos != std::string::npos) {
-                      sscanf(line.c_str() + colon_pos + 1, "%d", &rssi_val);
-                  }
-                  wifis.push_back({line, rssi_val});
+          auto has_suffix = [](const std::string &value, const std::string &suffix) {
+            return value.size() >= suffix.size() &&
+                   value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+          };
+          auto strip_status_suffix = [&](std::string value) {
+            value = trim_copy(value);
+            static const char *const suffixes[] = {"(已连接)", "(已保存)"};
+            for (const char *suffix : suffixes) {
+              std::string marker = std::string(" ") + suffix;
+              if (has_suffix(value, marker)) {
+                value.erase(value.size() - marker.size());
+                break;
               }
-              start = end + 1;
+            }
+            return trim_copy(value);
+          };
+          auto extract_ssid = [&](const std::string &value) {
+            std::string cleaned = strip_status_suffix(value);
+            size_t pos = cleaned.find_last_of(':');
+            if (pos != std::string::npos) {
+              cleaned = cleaned.substr(0, pos);
+            }
+            return trim_copy(cleaned);
+          };
+          auto is_saved_ssid = [&](const std::string &ssid_value) {
+            for (const auto &ap : wifi->get_sta_list()) {
+              if (ap.get_ssid() == ssid_value) {
+                return true;
+              }
+            }
+            return false;
+          };
+
+          struct WifiEntry {
+            std::string raw;
+            std::string ssid;
+            int rssi;
+            bool saved;
+            bool connected;
+          };
+
+          std::string connected_ssid = id(ssid).state;
+          std::string wifi_list = id(wifi_scan_results).state;
+          std::vector<WifiEntry> entries;
+
+          size_t start = 0;
+          while (start <= wifi_list.size()) {
+            size_t end = wifi_list.find('\n', start);
+            std::string line = end == std::string::npos ? wifi_list.substr(start) : wifi_list.substr(start, end - start);
+            start = end == std::string::npos ? wifi_list.size() + 1 : end + 1;
+
+            line = trim_copy(line);
+            if (line.empty()) {
+              continue;
+            }
+
+            std::string current_ssid = extract_ssid(line);
+            if (current_ssid.empty()) {
+              continue;
+            }
+
+            int rssi_value = -127;
+            size_t colon_pos = line.find_last_of(':');
+            if (colon_pos != std::string::npos) {
+              std::string rssi_text = trim_copy(line.substr(colon_pos + 1));
+              int parsed_rssi = -127;
+              if (sscanf(rssi_text.c_str(), "%d", &parsed_rssi) == 1) {
+                rssi_value = parsed_rssi;
+              }
+            }
+
+            bool connected = !connected_ssid.empty() && current_ssid == connected_ssid;
+            bool saved = is_saved_ssid(current_ssid);
+            entries.push_back({line, current_ssid, rssi_value, saved, connected});
           }
 
-          // 3. 排序：已连接的 Wi-Fi 强制排在第一，其他的按信号强度从强到弱
-          std::sort(wifis.begin(), wifis.end(), [&connected_ssid](const WifiEntry& a, const WifiEntry& b) {
-              // 提取 SSID 函数
-              auto get_ssid_from_line = [](const std::string& l) {
-                  size_t p = l.find_last_of(':');
-                  if (p == std::string::npos) return l;
-                  std::string s = l.substr(0, p);
-                  // 去掉末尾空格
-                  size_t last = s.find_last_not_of(' ');
-                  return (last == std::string::npos) ? s : s.substr(0, last + 1);
-              };
-
-              std::string ssid_a = get_ssid_from_line(a.line);
-              std::string ssid_b = get_ssid_from_line(b.line);
-
-              bool is_a_connected = (!connected_ssid.empty() && ssid_a == connected_ssid);
-              bool is_b_connected = (!connected_ssid.empty() && ssid_b == connected_ssid);
-
-              if (is_a_connected) return true;  // a 是已连接，排前面
-              if (is_b_connected) return false; // b 是已连接，排前面
-              return a.rssi > b.rssi;           // 否则比信号强度
+          std::sort(entries.begin(), entries.end(), [](const WifiEntry &a, const WifiEntry &b) {
+            if (a.connected != b.connected) {
+              return a.connected > b.connected;
+            }
+            if (a.rssi != b.rssi) {
+              return a.rssi > b.rssi;
+            }
+            return a.ssid < b.ssid;
           });
 
-          // 4. 遍历并创建按钮
-          for (const auto& wifi : wifis) {
-              std::string display_text = wifi.line;
-
-              // 再次提取 SSID 用于比对，添加后缀
-              size_t p = wifi.line.find_last_of(':');
-              std::string current_ssid = (p != std::string::npos) ? wifi.line.substr(0, p) : wifi.line;
-              // 简单的去除末尾空格处理
-              current_ssid.erase(current_ssid.find_last_not_of(" ") + 1);
-
-              // 添加其他信息
-              bool is_saved = false;
-              for (const auto &ap : saved_wifis) {
-                if (ap.get_ssid() == current_ssid) {
-                  is_saved = true;
-                  break;
-                }
-              }
-              if (!connected_ssid.empty() && current_ssid == connected_ssid) {
-                  display_text += " (已连接)";
-              }
-              else if (is_saved) {
-                  display_text += " (已保存)";
-              }
-
-              // 创建按钮
-              lv_obj_t *btn = lv_list_add_btn(list_obj, NULL, display_text.c_str());
-
-              // 事件回调
-              lv_obj_add_event_cb(
-                  btn,
-                  [](lv_event_t *e) {
-                    auto wifi = wifi::global_wifi_component;
-                    lv_obj_t *target_btn = lv_event_get_target(e);
-                    lv_obj_t *list_obj = lv_obj_get_parent(target_btn);
-                    const char *txt = lv_list_get_btn_text(list_obj, target_btn);
-                    // 如果是已保存的 Wi-Fi，直接连接；否则进入输入密码界面
-                    if(txt) ESP_LOGD("Setting", "Clicked Wi-Fi: %s", txt);
-                    if (strstr(txt, "(已保存)")) {
-                      std::string ssid = txt;
-                      size_t pos = ssid.find(" (已保存)");
-                      if (pos != std::string::npos) {
-                          ssid.erase(pos);
-                      }
-                      // 去除:后面的RSSI等信息
-                      pos = ssid.find_last_of(':');
-                      if (pos != std::string::npos) {
-                          ssid.erase(pos);
-                      }
-                      // 去掉末尾空格
-                      ssid.erase(ssid.find_last_not_of(" ") + 1);
-                      // 暂时不做连接，改为删除选中的wifi
-                      // // 还需要获取密码
-                      // for (const auto &ap : wifi->get_sta_list()) {
-                      //   if (ap.get_ssid() == ssid) {
-                      //     ESP_LOGD("Setting", "Connecting to saved Wi-Fi: %s", ssid.c_str());
-                      //     wifi::WiFiAP sta{};
-                      //     sta.set_ssid(ssid);
-                      //     sta.set_password(ap.get_password());
-                      //     wifi->start_connecting(sta);
-                      //     break;
-                      //   }
-                      // }
-                      lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_wifi_message);
-                      lv_label_set_text(msgbox_text,
-                                        (
-                                          std::string("确定要删除 ") + ssid + " 吗？"
-                                        ).c_str());
-                      lv_obj_clear_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
-                      lv_obj_move_foreground(msgbox_delete_wifi_message_outer);
-                    }
-                    else {
-                      std::string ssid = txt;
-                      size_t pos = ssid.find(" (已保存)");
-                      if (pos != std::string::npos) {
-                          ssid.erase(pos);
-                      }
-                      // 去除:后面的RSSI等信息
-                      pos = ssid.find_last_of(':');
-                      if (pos != std::string::npos) {
-                          ssid.erase(pos);
-                      }
-                      // 去掉末尾空格
-                      ssid.erase(ssid.find_last_not_of(" ") + 1);
-                      ESP_LOGD("Setting", "Going to password input for Wi-Fi: %s", ssid.c_str());
-                      lv_label_set_text(lbl_new_wifi_ssid, ssid.c_str());
-                      id(lvgl_1)->show_page(system_setting_new_wifi_page->index, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200);
-                    }
-                  },
-                  LV_EVENT_CLICKED,
-                  NULL
-              );
+          lv_obj_clean(list_obj);
+          lv_list_add_text(list_obj, "扫描到的Wi-Fi");
+          if (entries.empty()) {
+            lv_list_add_text(list_obj, "暂无扫描结果");
+            return;
           }
 
+          for (const auto &entry : entries) {
+            std::string display_text = entry.raw;
+            if (entry.connected) {
+              display_text += " (已连接)";
+            } else if (entry.saved) {
+              display_text += " (已保存)";
+            }
+
+            lv_obj_t *btn = lv_list_add_btn(list_obj, NULL, display_text.c_str());
+            lv_obj_add_event_cb(
+                btn,
+                [](lv_event_t *e) {
+                  auto trim_copy = [](std::string value) {
+                    size_t start = value.find_first_not_of(" \t\r\n");
+                    if (start == std::string::npos) {
+                      return std::string();
+                    }
+                    size_t end = value.find_last_not_of(" \t\r\n");
+                    return value.substr(start, end - start + 1);
+                  };
+                  auto has_suffix = [](const std::string &value, const std::string &suffix) {
+                    return value.size() >= suffix.size() &&
+                           value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+                  };
+                  auto strip_status_suffix = [&](std::string value) {
+                    value = trim_copy(value);
+                    static const char *const suffixes[] = {"(已连接)", "(已保存)"};
+                    for (const char *suffix : suffixes) {
+                      std::string marker = std::string(" ") + suffix;
+                      if (has_suffix(value, marker)) {
+                        value.erase(value.size() - marker.size());
+                        break;
+                      }
+                    }
+                    return trim_copy(value);
+                  };
+                  auto extract_ssid = [&](const std::string &value) {
+                    std::string cleaned = strip_status_suffix(value);
+                    size_t pos = cleaned.find_last_of(':');
+                    if (pos != std::string::npos) {
+                      cleaned = cleaned.substr(0, pos);
+                    }
+                    return trim_copy(cleaned);
+                  };
+
+                  lv_obj_t *target_btn = lv_event_get_target(e);
+                  if (target_btn == nullptr) {
+                    return;
+                  }
+                  lv_obj_t *parent = lv_obj_get_parent(target_btn);
+                  if (parent == nullptr) {
+                    return;
+                  }
+
+                  const char *txt = lv_list_get_btn_text(parent, target_btn);
+                  if (txt == nullptr) {
+                    return;
+                  }
+
+                  std::string selected_text = txt;
+                  std::string selected_ssid = extract_ssid(selected_text);
+                  if (selected_ssid.empty()) {
+                    return;
+                  }
+
+                  bool managed_wifi = selected_text.find("(已保存)") != std::string::npos ||
+                                      selected_text.find("(已连接)") != std::string::npos;
+                  if (managed_wifi) {
+                    lv_obj_t *msgbox_text = lv_msgbox_get_text(msgbox_delete_wifi_message);
+                    lv_label_set_text(msgbox_text, (std::string("确定要删除 ") + selected_ssid + " 吗？").c_str());
+                    lv_obj_clear_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_move_foreground(msgbox_delete_wifi_message_outer);
+                    return;
+                  }
+
+                  ESP_LOGD("Setting", "Going to password input for Wi-Fi: %s", selected_ssid.c_str());
+                  lv_label_set_text(lbl_new_wifi_ssid, selected_ssid.c_str());
+                  id(lvgl_1)->show_page(system_setting_new_wifi_page->index, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200);
+                },
+                LV_EVENT_CLICKED,
+                NULL);
+          }

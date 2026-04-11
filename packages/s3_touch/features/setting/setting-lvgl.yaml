@@ -54,14 +54,7 @@ lvgl:
           on_click:
             then:
               - lvgl.widget.hide: msgbox_restore_network_message
-              - lambda: |
-                    auto wifi = wifi::global_wifi_component;
-                    if (wifi == nullptr) return;
-                    std::string payload = std::string("{\"statusCode\": 200,\"error\": null,\"wifis\": [{\"ssid\": \"SEEWO\",\"password\": \"SEEWOSEEWO\"}]}");
-                    std::ofstream file("/data/wifilist.json");
-                    file << payload;
-                    file.close();
-                    id(prase_wifi_list)->execute();
+              - script.execute: restore_default_wifi_json
 
     - id: msgbox_delete_wifi_message
       close_button: false
@@ -81,9 +74,12 @@ lvgl:
           on_click:
             then:
               - lambda: |
-                  auto wifi = wifi::global_wifi_component;
                   lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_wifi_message);
                   const char *txt = lv_label_get_text(msgbox_text);
+                  if (txt == nullptr) {
+                      lv_obj_add_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
+                      return;
+                  }
                   // 提取Wi-Fi名称，格式是 "确定要删除 Wi-Fi名称 吗？"
                   std::string msg = txt;
                   std::string prefix = "确定要删除 ";
@@ -98,17 +94,8 @@ lvgl:
                       if (end != std::string::npos)
                       {
                           std::string ssid = msg.substr(start, end - start);
-                          std::string config_json;
-                          // 不知道为什么wifi->delete_wifi_stas不管用
-                          // 所以这里需要先读取保存的wifi列表再“不添加”要删除的wifi
-                          // 真的不是我故意这样写的😭
-
-                          // 2026/03/06 edit
-                          // 虽然我可能找到了删不掉和没法加的原因，是因为esphome限制了数量，现在我改了限制，可以用了
-                          // 但是我还是打算用这个，debug esphome本体有点麻烦（
                           id(delete_wifi_from_json)->execute(ssid);
                           id(prase_wifi_list)->execute();
-                          id(refresh_wifi_list)->execute();
                           lv_obj_add_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
                       }
                   }
@@ -802,7 +789,7 @@ lvgl:
             text_font: chinese_font14
             password_mode: true
             one_line: true
-            max_length: 16
+            max_length: 63
             placeholder_text: "输入Wi-Fi密码"
             on_ready:
               then:
@@ -814,7 +801,9 @@ lvgl:
                     id(append_wifi_to_json)->execute(ssid, password);
                     id(prase_wifi_list)->execute();
                     global_preferences->sync();
-                    wifi::global_wifi_component->start_scanning();
+                    if (wifi::global_wifi_component != nullptr) {
+                      wifi::global_wifi_component->start_scanning();
+                    }
                     id(lvgl_1)->show_page(system_setting_wifi_config_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
                     id(show_notification)->execute("建议重启 Wi-Fi 以获得最佳效果", "", 5000);
 
