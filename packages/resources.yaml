@@ -70,9 +70,6 @@ font:
           "\uF054",
           "\uF00C",
         ]
-      # - file: "fonts/BJCree-Medium.ttf"
-      #   glyphs: ["ᓚᕙᕗᕐᑊᑌᑐᑕᑖᑗᓘᑙᑚᑛᑜᑝᑞᑟᑠᑡᑢᑣᑤᑥᑦᑫᑬᑭᑮᑯᑰᑱᑲᑳᑴᑵᑶᑷᑸᑹᑺᑻᑼᑽᑾᑿᒀᒁᒂᒃᒄᒉᒊᒋᒌᒍᒎᒏᒐᒑᒒᒓᒔᒕᒖᒗᒘᒙᒚᒛᒜᒝᒞᒟᒠᒡᒢᒣᒤᒥᒦᒧᒨᒩᒪᒫᒬᒭᒮᒯᒰᒱᒲᒳᒴᒵᒶᒷᒸᒹᒺ"
-      #   ]
 
   - file: "fonts/MiSans-Medium.ttf"
     id: "chinese_font36"
