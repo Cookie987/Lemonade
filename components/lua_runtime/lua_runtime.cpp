@@ -842,6 +842,15 @@ void LuaRuntime::set_ota_active(bool active) {
 #endif
 }
 
+void LuaRuntime::register_rtttl_player(const std::string &name, rtttl::Rtttl *player) {
+#ifndef LUA_RUNTIME_STUB
+  lua_runtime::register_rtttl_player(name, player);
+#else
+  (void) name;
+  (void) player;
+#endif
+}
+
 bool LuaRuntime::is_ota_active() const {
 #ifndef LUA_RUNTIME_STUB
   return g_ota_active;

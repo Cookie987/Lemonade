@@ -11,6 +11,7 @@ DEPENDENCIES = ["esp32"]
 CONF_ENABLE_STUB = "enable_stub"
 CONF_FORCE_32BIT = "force_32bit"
 CONF_ASYNC_CORE = "async_core"
+CONF_RTTTL = "rtttl"
 
 lua_runtime_ns = cg.esphome_ns.namespace("lua_runtime")
 LuaRuntime = lua_runtime_ns.class_("LuaRuntime", cg.Component)
@@ -58,6 +59,13 @@ async def to_code(config):
         cg.add_define("LUA_32BITS")
 
     cg.add(var.set_async_core(config[CONF_ASYNC_CORE]))
+
+    rtttl_configs = CORE.config.get(CONF_RTTTL, []) if CORE.config else []
+    if not isinstance(rtttl_configs, list):
+        rtttl_configs = [rtttl_configs]
+    for rtttl_config in rtttl_configs:
+        rtttl = await cg.get_variable(rtttl_config[CONF_ID])
+        cg.add(var.register_rtttl_player(str(rtttl_config[CONF_ID]), rtttl))
 
     # Export lemonade_version (from substitutions) as a C define if present
     lemonade_ver = None

@@ -8,6 +8,12 @@
 struct lua_State;
 
 namespace esphome {
+namespace rtttl {
+class Rtttl;
+}  // namespace rtttl
+}  // namespace esphome
+
+namespace esphome {
 namespace lua_runtime {
 
 bool is_active_app_page();
@@ -24,6 +30,7 @@ class LuaRuntime : public Component {
   void abort_all();
   void set_async_core(int async_core) { this->async_core_ = async_core; }
   void set_ota_active(bool active);
+  void register_rtttl_player(const std::string &name, rtttl::Rtttl *player);
   bool is_ota_active() const;
 
  protected:

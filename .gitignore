@@ -8,3 +8,4 @@ secret.py
 *.pem
 *.custom.yaml
 misc/
+anyui_s3_t_24/*

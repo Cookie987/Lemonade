@@ -7,7 +7,7 @@ This component lets the firmware load and run Lua scripts from the filesystem
 - Adds a `lua_runtime` component and an action `lua_runtime.run_file`.
 - Reads the script via standard VFS (`std::ifstream`).
 - Executes the script in a fresh Lua VM.
-- Registers built-in APIs such as `log(...)` and `switch.get_state(...)`.
+- Registers built-in APIs such as `log(...)`, `switch.get_state(...)`, and `rtttl.play(player, ...)`.
 
 ## Important: add Lua sources
 This repo does not include Lua sources. To enable the runtime:
@@ -43,4 +43,6 @@ if wifi_on == nil then
 else
   log.info("lua", "wifi_switch =", wifi_on)
 end
+
+rtttl.play("rtttl_player", "LuaTone:d=16,o=6,b=100:c,e,g")
 ```
