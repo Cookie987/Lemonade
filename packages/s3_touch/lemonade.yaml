@@ -516,7 +516,7 @@ sensor:
             condition:
               sensor.in_range:
                 id: internal_temp
-                above: 40.0
+                above: 45.0
             then:
               - lvgl.page.show: page_temperature_high
             else:
@@ -525,7 +525,7 @@ sensor:
                     - lvgl.page.is_showing: page_temperature_high
                     - sensor.in_range:
                         id: internal_temp
-                        below: 35.0
+                        below: 40.0
                   then:
                     - lvgl.page.show: page_main
 
