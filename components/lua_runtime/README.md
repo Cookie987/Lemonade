@@ -7,7 +7,7 @@ This component lets the firmware load and run Lua scripts from the filesystem
 - Adds a `lua_runtime` component and an action `lua_runtime.run_file`.
 - Reads the script via standard VFS (`std::ifstream`).
 - Executes the script in a fresh Lua VM.
-- Registers a minimal built-in API: `log(...)` (writes to ESP_LOGI).
+- Registers built-in APIs such as `log(...)` and `switch.get_state(...)`.
 
 ## Important: add Lua sources
 This repo does not include Lua sources. To enable the runtime:
@@ -36,4 +36,11 @@ script:
 ## Example Lua script
 ```lua
 log("Hello from Lua on SD!")
+
+local wifi_on, err = switch.get_state("wifi_switch")
+if wifi_on == nil then
+  log.warn("lua", err)
+else
+  log.info("lua", "wifi_switch =", wifi_on)
+end
 ```
