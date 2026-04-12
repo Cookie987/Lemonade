@@ -335,7 +335,12 @@ static int l_obj_set_scrollbar_mode(lua_State *L) {
 
 static int l_obj_scroll_to_view(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  lv_anim_enable_t a1_anim_en = (lv_anim_enable_t) luaL_checkinteger(L, 2);
+  lv_anim_enable_t a1_anim_en;
+  if (lua_isboolean(L, 2)) {
+    a1_anim_en = lua_toboolean(L, 2) ? LV_ANIM_ON : LV_ANIM_OFF;
+  } else {
+    a1_anim_en = (lv_anim_enable_t) luaL_checkinteger(L, 2);
+  }
   if (a0_obj == nullptr) {
     return 0;
   }
@@ -346,7 +351,12 @@ static int l_obj_scroll_to_view(lua_State *L) {
 static int l_obj_scroll_to_y(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   lv_coord_t a1_y = (lv_coord_t) luaL_checkinteger(L, 2);
-  lv_anim_enable_t a2_anim_en = (lv_anim_enable_t) luaL_checkinteger(L, 3);
+  lv_anim_enable_t a2_anim_en;
+  if (lua_isboolean(L, 3)) {
+    a2_anim_en = lua_toboolean(L, 3) ? LV_ANIM_ON : LV_ANIM_OFF;
+  } else {
+    a2_anim_en = (lv_anim_enable_t) luaL_checkinteger(L, 3);
+  }
   if (a0_obj == nullptr) {
     return 0;
   }

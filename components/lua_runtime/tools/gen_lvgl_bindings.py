@@ -166,6 +166,15 @@ def read_expr(type_name: str, arg_name: str, idx: int) -> list[str]:
             f"  {arg_name} = lua_touserdata(L, {idx});",
             "}",
         ]
+    if base == "lv_anim_enable_t":
+        return [
+            f"{t} {arg_name};",
+            f"if (lua_isboolean(L, {idx})) {{",
+            f"  {arg_name} = lua_toboolean(L, {idx}) ? LV_ANIM_ON : LV_ANIM_OFF;",
+            "} else {",
+            f"  {arg_name} = ({t}) luaL_checkinteger(L, {idx});",
+            "}",
+        ]
     if base == "bool":
         return [f"{t} {arg_name} = ({t}) lua_toboolean(L, {idx});"]
     if base == "lv_color_t":
