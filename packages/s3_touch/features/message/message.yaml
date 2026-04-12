@@ -1031,6 +1031,7 @@ script:
               lv_list_add_text(list, (std::string(time_s) + " - " + from_s).c_str());
               last_btn = lv_list_add_btn(list, nullptr, content_s);
               bind_message_long_press(list, last_btn);
+              lv_label_set_recolor(lv_obj_get_child(last_btn, 0), true);
             }
             if (last_btn) lv_obj_scroll_to_view(last_btn, LV_ANIM_ON);
             return modified;
