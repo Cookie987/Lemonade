@@ -93,10 +93,11 @@ binary_sensor:
     on_press:
       then:
         - script.execute: wakeup_button
-        - lvgl.page.show:
-            id: page_main
-            animation: FADE_IN
-            time: 200ms
+        - if:
+            condition:
+              lvgl.page.is_showing: page_temperature_high
+            else:
+              - lvgl.page.show: page_main
 
   - platform: gpio
     id: charge
@@ -110,10 +111,28 @@ binary_sensor:
       then:
         - logger.log: Charger connected
         - script.execute: update_date
+        - if:
+            condition:
+              - lvgl.page.is_showing: page_temperature_high
+            then:
+              - lvgl.canvas.fill:
+                  id: high_temp_canvas
+                  color: !lambda return lv_color_hex(0xF64D4D);
+              - lambda: |
+                  lv_label_set_text(id(lbl_temp_high), "#ffffff 请立即断开充电器。#");
     on_release:
       then:
         - logger.log: Charger disconnected
         - script.execute: update_date
+        - if:
+            condition:
+              - lvgl.page.is_showing: page_temperature_high
+            then:
+              - lvgl.canvas.fill:
+                  id: high_temp_canvas
+                  color: !lambda return lv_color_hex(0x000000);
+              - lambda: |
+                  lv_label_set_text(id(lbl_temp_high), "请等待 SMC 冷却后再使用。");
 
   - platform: gpio
     id: dock_detect

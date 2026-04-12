@@ -937,3 +937,69 @@ lvgl:
                                     id: page_timer
                                     animation: FADE_IN
                                     time: 200ms
+
+    - id: page_temperature_high
+      on_load:
+        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - if:
+            condition:
+              lambda: 'return id(is_sleeping);'
+            then:
+              - script.execute: wakeup_script
+        - if:
+            condition:
+              binary_sensor.is_on: charge
+            then:
+              - lvgl.canvas.fill:
+                  id: high_temp_canvas
+                  color: !lambda return lv_color_hex(0x000000);
+              - lvgl.canvas.fill:
+                  id: high_temp_canvas
+                  color: !lambda return lv_color_hex(0xF64D4D);
+              - lambda: |
+                  lv_label_set_text(id(lbl_temp_high), "#ffffff 请立即断开充电器。#");
+      widgets:
+        - canvas:
+            id: high_temp_canvas
+            align: CENTER
+            width: 320
+            height: 240
+        - image:
+            src: temperature_high
+            x: 124
+            y: 40
+            width: 73
+            height: 73
+        - label:
+            id: lbl_temp_high_title
+            align: CENTER
+            y: 20
+            recolor: true
+            text_font: chinese_font18
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "温度"
+        - label:
+            id: lbl_temp_high
+            align: CENTER
+            y: 50
+            recolor: true
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "请等 SMC 冷却后再使用。"
+        - button:
+            id: btn_high_temp_energency
+            align: CENTER
+            y: 78
+            width: 120
+            height: 32
+            bg_color: !lambda return lv_color_hex(0x313131);
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text: "紧急情况"
+            on_click:
+              then:
+                - lvgl.page.show: page_main
+                - component.suspend: internal_temp
+                - delay: 5min
+                - component.resume: internal_temp

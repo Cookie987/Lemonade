@@ -509,7 +509,25 @@ sensor:
 
   - platform: internal_temperature
     id: internal_temp
-    update_interval: 20s
+    update_interval: 5s
+    on_value:
+      then:
+        - if:
+            condition:
+              sensor.in_range:
+                id: internal_temp
+                above: 40.0
+            then:
+              - lvgl.page.show: page_temperature_high
+            else:
+              - if:
+                  condition:
+                    - lvgl.page.is_showing: page_temperature_high
+                    - sensor.in_range:
+                        id: internal_temp
+                        below: 35.0
+                  then:
+                    - lvgl.page.show: page_main
 
   - platform: debug
     free:
