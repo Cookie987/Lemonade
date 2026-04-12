@@ -97,7 +97,10 @@ binary_sensor:
             condition:
               lvgl.page.is_showing: page_temperature_high
             else:
-              - lvgl.page.show: page_main
+              - lvgl.page.show:
+                  id: page_main
+                  animation: FADE_IN
+                  time: 200ms
 
   - platform: gpio
     id: charge
