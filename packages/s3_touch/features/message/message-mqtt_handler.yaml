@@ -76,7 +76,8 @@ script:
                       bool page_show = id(page_message).is_showing();
                       bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
                       std::string active_contact = id(current_contact_uid);
-                      bool is_active_contact = page_show && chat_open && !active_contact.empty() && (from_name == active_contact || (from_name == id(uid) && to_name == active_contact));
+                      // 即使在主页也要加入显示，避免反复加载数据
+                      bool is_active_contact = chat_open && !active_contact.empty() && (from_name == active_contact || (from_name == id(uid) && to_name == active_contact));
                       bool contact_favorite = false;
                       {
                         std::ifstream file("/data/contacts.json");
@@ -111,7 +112,7 @@ script:
                       }
 
                       if (to_name == id(uid) && from_name != id(uid)) {
-                        if (is_active_contact) {
+                        if (is_active_contact && page_show) {
                           id(contacts_clear_unread)->execute(from_name);
                         } else {
                           id(contacts_increment_unread)->execute(from_name);

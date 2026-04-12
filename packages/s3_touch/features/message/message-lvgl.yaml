@@ -123,15 +123,11 @@ lvgl:
         - lambda: |
             bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
             if (chat_open) lv_label_set_text(lbl_topbar_title, id(current_contact_uid).c_str());
-        - if:
-            condition:
-              lambda: |
-                bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
-                return chat_open && !id(current_contact_uid).empty();
-            then:
-              - script.execute:
-                  id: contacts_open_chat
-                  contact: !lambda 'return id(current_contact_uid);'
+        - lambda: |
+            std::string active_contact = id(current_contact_uid);
+            bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
+            bool is_active_contact = chat_open && !active_contact.empty();
+            if(is_active_contact) id(contacts_clear_unread)->execute(active_contact);
         - script.execute:
             id: close_notification
             notification_message: "消息"
