@@ -1145,6 +1145,7 @@ script:
             lv_list_add_text(list, (time_s + " - " + from_s).c_str());
             last_btn = lv_list_add_btn(list, NULL, content_s.c_str());
             bind_message_long_press(list, last_btn);
+            lv_label_set_recolor(lv_obj_get_child(last_btn, 0), true);
           }
           if (last_btn) lv_obj_scroll_to_view(last_btn, LV_ANIM_ON);
 
@@ -1316,6 +1317,7 @@ script:
               id(chat_public_append)->execute(sender, content, time_str);
               lv_obj_t * list_btn = lv_list_add_btn(public_list, NULL, content.c_str());
               bind_message_long_press(public_list, list_btn);
+              lv_label_set_recolor(lv_obj_get_child(list_btn, 0), true);
               bool page_show = id(page_message).is_showing();
               bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
               bool on_public_tab = page_show && !chat_open && (lv_tabview_get_tab_act(tabview_message) == 1);
