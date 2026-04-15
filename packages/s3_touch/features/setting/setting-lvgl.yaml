@@ -664,29 +664,273 @@ lvgl:
       on_unload:
         - lvgl.widget.hide: btn_back_setting
       widgets:
-        - button:
-            id: btn_halt
-            align: CENTER
+        - obj:
+            id: obj_about_list
             x: 0
-            y: 78
-            width: 120
-            height: 32
+            y: 18
+            width: 320
+            height: 222
+            bg_color: !lambda return lv_color_hex(0xffffff);
+            border_width: 0
+            radius: 0
+            pad_all: 0
+            scrollbar_mode: "OFF"
+            scroll_dir: "VER"
             widgets:
+              - image:
+                  id: img_about_logo
+                  src: lemonadeos_logo
+                  align: TOP_MID
+                  y: 10
               - label:
-                  align: CENTER
+                  align: TOP_MID
+                  y: 128
+                  width: 288
+                  text_align: CENTER
+                  text: "设备详细信息"
                   text_font: chinese_font14
-                  text: "关闭设备"
-            on_click:
-              then:
-                - lvgl.widget.show: msgbox_halt_message
-        - label:
-            id: lbl_sysinfo
-            align: CENTER
-            text_align: CENTER
-            width: 100%
-            y: -18
-            text: "加载中..."
-            text_font: chinese_font14
+                  text_color: 0x666666
+              - button:
+                  id: btn_about_device_model
+                  align: TOP_MID
+                  y: 150
+                  width: 288
+                  height: 70
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "设备型号"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_device_model_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
+              - button:
+                  id: btn_about_cpu_temp
+                  align: TOP_MID
+                  y: 228
+                  width: 288
+                  height: 70
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "CPU 温度"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_cpu_temp_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
+              - button:
+                  id: btn_about_esphome_version
+                  align: TOP_MID
+                  y: 306
+                  width: 288
+                  height: 90
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "ESPHome 版本"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_esphome_version_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
+              - button:
+                  id: btn_about_lemonadeos_version
+                  align: TOP_MID
+                  y: 404
+                  width: 288
+                  height: 70
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "LemonadeOS 版本"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_lemonadeos_version_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
+              - button:
+                  id: btn_about_uptime
+                  align: TOP_MID
+                  y: 482
+                  width: 288
+                  height: 70
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "正常运行时间"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_uptime_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
+              - label:
+                  align: TOP_MID
+                  y: 560
+                  width: 288
+                  text_align: CENTER
+                  text: "设备标识符"
+                  text_font: chinese_font14
+                  text_color: 0x666666
+              - button:
+                  id: btn_about_mac
+                  align: TOP_MID
+                  y: 582
+                  width: 288
+                  height: 70
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "MAC 地址"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_mac_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
+              - button:
+                  id: btn_about_build_date
+                  align: TOP_MID
+                  y: 660
+                  width: 288
+                  height: 70
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "构建日期"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_build_date_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
+              - button:
+                  id: btn_about_commit_hash
+                  align: TOP_MID
+                  y: 738
+                  width: 288
+                  height: 70
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "构建版本"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_commit_hash_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
+              - label:
+                  align: TOP_MID
+                  y: 816
+                  width: 288
+                  text_align: CENTER
+                  text: "法律信息"
+                  text_font: chinese_font14
+                  text_color: 0x666666
+              - button:
+                  id: btn_about_legal
+                  align: TOP_MID
+                  y: 838
+                  width: 288
+                  height: 130
+                  bg_color: !lambda return lv_color_hex(0xffffff);
+                  border_width: 1
+                  border_color: 0xe6e6e6
+                  radius: 10
+                  widgets:
+                    - label:
+                        x: 14
+                        y: 7
+                        text: "作者与版权"
+                        text_font: chinese_font14
+                        text_color: 0x1f1f1f
+                    - label:
+                        id: lbl_about_legal_value
+                        x: 14
+                        y: 27
+                        width: 252
+                        text: "加载中..."
+                        text_font: chinese_font14
+                        text_color: 0x666666
 
     - id: system_setting_update_page
       skip: true

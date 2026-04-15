@@ -8,3 +8,7 @@ image:
       transparency: alpha_channel
       id: settings_icon
       resize: 96x96
+    - file: "imgs/logo.png"
+      transparency: alpha_channel
+      id: lemonadeos_logo
+      resize: 160x110

@@ -571,9 +571,8 @@ script:
           std::string mac = "none";
           std::string commit = "fffffff";
 
-          auto cpu_freq1 = id(cpu_freq).state / 1000000;
-          std::string cpu_freq = std::to_string((int)cpu_freq1) + "MHz";
           std::string cpu_temp = std::to_string((int)id(internal_temp).state) + "°C";
+          std::string build_date = std::string(__DATE__) + " " + std::string(__TIME__);
 
           mac = id(text_sensor_mac_address).state;
           commit = id(lemonade_git_commit_sha).state.substr(0, 7);
@@ -591,22 +590,18 @@ script:
             ssid_val = "(未连接)";
             rssi_str = "-∞";
           }
-          // 拼接文字
-          char buf[512];
-          snprintf(buf, sizeof(buf),
-                  "运行时间: %s "
-                  "CPU: 40~%s "
-                  "%s \n"
-                  "型号：${lemonade_device_model} MAC: %s\n\nLemonade OS ${lemonade_version}"
-                  " %s\n"
-                  "ESPHome %s\nOS by Cookie987, HW by ZSVStudio.\n©2026 RedCookieStudios.",
-                  id(uptime_text).state.c_str(),
-                  cpu_freq.c_str(),
-                  cpu_temp.c_str(),
-                  mac.c_str(),
-                  commit.c_str(),
-                  esphome_ver.c_str()
-                  );
+
+          if (mac.empty()) {
+            mac = "未知";
+          }
+
+          if (commit.empty()) {
+            commit = "未知";
+          }
+
+          if (esphome_ver.empty()) {
+            esphome_ver = "未知";
+          }
 
           char buf_wifi_info[256];
           snprintf(buf_wifi_info, sizeof(buf_wifi_info),
@@ -620,7 +615,16 @@ script:
                   mac.c_str()
                   );
           lv_label_set_text(id(lbl_wifi_info), buf_wifi_info);
-          lv_label_set_text(id(lbl_sysinfo), buf);
+          lv_label_set_text(id(lbl_about_device_model_value), "${lemonade_device_model}");
+          lv_label_set_text(id(lbl_about_cpu_temp_value), cpu_temp.c_str());
+          lv_label_set_text(id(lbl_about_esphome_version_value), esphome_ver.c_str());
+          lv_label_set_text(id(lbl_about_lemonadeos_version_value), "${lemonade_version}");
+          lv_label_set_text(id(lbl_about_uptime_value), id(uptime_text).state.c_str());
+          lv_label_set_text(id(lbl_about_mac_value), mac.c_str());
+          lv_label_set_text(id(lbl_about_build_date_value), build_date.c_str());
+          lv_label_set_text(id(lbl_about_commit_hash_value), commit.c_str());
+          lv_label_set_text(id(lbl_about_legal_value),
+                            "OS：Cookie987\nUI：srr321\nHW：ZSVStudio\n©2026 RedCookieStudios");
 
   - id: wifi_list_update
     mode: single
