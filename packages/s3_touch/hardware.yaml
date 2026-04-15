@@ -33,6 +33,7 @@ touchscreen:
       mirror_y: false
     on_touch:
       then:
+        - script.execute: security_register_activity
         - if:
             condition:
               lambda: 'return !id(is_sleeping);'
@@ -97,10 +98,20 @@ binary_sensor:
             condition:
               lvgl.page.is_showing: page_temperature_high
             else:
-              - lvgl.page.show:
-                  id: page_main
-                  animation: FADE_IN
-                  time: 200ms
+              - if:
+                  condition:
+                    lambda: 'return id(security_is_locked);'
+                  then:
+                    - script.execute: security_render_lock_screen
+                    - lvgl.page.show:
+                        id: page_lock_screen
+                        animation: FADE_IN
+                        time: 200ms
+                  else:
+                    - lvgl.page.show:
+                        id: page_main
+                        animation: FADE_IN
+                        time: 200ms
 
   - platform: gpio
     id: charge

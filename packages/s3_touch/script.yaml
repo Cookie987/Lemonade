@@ -12,6 +12,7 @@ script:
 
   - id: wakeup_button
     then:
+      - script.execute: security_register_activity
       - if:
           condition:
             lambda: 'return id(is_sleeping);'
@@ -20,6 +21,7 @@ script:
 
   - id: sleep_button
     then:
+      - script.execute: security_register_activity
       - if:
           condition:
             - lambda: 'return id(is_sleeping);'
@@ -30,7 +32,9 @@ script:
 
   - id: sleep_script
     then:
+      - script.execute: security_on_sleep
       - lambda: id(is_sleeping)=true;
+      - component.suspend: touch_panel
       - lvgl.pause:
           show_snow: false
           lvgl_id: lvgl_1
@@ -60,8 +64,10 @@ script:
       # - delay: 200ms
       # display on
       - lambda: id(watchface)->set_command(0x29);
+      - component.resume: touch_panel
       - lvgl.resume:
           lvgl_id: lvgl_1
+      - script.execute: security_after_wakeup
 
   - id: sdcard_init
     mode: single
@@ -158,6 +164,7 @@ script:
               return;
           }
           lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+          lv_img_set_src(id(img_lock_screen_bg), LVGL_FILE_PATH);
           ESP_LOGI("CookieIoT", "Background image source updated form LittleFS.");
 
   - id: get_background_img
@@ -310,6 +317,7 @@ script:
                 snprintf(date_buf, sizeof(date_buf), "%04d-%02d-%02d %s",
                         t.year, t.month, t.day_of_month, weekday_buf);
                 lv_label_set_text(id(date_label), date_buf);
+                lv_label_set_text(id(lbl_lock_date), date_buf);
             - lvgl.label.update:
                 id: lbl_topbar_date
                 text: !lambda |-
@@ -322,6 +330,11 @@ script:
                   auto a = day_names[id(ntp_time).now().day_of_week - 1]; // Adjust for 0-based index
                   snprintf(buf, sizeof(buf), "%02d.%02d %s", t.month, t.day_of_month, a);
                   return std::string(buf1) + " " + std::string(buf);
+            - lambda: |
+                const char *battery_text = lv_label_get_text(id(lbl_battery_status));
+                if (battery_text != nullptr) {
+                  lv_label_set_text(id(lbl_lock_battery_status), battery_text);
+                }
 
   - id: update_time
     then:
@@ -335,6 +348,7 @@ script:
                 char buf[9];
                 snprintf(buf, sizeof(buf), "%02d:%02d:%02d", t.hour, t.minute, t.second);
                 lv_label_set_text(id(time_label), buf);
+                lv_label_set_text(id(lbl_lock_time), buf);
 
   - id: keepalive
     then:
@@ -473,6 +487,11 @@ script:
                     return "\U000F092F -∞dBm"; // mdi-wifi-strength-outline
                   }
                   return std::string(icon) + " " + std::string(buf);
+            - lambda: |
+                const char *wifi_text = lv_label_get_text(id(lbl_wifi_status));
+                if (wifi_text != nullptr) {
+                  lv_label_set_text(id(lbl_lock_wifi_status), wifi_text);
+                }
 
   - id: get_iot_info
     then:

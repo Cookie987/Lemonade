@@ -208,6 +208,7 @@ script:
                   lv_img_set_src(id(img_current_weather_icon), id(weather_icon_2x)[icon]);
                   lv_label_set_text(id(lbl_current_weather_max_min_temp), text.c_str());
                   lv_label_set_text(id(lbl_current_weather_wind), text.c_str());
+                  lv_label_set_text(id(lbl_lock_weather), text.c_str());
                 }
                 if (root["now"]) {
                   std::string text = root["now"]["text"].as<std::string>();
@@ -216,6 +217,7 @@ script:
                   lv_img_set_src(id(img_current_weather_icon), id(weather_icon_2x)[icon]);
                   lv_label_set_text(id(lbl_current_weather_text), text.c_str());
                   lv_label_set_text(id(lbl_current_weather_text_main), text.c_str());
+                  lv_label_set_text(id(lbl_lock_weather), text.c_str());
                   std::string windDir = root["now"]["windDir"].as<std::string>();
 
                   // km/h转换成m/s，保留1位小数

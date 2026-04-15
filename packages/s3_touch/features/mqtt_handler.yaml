@@ -129,6 +129,7 @@ script:
                         return false;
                     }
                     lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+                    lv_img_set_src(id(img_lock_screen_bg), LVGL_FILE_PATH);
                     ESP_LOGI("CookieIoT", "Image source updated.");
                     id(show_notification)->execute("获取背景图片成功", "", 5000);
                     return true;

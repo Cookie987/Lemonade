@@ -45,6 +45,7 @@ packages:
   # - !include packages/storage.yaml
   # 设置
   - !include packages/s3_touch/features/setting/setting.yaml
+  - !include packages/s3_touch/features/security/security.yaml
   - !include packages/s3_touch/features/app_store/app_store.yaml
   # 秒表
   - !include packages/s3_touch/features/timer/timer.yaml
@@ -53,16 +54,16 @@ packages:
   # 聊天
   - !include packages/s3_touch/features/message/message.yaml
 
-wireguard:
-  address: 10.1.0.100
-  private_key: !secret wg_privkey
-***REMOVED***  peer_public_key: !secret wg_peer_public_key
-  # Optional netmask (this is the default, no outgoing traffic
-  # will pass through the tunnel if omitted)
-  netmask: 255.255.255.0
-  peer_port: 51820
-  peer_allowed_ips:
-    - 10.1.0.0/24
-    - 192.168.1.0/24
-  peer_persistent_keepalive: 25s
-  reboot_timeout: 0s
+# wireguard:
+#   address: 10.1.0.100
+#   private_key: !secret wg_privkey
+***REMOVED***#   peer_public_key: !secret wg_peer_public_key
+#   # Optional netmask (this is the default, no outgoing traffic
+#   # will pass through the tunnel if omitted)
+#   netmask: 255.255.255.0
+#   peer_port: 51820
+#   peer_allowed_ips:
+#     - 10.1.0.0/24
+#     - 192.168.1.0/24
+#   peer_persistent_keepalive: 25s
+#   reboot_timeout: 0s

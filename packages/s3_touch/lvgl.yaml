@@ -999,7 +999,7 @@ lvgl:
                   text: "紧急情况"
             on_click:
               then:
-                - lvgl.page.show: page_main
+                - script.execute: security_resume_saved_page
                 - component.suspend: internal_temp
                 - delay: 5min
                 - component.resume: internal_temp

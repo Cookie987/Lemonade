@@ -1,0 +1,770 @@
+globals:
+  - id: security_lock_type
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: security_pin_code
+    type: std::string
+    restore_value: yes
+    initial_value: '""'
+  - id: security_pattern_code
+    type: std::string
+    restore_value: yes
+    initial_value: '""'
+  - id: security_auto_lock_seconds
+    type: int
+    restore_value: yes
+    initial_value: '60'
+  - id: security_auto_sleep_seconds
+    type: int
+    restore_value: yes
+    initial_value: '0'
+  - id: security_is_locked
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: security_flow_mode
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: security_pending_secret
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: security_pin_entry
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: security_pattern_entry
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: security_status_text
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: security_last_activity_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  - id: security_pattern_handler_bound
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: security_resume_page
+    type: lv_obj_t *
+    restore_value: no
+    initial_value: 'nullptr'
+  - id: security_sleep_started_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+interval:
+  - interval: 1s
+    id: interval_security_idle
+    then:
+      - script.execute: security_check_idle
+
+script:
+  - id: security_capture_resume_page
+    mode: restart
+    then:
+      - lambda: |
+          lv_obj_t *active = lv_scr_act();
+          if (active == nullptr) {
+            id(security_resume_page) = id(page_main)->obj;
+            return;
+          }
+
+          if (active == id(page_lock_screen)->obj ||
+              active == id(page_security_pin)->obj ||
+              active == id(page_security_pattern)->obj ||
+              active == id(page_temperature_high)->obj) {
+            return;
+          }
+
+          id(security_resume_page) = active;
+
+  - id: security_register_activity
+    mode: restart
+    then:
+      - lambda: |
+          id(security_last_activity_ms) = millis();
+
+  - id: security_on_sleep
+    mode: restart
+    then:
+      - script.execute: security_capture_resume_page
+      - lambda: |
+          id(security_sleep_started_ms) = millis();
+
+  - id: security_render_lock_screen
+    mode: restart
+    then:
+      - lambda: |
+          const char *time_text = lv_label_get_text(id(time_label));
+          const char *date_text = lv_label_get_text(id(date_label));
+          const char *wifi_text = lv_label_get_text(id(lbl_wifi_status));
+          const char *battery_text = lv_label_get_text(id(lbl_battery_status));
+          const char *weather_text = lv_label_get_text(id(lbl_current_weather_text_main));
+
+          lv_label_set_text(id(lbl_lock_time), time_text != nullptr ? time_text : "--:--:--");
+          lv_label_set_text(id(lbl_lock_date), date_text != nullptr ? date_text : "----.--.--");
+          lv_label_set_text(id(lbl_lock_wifi_status), wifi_text != nullptr ? wifi_text : "\U000F092E OFF");
+          lv_label_set_text(id(lbl_lock_battery_status), battery_text != nullptr ? battery_text : "\U000F0091 --%");
+          lv_label_set_text(id(lbl_lock_weather), weather_text != nullptr ? weather_text : "N/A");
+
+  - id: security_render_settings_page
+    mode: restart
+    then:
+      - lambda: |
+          auto timeout_text = [](int seconds) {
+            if (seconds < 0) {
+              return std::string("立即");
+            }
+            if (seconds == 0) {
+              return std::string("永不");
+            }
+            if (seconds < 60) {
+              return std::to_string(seconds) + " 秒";
+            }
+            if (seconds % 60 == 0) {
+              return std::to_string(seconds / 60) + " 分钟";
+            }
+            return std::to_string(seconds) + " 秒";
+          };
+
+          std::string type_text = "关闭";
+          if (id(security_lock_type) == 1) {
+            type_text = "数字密码";
+          } else if (id(security_lock_type) == 2) {
+            type_text = "九点连线";
+          }
+
+          const bool has_secret =
+              (id(security_lock_type) == 1 && !id(security_pin_code).empty()) ||
+              (id(security_lock_type) == 2 && !id(security_pattern_code).empty());
+
+          int lock_type_index = 0;
+          if (id(security_lock_type) == 1) {
+            lock_type_index = 1;
+          } else if (id(security_lock_type) == 2) {
+            lock_type_index = 2;
+          }
+
+          int auto_lock_index = 0;
+          static const int auto_lock_values[] = {-1, 0, 15, 30, 60, 120, 300, 600};
+          constexpr size_t auto_lock_count = sizeof(auto_lock_values) / sizeof(auto_lock_values[0]);
+          for (size_t i = 0; i < auto_lock_count; i++) {
+            if (auto_lock_values[i] == id(security_auto_lock_seconds)) {
+              auto_lock_index = static_cast<int>(i);
+              break;
+            }
+          }
+
+          int auto_sleep_index = 0;
+          static const int auto_sleep_values[] = {0, 15, 30, 60, 120, 300, 600};
+          constexpr size_t auto_sleep_count = sizeof(auto_sleep_values) / sizeof(auto_sleep_values[0]);
+          for (size_t i = 0; i < auto_sleep_count; i++) {
+            if (auto_sleep_values[i] == id(security_auto_sleep_seconds)) {
+              auto_sleep_index = static_cast<int>(i);
+              break;
+            }
+          }
+
+          lv_dropdown_set_selected(id(dropdown_security_lock_type).obj, lock_type_index);
+          lv_dropdown_set_selected(id(dropdown_security_auto_lock).obj, auto_lock_index);
+          lv_dropdown_set_selected(id(dropdown_security_auto_sleep).obj, auto_sleep_index);
+          lv_label_set_text(
+              id(lbl_security_password_action),
+              id(security_lock_type) == 0 ? "未启用" : (has_secret ? "修改密码" : "设置密码"));
+
+          if (id(security_lock_type) == 0) {
+            lv_obj_add_state(id(btn_security_change_password), LV_STATE_DISABLED);
+            lv_obj_add_state(id(btn_security_lock_now), LV_STATE_DISABLED);
+          } else {
+            lv_obj_clear_state(id(btn_security_change_password), LV_STATE_DISABLED);
+            if (has_secret) {
+              lv_obj_clear_state(id(btn_security_lock_now), LV_STATE_DISABLED);
+            } else {
+              lv_obj_add_state(id(btn_security_lock_now), LV_STATE_DISABLED);
+            }
+          }
+
+  - id: security_apply_lock_type_dropdown
+    mode: restart
+    then:
+      - lambda: |
+          int selected = lv_dropdown_get_selected(id(dropdown_security_lock_type).obj);
+          id(security_lock_type) = selected;
+          id(security_pin_code).clear();
+          id(security_pattern_code).clear();
+          id(security_pending_secret).clear();
+          id(security_pin_entry).clear();
+          id(security_pattern_entry).clear();
+          id(security_status_text).clear();
+          id(security_is_locked) = false;
+          global_preferences->sync();
+      - script.execute: security_render_settings_page
+      - lambda: |
+          std::string text = "锁屏方式已切换为";
+          if (id(security_lock_type) == 0) {
+            text += "关闭";
+          } else if (id(security_lock_type) == 1) {
+            text += "数字密码";
+          } else {
+            text += "九点连线";
+          }
+          if (id(security_lock_type) != 0) {
+            text += "，请重新设置密码";
+          }
+          id(show_notification)->execute(text, "", 3000);
+
+  - id: security_apply_auto_lock_dropdown
+    mode: restart
+    then:
+      - lambda: |
+          static const int options[] = {-1, 0, 15, 30, 60, 120, 300, 600};
+          int index = lv_dropdown_get_selected(id(dropdown_security_auto_lock).obj);
+          if (index < 0 || index >= (int) (sizeof(options) / sizeof(options[0]))) {
+            index = 0;
+          }
+          id(security_auto_lock_seconds) = options[index];
+          global_preferences->sync();
+      - script.execute: security_render_settings_page
+
+  - id: security_apply_auto_sleep_dropdown
+    mode: restart
+    then:
+      - lambda: |
+          static const int options[] = {0, 15, 30, 60, 120, 300, 600};
+          int index = lv_dropdown_get_selected(id(dropdown_security_auto_sleep).obj);
+          if (index < 0 || index >= (int) (sizeof(options) / sizeof(options[0]))) {
+            index = 0;
+          }
+          id(security_auto_sleep_seconds) = options[index];
+          global_preferences->sync();
+      - script.execute: security_render_settings_page
+
+  - id: security_open_password_editor
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: 'return id(security_lock_type) == 0;'
+          then:
+            - lambda: |
+                id(show_notification)->execute("请先选择锁屏方式", "", 2500);
+          else:
+            - lambda: |
+                id(security_pending_secret).clear();
+                id(security_pin_entry).clear();
+                id(security_pattern_entry).clear();
+                id(security_status_text).clear();
+                id(security_flow_mode) = id(security_lock_type) == 1 ? 1 : 4;
+            - if:
+                condition:
+                  lambda: 'return id(security_lock_type) == 1;'
+                then:
+                  - script.execute: security_render_pin_page
+                  - lvgl.page.show:
+                      id: page_security_pin
+                      animation: MOVE_LEFT
+                      time: 200ms
+                else:
+                  - script.execute: security_render_pattern_page
+                  - lvgl.page.show:
+                      id: page_security_pattern
+                      animation: MOVE_LEFT
+                      time: 200ms
+
+  - id: security_lock_now
+    mode: restart
+    then:
+      - script.execute: security_capture_resume_page
+      - lambda: |
+          const bool has_secret =
+              (id(security_lock_type) == 1 && !id(security_pin_code).empty()) ||
+              (id(security_lock_type) == 2 && !id(security_pattern_code).empty());
+          if (id(security_lock_type) == 0 || !has_secret) {
+            return;
+          }
+
+          id(security_is_locked) = true;
+          id(security_flow_mode) = 0;
+          id(security_pending_secret).clear();
+          id(security_pin_entry).clear();
+          id(security_pattern_entry).clear();
+          id(security_status_text).clear();
+      - script.execute: security_render_lock_screen
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - lvgl.page.show:
+                id: page_lock_screen
+                animation: FADE_IN
+                time: 200ms
+
+  - id: security_show_unlock_entry
+    mode: restart
+    then:
+      - lambda: |
+          const bool has_secret =
+              (id(security_lock_type) == 1 && !id(security_pin_code).empty()) ||
+              (id(security_lock_type) == 2 && !id(security_pattern_code).empty());
+          if (!id(security_is_locked) || !has_secret) {
+            id(security_is_locked) = false;
+            return;
+          }
+
+          id(security_status_text).clear();
+          id(security_pin_entry).clear();
+          id(security_pattern_entry).clear();
+          id(security_flow_mode) = id(security_lock_type) == 1 ? 3 : 6;
+      - if:
+          condition:
+            lambda: 'return !id(security_is_locked);'
+          then:
+            - script.execute: security_unlock_success
+          else:
+            - if:
+                condition:
+                  lambda: 'return id(security_lock_type) == 1;'
+                then:
+                  - script.execute: security_render_pin_page
+                  - lvgl.page.show:
+                      id: page_security_pin
+                      animation: MOVE_LEFT
+                      time: 200ms
+                else:
+                  - script.execute: security_render_pattern_page
+                  - lvgl.page.show:
+                      id: page_security_pattern
+                      animation: MOVE_LEFT
+                      time: 200ms
+
+  - id: security_unlock_success
+    mode: restart
+    then:
+      - lambda: |
+          id(security_is_locked) = false;
+          id(security_flow_mode) = 0;
+          id(security_pending_secret).clear();
+          id(security_pin_entry).clear();
+          id(security_pattern_entry).clear();
+          id(security_status_text).clear();
+      - script.execute: security_register_activity
+      - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+      - script.execute: security_resume_saved_page
+
+  - id: security_resume_saved_page
+    mode: restart
+    then:
+      - lambda: |
+          lv_obj_t *resume_page = id(security_resume_page);
+          if (resume_page == nullptr ||
+              resume_page == id(page_lock_screen)->obj ||
+              resume_page == id(page_security_pin)->obj ||
+              resume_page == id(page_security_pattern)->obj ||
+              resume_page == id(page_temperature_high)->obj) {
+            resume_page = id(page_main)->obj;
+          }
+          id(security_resume_page) = resume_page;
+          lv_scr_load_anim(resume_page, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
+
+  - id: security_after_wakeup
+    mode: restart
+    then:
+      - lambda: |
+          const bool has_secret =
+              (id(security_lock_type) == 1 && !id(security_pin_code).empty()) ||
+              (id(security_lock_type) == 2 && !id(security_pattern_code).empty());
+
+          if (has_secret && !id(security_is_locked) && id(security_sleep_started_ms) != 0) {
+            uint32_t slept_ms = millis() - id(security_sleep_started_ms);
+            bool should_lock = false;
+
+            if (id(security_auto_lock_seconds) < 0) {
+              should_lock = true;
+            } else if (id(security_auto_lock_seconds) > 0 &&
+                       slept_ms >= (uint32_t) id(security_auto_lock_seconds) * 1000UL) {
+              should_lock = true;
+            }
+
+            if (should_lock) {
+              id(security_is_locked) = true;
+              id(security_flow_mode) = 0;
+              id(security_pending_secret).clear();
+              id(security_pin_entry).clear();
+              id(security_pattern_entry).clear();
+              id(security_status_text).clear();
+            }
+          }
+          id(security_sleep_started_ms) = 0;
+      - if:
+          condition:
+            lambda: 'return id(security_is_locked);'
+          then:
+            - script.execute: security_render_lock_screen
+            - lvgl.page.show:
+                id: page_lock_screen
+                animation: FADE_IN
+                time: 200ms
+
+  - id: security_check_idle
+    mode: restart
+    then:
+      - lambda: |
+          if (id(is_sleeping)) {
+            return;
+          }
+
+          uint32_t now = millis();
+          if (id(security_last_activity_ms) == 0) {
+            id(security_last_activity_ms) = now;
+            return;
+          }
+
+          const bool has_secret =
+              (id(security_lock_type) == 1 && !id(security_pin_code).empty()) ||
+              (id(security_lock_type) == 2 && !id(security_pattern_code).empty());
+          const uint32_t idle_ms = now - id(security_last_activity_ms);
+
+          if (id(security_auto_sleep_seconds) > 0 &&
+              idle_ms >= (uint32_t) id(security_auto_sleep_seconds) * 1000UL) {
+            id(sleep_script)->execute();
+            return;
+          }
+
+  - id: security_render_pin_page
+    mode: restart
+    then:
+      - lambda: |
+          std::string title = "数字密码";
+          std::string prompt = "请输入 4-8 位数字";
+
+          if (id(security_flow_mode) == 1) {
+            title = "设置数字密码";
+            prompt = "请输入新的 4-8 位数字密码";
+          } else if (id(security_flow_mode) == 2) {
+            title = "确认数字密码";
+            prompt = "请再次输入相同的数字密码";
+          } else if (id(security_flow_mode) == 3) {
+            title = "输入锁屏密码";
+            prompt = "请输入已设置的数字密码";
+          }
+
+          if (!id(security_status_text).empty()) {
+            prompt = id(security_status_text);
+          }
+
+          std::string masked(id(security_pin_entry).size(), '*');
+          if (masked.empty()) {
+            masked = "尚未输入";
+          }
+
+          lv_label_set_text(id(lbl_security_pin_title), title.c_str());
+          lv_label_set_text(id(lbl_security_pin_prompt), prompt.c_str());
+          lv_label_set_text(id(lbl_security_pin_value), masked.c_str());
+          if (id(security_flow_mode) == 3) {
+            lv_obj_add_flag(id(btn_security_pin_submit), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_clear_flag(id(btn_security_pin_submit), LV_OBJ_FLAG_HIDDEN);
+          }
+
+  - id: security_pin_append_digit
+    mode: restart
+    parameters:
+      digit: string
+    then:
+      - lambda: |
+          if (id(security_flow_mode) != 1 &&
+              id(security_flow_mode) != 2 &&
+              id(security_flow_mode) != 3) {
+            return;
+          }
+          if (id(security_pin_entry).size() >= 8) {
+            return;
+          }
+          id(security_pin_entry) += digit;
+          id(security_status_text).clear();
+      - if:
+          condition:
+            lambda: |
+              if (id(security_flow_mode) != 3) {
+                return false;
+              }
+              size_t saved = id(security_pin_code).size();
+              if (saved < 4 || saved > 8) {
+                return false;
+              }
+              return id(security_pin_entry).size() >= saved;
+          then:
+            - script.execute: security_pin_submit
+          else:
+            - script.execute: security_render_pin_page
+
+  - id: security_pin_backspace
+    mode: restart
+    then:
+      - lambda: |
+          if (!id(security_pin_entry).empty()) {
+            id(security_pin_entry).pop_back();
+          }
+          id(security_status_text).clear();
+      - script.execute: security_render_pin_page
+
+  - id: security_pin_clear
+    mode: restart
+    then:
+      - lambda: |
+          id(security_pin_entry).clear();
+          id(security_status_text).clear();
+      - script.execute: security_render_pin_page
+
+  - id: security_pin_submit
+    mode: restart
+    then:
+      - lambda: |
+          const size_t len = id(security_pin_entry).size();
+
+          if (id(security_flow_mode) == 1) {
+            if (len < 4 || len > 8) {
+              id(security_status_text) = "数字密码长度需为 4-8 位";
+              return;
+            }
+            id(security_pending_secret) = id(security_pin_entry);
+            id(security_pin_entry).clear();
+            id(security_flow_mode) = 2;
+            id(security_status_text).clear();
+            return;
+          }
+
+          if (id(security_flow_mode) == 2) {
+            if (len < 4 || len > 8) {
+              id(security_status_text) = "数字密码长度需为 4-8 位";
+              return;
+            }
+            if (id(security_pin_entry) != id(security_pending_secret)) {
+              id(security_pin_entry).clear();
+              id(security_status_text) = "两次输入不一致，请重试";
+              return;
+            }
+            id(security_pin_code) = id(security_pin_entry);
+            id(security_pending_secret).clear();
+            id(security_pin_entry).clear();
+            id(security_flow_mode) = 0;
+            id(security_status_text).clear();
+            global_preferences->sync();
+            id(show_notification)->execute("数字密码设置成功", "", 2500);
+            id(security_render_settings_page)->execute();
+            id(lvgl_1)->show_page(system_setting_security_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+            return;
+          }
+
+          if (id(security_flow_mode) == 3) {
+            size_t required_length = id(security_pin_code).size();
+            if (required_length < 4 || required_length > 8) {
+              required_length = 4;
+            }
+            if (len != required_length) {
+              id(security_status_text) =
+                  std::string("请输入完整的 ") + std::to_string(required_length) + " 位密码";
+              return;
+            }
+            if (id(security_pin_entry) == id(security_pin_code)) {
+              id(security_unlock_success)->execute();
+              return;
+            }
+            id(security_pin_entry).clear();
+            id(security_status_text) = "密码错误，请重新输入";
+          }
+      - script.execute: security_render_pin_page
+
+  - id: security_back_from_pin
+    mode: restart
+    then:
+      - lambda: |
+          id(security_pin_entry).clear();
+          id(security_pending_secret).clear();
+          id(security_status_text).clear();
+          id(security_flow_mode) = 0;
+      - if:
+          condition:
+            lambda: 'return id(security_is_locked);'
+          then:
+            - lvgl.page.show:
+                id: page_lock_screen
+                animation: MOVE_RIGHT
+                time: 200ms
+          else:
+            - script.execute: security_render_settings_page
+            - lvgl.page.show:
+                id: system_setting_security_page
+                animation: MOVE_RIGHT
+                time: 200ms
+
+  - id: security_render_pattern_page
+    mode: restart
+    then:
+      - lambda: |
+          auto redraw = [&](const std::string &sequence) {
+            lv_obj_t *canvas = id(canvas_security_pattern);
+            if (canvas == nullptr) {
+              return;
+            }
+
+            static const lv_point_t points[9] = {
+                {26, 26}, {80, 26}, {134, 26},
+                {26, 80}, {80, 80}, {134, 80},
+                {26, 134}, {80, 134}, {134, 134},
+            };
+
+            lv_canvas_fill_bg(canvas, lv_color_hex(0x101820), LV_OPA_COVER);
+
+            lv_draw_line_dsc_t line_dsc;
+            lv_draw_line_dsc_init(&line_dsc);
+            line_dsc.color = lv_color_hex(0x4FC3F7);
+            line_dsc.width = 5;
+            line_dsc.round_start = 1;
+            line_dsc.round_end = 1;
+
+            bool have_prev = false;
+            lv_point_t prev{};
+            for (char c : sequence) {
+              if (c < '1' || c > '9') {
+                continue;
+              }
+              lv_point_t current = points[c - '1'];
+              if (have_prev) {
+                lv_point_t line_points[2] = {prev, current};
+                lv_canvas_draw_line(canvas, line_points, 2, &line_dsc);
+              }
+              prev = current;
+              have_prev = true;
+            }
+
+            for (int i = 0; i < 9; i++) {
+              bool selected = sequence.find(static_cast<char>('1' + i)) != std::string::npos;
+
+              lv_draw_rect_dsc_t outer_dsc;
+              lv_draw_rect_dsc_init(&outer_dsc);
+              outer_dsc.bg_opa = LV_OPA_TRANSP;
+              outer_dsc.border_opa = LV_OPA_COVER;
+              outer_dsc.border_width = 3;
+              outer_dsc.border_color = selected ? lv_color_hex(0x4FC3F7) : lv_color_hex(0x8AA4B8);
+              outer_dsc.radius = LV_RADIUS_CIRCLE;
+              lv_canvas_draw_rect(canvas, points[i].x - 14, points[i].y - 14, 28, 28, &outer_dsc);
+
+              lv_draw_rect_dsc_t inner_dsc;
+              lv_draw_rect_dsc_init(&inner_dsc);
+              inner_dsc.bg_opa = selected ? LV_OPA_COVER : LV_OPA_40;
+              inner_dsc.bg_color = selected ? lv_color_hex(0x4FC3F7) : lv_color_hex(0x29404F);
+              inner_dsc.border_opa = LV_OPA_TRANSP;
+              inner_dsc.radius = LV_RADIUS_CIRCLE;
+              lv_canvas_draw_rect(canvas, points[i].x - 5, points[i].y - 5, 10, 10, &inner_dsc);
+            }
+
+            lv_obj_invalidate(canvas);
+          };
+
+          std::string title = "九点连线";
+          std::string prompt = "请按住并滑动连接 9 个点";
+
+          if (id(security_flow_mode) == 4) {
+            title = "设置图案密码";
+            prompt = "请绘制新的解锁图案";
+          } else if (id(security_flow_mode) == 5) {
+            title = "确认图案密码";
+            prompt = "请再次绘制相同图案";
+          } else if (id(security_flow_mode) == 6) {
+            title = "绘制解锁图案";
+            prompt = "请绘制已设置的解锁图案";
+          }
+
+          if (!id(security_status_text).empty()) {
+            prompt = id(security_status_text);
+          }
+
+          lv_label_set_text(id(lbl_security_pattern_title), title.c_str());
+          lv_label_set_text(id(lbl_security_pattern_prompt), prompt.c_str());
+          redraw(id(security_pattern_entry));
+
+  - id: security_pattern_clear
+    mode: restart
+    then:
+      - lambda: |
+          id(security_pattern_entry).clear();
+          id(security_status_text).clear();
+      - script.execute: security_render_pattern_page
+
+  - id: security_submit_pattern
+    mode: restart
+    then:
+      - lambda: |
+          const size_t len = id(security_pattern_entry).size();
+          if (len < 4) {
+            id(security_status_text) = "图案至少需要连接 4 个点";
+            return;
+          }
+
+          if (id(security_flow_mode) == 4) {
+            id(security_pending_secret) = id(security_pattern_entry);
+            id(security_pattern_entry).clear();
+            id(security_flow_mode) = 5;
+            id(security_status_text).clear();
+            return;
+          }
+
+          if (id(security_flow_mode) == 5) {
+            if (id(security_pattern_entry) != id(security_pending_secret)) {
+              id(security_pattern_entry).clear();
+              id(security_status_text) = "两次图案不一致，请重试";
+              return;
+            }
+            id(security_pattern_code) = id(security_pattern_entry);
+            id(security_pending_secret).clear();
+            id(security_pattern_entry).clear();
+            id(security_flow_mode) = 0;
+            id(security_status_text).clear();
+            global_preferences->sync();
+            id(show_notification)->execute("图案密码设置成功", "", 2500);
+            id(security_render_settings_page)->execute();
+            id(lvgl_1)->show_page(system_setting_security_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+            return;
+          }
+
+          if (id(security_flow_mode) == 6) {
+            if (id(security_pattern_entry) == id(security_pattern_code)) {
+              id(security_unlock_success)->execute();
+              return;
+            }
+            id(security_pattern_entry).clear();
+            id(security_status_text) = "图案错误，请重新绘制";
+          }
+      - script.execute: security_render_pattern_page
+
+  - id: security_back_from_pattern
+    mode: restart
+    then:
+      - lambda: |
+          id(security_pattern_entry).clear();
+          id(security_pending_secret).clear();
+          id(security_status_text).clear();
+          id(security_flow_mode) = 0;
+      - if:
+          condition:
+            lambda: 'return id(security_is_locked);'
+          then:
+            - lvgl.page.show:
+                id: page_lock_screen
+                animation: MOVE_RIGHT
+                time: 200ms
+          else:
+            - script.execute: security_render_settings_page
+            - lvgl.page.show:
+                id: system_setting_security_page
+                animation: MOVE_RIGHT
+                time: 200ms

@@ -30,6 +30,7 @@ font:
           "\uF7C2",  # sd-card
           "\uF6A8",  # volume
           "\uF005",  # star
+          "\uF1CD",  # life-ring
           "\uF2F1",  # rotate
         ]   # arrow-left, arrow-right, rotate-left
       - file: "fonts/materialdesignicons-webfont.ttf"
@@ -86,12 +87,14 @@ font:
     id: "chinese_font18"
     size: 18
     bpp: 4
-    glyphs: [星期一二三四五六日东南西北风雨雾冰雪转多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知温度 ~℃N%.km/shA-|0123456789]
+    glyphs: [设置确认绘制解案图密数九点连线字码星期一二三四五六日东南西北风雨雾冰雪转已锁定多少阴云晴间阵强雷伴有雹小大到夹薄霾扬沙浮尘暴浓中严重热冷未知温度 ~℃N%.km/shA-|0123456789]
     extras:
       - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
         glyphs: [
           "+",
-        ]   # arrow-left, arrow-right, rotate-left
+          "\uF023",  # lock
+          "\uF3C1",  # lock-open
+        ]
 
   - file: "fonts/JetBrainsMono-Bold-7.ttf"
     id: "clock24"

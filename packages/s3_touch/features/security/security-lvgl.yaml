@@ -1,0 +1,716 @@
+lvgl:
+  pages:
+    - id: page_lock_screen
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time, btn_back_setting]
+        - script.execute: security_render_lock_screen
+      on_unload:
+        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+      widgets:
+        - image:
+            id: img_lock_screen_bg
+            src: default_bg
+            x: 0
+            y: 0
+        - obj:
+            x: 0
+            y: 0
+            width: 320
+            height: 240
+            bg_color: !lambda return lv_color_hex(0x000000);
+            bg_opa: 55%
+            border_width: 0
+            radius: 0
+        - label:
+            id: lbl_lock_indicator
+            align: TOP_MID
+            y: 24
+            text_font: chinese_font18
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "\uF023"
+        - label:
+            id: lbl_lock_date
+            align: CENTER
+            y: -54
+            text_font: chinese_font18
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "1970-01-01 星期四"
+        - label:
+            id: lbl_lock_time
+            align: CENTER
+            y: -6
+            text_font: clock24
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "00:00:00"
+        - label:
+            id: lbl_lock_weather
+            align: CENTER
+            y: 48
+            text_font: chinese_font18
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "N/A"
+        - button:
+            id: btn_lock_screen_unlock
+            align: CENTER
+            y: 92
+            width: 148
+            height: 34
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute: security_show_unlock_entry
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "开始解锁"
+        - label:
+            id: lbl_lock_wifi_status
+            align: BOTTOM_LEFT
+            x: 10
+            y: -6
+            recolor: true
+            text: "\U000F092E OFF"
+        - label:
+            id: lbl_lock_battery_status
+            align: BOTTOM_RIGHT
+            x: -10
+            y: -6
+            recolor: true
+            text: "\U000F0091 --%"
+
+    - id: system_setting_security_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "安全和隐私"
+        - script.execute: security_render_settings_page
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            align: CENTER
+            border_width: 0
+            width: 320
+            height: 200
+            widgets:
+              - label:
+                  text: "锁屏方式"
+                  text_font: chinese_font14
+                  x: 10
+                  y: 24
+              - dropdown:
+                  id: dropdown_security_lock_type
+                  x: 154
+                  y: 18
+                  width: 130
+                  height: 34
+                  symbol: "\uF107"
+                  text_font: chinese_font14
+                  options:
+                    - 关闭
+                    - 数字密码
+                    - 九点连线
+                  on_click:
+                    then:
+                      - script.execute: security_register_activity
+                  on_change:
+                    then:
+                      - script.execute: security_apply_lock_type_dropdown
+              - label:
+                  text: "锁屏密码"
+                  text_font: chinese_font14
+                  x: 10
+                  y: 64
+              - button:
+                  id: btn_security_change_password
+                  x: 154
+                  y: 58
+                  width: 130
+                  height: 34
+                  on_click:
+                    then:
+                      - script.execute: security_register_activity
+                      - script.execute: security_open_password_editor
+                  widgets:
+                    - label:
+                        id: lbl_security_password_action
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "设置密码"
+              - label:
+                  text: "息屏后锁定"
+                  text_font: chinese_font14
+                  x: 10
+                  y: 104
+              - dropdown:
+                  id: dropdown_security_auto_lock
+                  x: 154
+                  y: 98
+                  width: 130
+                  height: 34
+                  symbol: "\uF107"
+                  text_font: chinese_font14
+                  options:
+                    - 立即
+                    - 永不
+                    - 15 秒
+                    - 30 秒
+                    - 1 分钟
+                    - 2 分钟
+                    - 5 分钟
+                    - 10 分钟
+                  on_click:
+                    then:
+                      - script.execute: security_register_activity
+                  on_change:
+                    then:
+                      - script.execute: security_apply_auto_lock_dropdown
+              - label:
+                  text: "自动息屏"
+                  text_font: chinese_font14
+                  x: 10
+                  y: 144
+              - dropdown:
+                  id: dropdown_security_auto_sleep
+                  x: 154
+                  y: 138
+                  width: 130
+                  height: 34
+                  symbol: "\uF107"
+                  text_font: chinese_font14
+                  options:
+                    - 永不
+                    - 15 秒
+                    - 30 秒
+                    - 1 分钟
+                    - 2 分钟
+                    - 5 分钟
+                    - 10 分钟
+                  on_click:
+                    then:
+                      - script.execute: security_register_activity
+                  on_change:
+                    then:
+                      - script.execute: security_apply_auto_sleep_dropdown
+              - button:
+                  id: btn_security_lock_now
+                  align: CENTER
+                  y: 120
+                  width: 280
+                  height: 34
+                  on_click:
+                    then:
+                      - script.execute: security_register_activity
+                      - script.execute: security_lock_now
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "立即锁屏"
+
+    - id: page_security_pin
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time, btn_back_setting]
+        - script.execute: security_render_pin_page
+      on_unload:
+        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            width: 320
+            height: 240
+            bg_color: !lambda return lv_color_hex(0x101820);
+            border_width: 0
+            radius: 0
+        - button:
+            x: 12
+            y: 14
+            width: 58
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute: security_back_from_pin
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "返回"
+        - label:
+            id: lbl_security_pin_title
+            align: TOP_MID
+            y: 16
+            text_font: chinese_font18
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "数字密码"
+        - label:
+            id: lbl_security_pin_prompt
+            align: TOP_MID
+            y: 44
+            width: 240
+            text_align: CENTER
+            text_font: chinese_font14
+            text_color: !lambda return lv_color_hex(0xd9e4ec);
+            text: "请输入 4-8 位数字"
+        - label:
+            id: lbl_security_pin_value
+            align: TOP_MID
+            y: 68
+            text_font: chinese_font14
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "尚未输入"
+        - button:
+            x: 56
+            y: 112
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "1"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "1"
+        - button:
+            x: 132
+            y: 112
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "2"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "2"
+        - button:
+            x: 208
+            y: 112
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "3"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "3"
+        - button:
+            x: 56
+            y: 144
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "4"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "4"
+        - button:
+            x: 132
+            y: 144
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "5"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "5"
+        - button:
+            x: 208
+            y: 144
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "6"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "6"
+        - button:
+            x: 56
+            y: 176
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "7"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "7"
+        - button:
+            x: 132
+            y: 176
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "8"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "8"
+        - button:
+            x: 208
+            y: 176
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "9"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "9"
+        - button:
+            x: 56
+            y: 208
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute: security_pin_clear
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "清空"
+        - button:
+            x: 132
+            y: 208
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute:
+                    id: security_pin_append_digit
+                    digit: "0"
+            widgets:
+              - label:
+                  align: CENTER
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "0"
+        - button:
+            x: 208
+            y: 208
+            width: 56
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute: security_pin_backspace
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "退格"
+        - button:
+            id: btn_security_pin_submit
+            x: 250
+            y: 14
+            width: 58
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute: security_pin_submit
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "确认"
+
+    - id: page_security_pattern
+      skip: true
+      on_load:
+        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time, btn_back_setting]
+        - lambda: |
+            if (!id(security_pattern_handler_bound)) {
+              auto *canvas = id(canvas_security_pattern);
+              lv_obj_add_flag(canvas, LV_OBJ_FLAG_CLICKABLE);
+              lv_obj_add_event_cb(
+                  canvas,
+                  [](lv_event_t *e) {
+                    auto redraw = [&](const std::string &sequence, const lv_point_t *cursor) {
+                      lv_obj_t *canvas_obj = id(canvas_security_pattern);
+                      static const lv_point_t points[9] = {
+                          {26, 26}, {80, 26}, {134, 26},
+                          {26, 80}, {80, 80}, {134, 80},
+                          {26, 134}, {80, 134}, {134, 134},
+                      };
+
+                      lv_canvas_fill_bg(canvas_obj, lv_color_hex(0x101820), LV_OPA_COVER);
+
+                      lv_draw_line_dsc_t line_dsc;
+                      lv_draw_line_dsc_init(&line_dsc);
+                      line_dsc.color = lv_color_hex(0x4FC3F7);
+                      line_dsc.width = 5;
+                      line_dsc.round_start = 1;
+                      line_dsc.round_end = 1;
+
+                      bool have_prev = false;
+                      lv_point_t prev{};
+                      for (char c : sequence) {
+                        if (c < '1' || c > '9') {
+                          continue;
+                        }
+                        lv_point_t current = points[c - '1'];
+                        if (have_prev) {
+                          lv_point_t pts[2] = {prev, current};
+                          lv_canvas_draw_line(canvas_obj, pts, 2, &line_dsc);
+                        }
+                        prev = current;
+                        have_prev = true;
+                      }
+
+                      if (cursor != nullptr && have_prev) {
+                        lv_point_t pts[2] = {prev, *cursor};
+                        lv_canvas_draw_line(canvas_obj, pts, 2, &line_dsc);
+                      }
+
+                      for (int i = 0; i < 9; i++) {
+                        bool selected =
+                            sequence.find(static_cast<char>('1' + i)) != std::string::npos;
+
+                        lv_draw_rect_dsc_t outer_dsc;
+                        lv_draw_rect_dsc_init(&outer_dsc);
+                        outer_dsc.bg_opa = LV_OPA_TRANSP;
+                        outer_dsc.border_opa = LV_OPA_COVER;
+                        outer_dsc.border_width = 3;
+                        outer_dsc.border_color =
+                            selected ? lv_color_hex(0x4FC3F7) : lv_color_hex(0x8AA4B8);
+                        outer_dsc.radius = LV_RADIUS_CIRCLE;
+                        lv_canvas_draw_rect(
+                            canvas_obj, points[i].x - 14, points[i].y - 14, 28, 28, &outer_dsc);
+
+                        lv_draw_rect_dsc_t inner_dsc;
+                        lv_draw_rect_dsc_init(&inner_dsc);
+                        inner_dsc.bg_opa = selected ? LV_OPA_COVER : LV_OPA_40;
+                        inner_dsc.bg_color =
+                            selected ? lv_color_hex(0x4FC3F7) : lv_color_hex(0x29404F);
+                        inner_dsc.border_opa = LV_OPA_TRANSP;
+                        inner_dsc.radius = LV_RADIUS_CIRCLE;
+                        lv_canvas_draw_rect(
+                            canvas_obj, points[i].x - 5, points[i].y - 5, 10, 10, &inner_dsc);
+                      }
+
+                      lv_obj_invalidate(canvas_obj);
+                    };
+
+                    auto locate_point = [&](int local_x, int local_y) -> int {
+                      static const lv_point_t points[9] = {
+                          {26, 26}, {80, 26}, {134, 26},
+                          {26, 80}, {80, 80}, {134, 80},
+                          {26, 134}, {80, 134}, {134, 134},
+                      };
+                      const int threshold_sq = 25 * 25;
+                      int found = 0;
+                      int best_dist = threshold_sq + 1;
+                      for (int i = 0; i < 9; i++) {
+                        const int dx = local_x - points[i].x;
+                        const int dy = local_y - points[i].y;
+                        const int dist = dx * dx + dy * dy;
+                        if (dist <= threshold_sq && dist < best_dist) {
+                          best_dist = dist;
+                          found = i + 1;
+                        }
+                      }
+                      return found;
+                    };
+
+                    auto append_point = [&](int point_id) {
+                      if (point_id < 1 || point_id > 9) {
+                        return;
+                      }
+                      std::string &sequence = id(security_pattern_entry);
+                      char current = static_cast<char>('0' + point_id);
+                      if (sequence.find(current) != std::string::npos) {
+                        return;
+                      }
+                      if (!sequence.empty()) {
+                        int last = sequence.back() - '0';
+                        int lr = (last - 1) / 3;
+                        int lc = (last - 1) % 3;
+                        int nr = (point_id - 1) / 3;
+                        int nc = (point_id - 1) % 3;
+                        if (((lr + nr) % 2 == 0) && ((lc + nc) % 2 == 0)) {
+                          int mr = (lr + nr) / 2;
+                          int mc = (lc + nc) / 2;
+                          int mid = mr * 3 + mc + 1;
+                          char mid_char = static_cast<char>('0' + mid);
+                          if (mid != last && mid != point_id &&
+                              sequence.find(mid_char) == std::string::npos) {
+                            sequence.push_back(mid_char);
+                          }
+                        }
+                      }
+                      sequence.push_back(current);
+                    };
+
+                    if (id(security_flow_mode) != 4 &&
+                        id(security_flow_mode) != 5 &&
+                        id(security_flow_mode) != 6) {
+                      return;
+                    }
+
+                    lv_obj_t *obj = lv_event_get_target(e);
+                    lv_event_code_t code = lv_event_get_code(e);
+                    lv_indev_t *indev = lv_indev_get_act();
+                    if (indev == nullptr || obj == nullptr) {
+                      return;
+                    }
+
+                    lv_point_t screen_point;
+                    lv_indev_get_point(indev, &screen_point);
+                    lv_area_t area;
+                    lv_obj_get_coords(obj, &area);
+                    lv_point_t local_point = {
+                        static_cast<lv_coord_t>(screen_point.x - area.x1),
+                        static_cast<lv_coord_t>(screen_point.y - area.y1)};
+
+                    if (code == LV_EVENT_PRESSED) {
+                      id(security_pattern_entry).clear();
+                      id(security_status_text).clear();
+                      append_point(locate_point(local_point.x, local_point.y));
+                      redraw(id(security_pattern_entry), &local_point);
+                      id(security_render_pattern_page)->execute();
+                      return;
+                    }
+
+                    if (code == LV_EVENT_PRESSING) {
+                      append_point(locate_point(local_point.x, local_point.y));
+                      redraw(id(security_pattern_entry), &local_point);
+                      id(security_render_pattern_page)->execute();
+                      return;
+                    }
+
+                    if (code == LV_EVENT_RELEASED) {
+                      redraw(id(security_pattern_entry), nullptr);
+                      id(security_submit_pattern)->execute();
+                    }
+                  },
+                  LV_EVENT_ALL,
+                  nullptr);
+              id(security_pattern_handler_bound) = true;
+            }
+        - script.execute: security_render_pattern_page
+      on_unload:
+        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            width: 320
+            height: 240
+            bg_color: !lambda return lv_color_hex(0x101820);
+            border_width: 0
+            radius: 0
+        - label:
+            id: lbl_security_pattern_title
+            align: TOP_MID
+            y: 14
+            text_font: chinese_font18
+            text_color: !lambda return lv_color_hex(0xffffff);
+            text: "九点连线"
+        - label:
+            id: lbl_security_pattern_prompt
+            align: TOP_MID
+            y: 40
+            width: 260
+            text_align: CENTER
+            text_font: chinese_font14
+            text_color: !lambda return lv_color_hex(0xd9e4ec);
+            text: "请按住并滑动连接 9 个点"
+        - canvas:
+            id: canvas_security_pattern
+            align: TOP_MID
+            y: 64
+            width: 160
+            height: 160
+        - button:
+            x: 12
+            y: 14
+            width: 58
+            height: 26
+            bg_color: !lambda return lv_color_hex(0x2f343a);
+            border_width: 0
+            on_click:
+              then:
+                - script.execute: security_back_from_pattern
+            widgets:
+              - label:
+                  align: CENTER
+                  text_font: chinese_font14
+                  text_color: !lambda return lv_color_hex(0xffffff);
+                  text: "返回"

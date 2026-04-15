@@ -78,6 +78,7 @@ esphome:
                 id(show_notification)->execute("系统更新成功", "", 0);
               }
             }
+        - script.execute: security_lock_now
     - priority: 250
       then:
         - script.execute: prase_wifi_list
@@ -99,7 +100,7 @@ esp32:
         source: https://github.com/joltwallet/esp_littlefs.git
       - espressif/zlib~1.3
     advanced:
-      execute_from_psram: yes
+      execute_from_psram: false
       disable_vfs_support_termios: false
       disable_vfs_support_select: false
       disable_vfs_support_dir: false
@@ -111,7 +112,8 @@ esp32:
       CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: y
       CONFIG_MBEDTLS_HARDWARE_MPI: y
       CONFIG_MBEDTLS_DYNAMIC_BUFFER: y
-      CONFIG_SPIRAM_XIP_FROM_PSRAM: y
+      CONFIG_SPI_FLASH_HPM_ENA: y
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
 
 psram:
   mode: octal
@@ -163,11 +165,11 @@ globals:
     initial_value: '""'
   - id: battery_soc
     type: float
-    restore_value: yes
+    restore_value: no
     initial_value: '50.0f'
   - id: battery_soc_initialized
     type: bool
-    restore_value: yes
+    restore_value: no
     initial_value: 'false'
   - id: battery_raw_percent
     type: float
@@ -518,6 +520,7 @@ sensor:
                 id: internal_temp
                 above: 45.0
             then:
+              - script.execute: security_capture_resume_page
               - lvgl.page.show: page_temperature_high
             else:
               - if:
@@ -527,7 +530,7 @@ sensor:
                         id: internal_temp
                         below: 40.0
                   then:
-                    - lvgl.page.show: page_main
+                    - script.execute: security_resume_saved_page
 
   - platform: debug
     free:

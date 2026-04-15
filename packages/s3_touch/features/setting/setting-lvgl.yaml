@@ -212,6 +212,15 @@ lvgl:
                         id: system_setting_power_page
                         animation: MOVE_LEFT
                         time: 200ms
+              - text: "\uF1CD 安全和隐私"
+                id: btn_security_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_security_page
+                        animation: MOVE_LEFT
+                        time: 200ms
               - text: "\uF2F1 系统更新"
                 id: btn_system_update_setting
                 list_button: {}
