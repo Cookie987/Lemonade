@@ -624,7 +624,7 @@ script:
           lv_label_set_text(id(lbl_about_build_date_value), build_date.c_str());
           lv_label_set_text(id(lbl_about_commit_hash_value), commit.c_str());
           lv_label_set_text(id(lbl_about_legal_value),
-                            "OS：Cookie987\nUI：srr321\nHW：ZSVStudio\n©2026 RedCookieStudios");
+                            "系统：Cookie987\n界面：SRiverRing\n硬件：ZSVStudio\n©2026 RedCookieStudios");
 
   - id: wifi_list_update
     mode: single
