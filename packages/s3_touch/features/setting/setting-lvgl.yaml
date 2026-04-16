@@ -1183,7 +1183,7 @@ lvgl:
         #     recolor: true
         #     text: "#ffffff \uF564#"
         #     y: -40
-        - img:
+        - image:
             id: img_ota_logo
             src: lemonadeos_logo
             align: CENTER
