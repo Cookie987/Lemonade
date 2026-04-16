@@ -958,6 +958,8 @@ lvgl:
                   color: !lambda return lv_color_hex(0xF64D4D);
               - lambda: |
                   lv_label_set_text(id(lbl_temp_high), "#ffffff 请立即断开充电器。#");
+      on_onload:
+        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
       widgets:
         - canvas:
             id: high_temp_canvas
