@@ -3,6 +3,7 @@
 #include <cctype>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -47,6 +48,7 @@ static constexpr int32_t NOTIFICATION_BAR_Y_HIDE = -45;
 static constexpr int32_t NOTIFICATION_BAR_Y_SHOW = 10;
 static constexpr uint32_t LUA_NOTIFICATION_MAGIC = 0x4C55494E;
 
+struct LuaEventCb;
 struct LuaTimerCb;
 
 struct LuaNotificationBar {
@@ -66,7 +68,9 @@ struct LuaLvglContext {
   volatile bool alive{true};
   bool fatal_error_reported{false};
   std::string script_path;
+  std::unordered_set<LuaEventCb *> event_cbs;
   std::unordered_map<lv_timer_t *, LuaTimerCb *> timers;
+  std::unordered_set<LuaTimerCb *> retired_timers;
   std::unordered_map<lv_font_t *, LuaFontKind> fonts;
 };
 static void ensure_page_lock() {
@@ -372,6 +376,8 @@ struct LuaEventCb {
   int ref;
   int user_data_ref;
   int code_filter;
+  lv_obj_t *obj;
+  lv_event_dsc_t *dsc;
 };
 
 struct LuaTimerCb {
@@ -380,7 +386,69 @@ struct LuaTimerCb {
   int user_data_ref;
   lv_timer_t *timer;
   bool active;
+  bool retired;
 };
+
+static void unref_lua_event_cb(lua_State *L, LuaEventCb *cb) {
+  if (L == nullptr || cb == nullptr) return;
+  if (cb->ref != LUA_NOREF) {
+    luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
+    cb->ref = LUA_NOREF;
+  }
+  if (cb->user_data_ref != LUA_NOREF) {
+    luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
+    cb->user_data_ref = LUA_NOREF;
+  }
+}
+
+static void delete_lua_event_cb(lua_State *L, LuaEventCb *cb) {
+  if (cb == nullptr) return;
+  LuaLvglContext *ctx = cb->ctx;
+  unref_lua_event_cb(L, cb);
+  if (ctx != nullptr) {
+    ctx->event_cbs.erase(cb);
+  }
+  cb->ctx = nullptr;
+  cb->obj = nullptr;
+  cb->dsc = nullptr;
+  delete cb;
+}
+
+static void unref_lua_timer_cb(lua_State *L, LuaTimerCb *cb) {
+  if (L == nullptr || cb == nullptr) return;
+  if (cb->ref != LUA_NOREF) {
+    luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
+    cb->ref = LUA_NOREF;
+  }
+  if (cb->user_data_ref != LUA_NOREF) {
+    luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
+    cb->user_data_ref = LUA_NOREF;
+  }
+}
+
+static void retire_lua_timer_cb(lua_State *L, LuaLvglContext *ctx, LuaTimerCb *cb) {
+  if (cb == nullptr || cb->retired) return;
+  cb->active = false;
+  cb->retired = true;
+  cb->timer = nullptr;
+  unref_lua_timer_cb(L, cb);
+  if (ctx != nullptr) {
+    ctx->retired_timers.insert(cb);
+  } else {
+    cb->ctx = nullptr;
+    delete cb;
+  }
+}
+
+static void sweep_retired_lua_timer_cbs(LuaLvglContext *ctx) {
+  if (ctx == nullptr || ctx->retired_timers.empty()) return;
+  for (LuaTimerCb *cb : ctx->retired_timers) {
+    if (cb == nullptr) continue;
+    cb->ctx = nullptr;
+    delete cb;
+  }
+  ctx->retired_timers.clear();
+}
 
 enum class LuaLvglMsgKind : int {
   EVENT = 0,
@@ -584,14 +652,7 @@ static int l_poll_events(lua_State *L) {
         auto *obj = static_cast<lv_obj_t *>(msg.target);
         if (cb != nullptr) {
           if (msg.code == LV_EVENT_DELETE) {
-            if (cb->ref != LUA_NOREF) {
-              luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
-              cb->ref = LUA_NOREF;
-            }
-            if (cb->user_data_ref != LUA_NOREF) {
-              luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
-              cb->user_data_ref = LUA_NOREF;
-            }
+            delete_lua_event_cb(L, cb);
           } else if (cb->ref != LUA_NOREF) {
             lua_rawgeti(L, LUA_REGISTRYINDEX, cb->ref);
             push_lua_event(L, obj, msg.code, cb, &msg);
@@ -604,7 +665,7 @@ static int l_poll_events(lua_State *L) {
         }
       } else if (msg.kind == LuaLvglMsgKind::TIMER) {
         auto *cb = static_cast<LuaTimerCb *>(msg.cb);
-        if (cb != nullptr && cb->ref != LUA_NOREF) {
+        if (cb != nullptr && cb->active && cb->ref != LUA_NOREF) {
           lua_rawgeti(L, LUA_REGISTRYINDEX, cb->ref);
           lua_pushlightuserdata(L, msg.target);
           if (cb->user_data_ref != LUA_NOREF) {
@@ -622,6 +683,7 @@ static int l_poll_events(lua_State *L) {
     } while (xQueueReceive(ctx->queue, &msg, 0) == pdTRUE);
   }
 
+  sweep_retired_lua_timer_cbs(ctx);
   lua_pushinteger(L, processed);
   return 1;
 }
@@ -646,8 +708,16 @@ static int l_obj_add_event_cb(lua_State *L) {
     user_data_ref = luaL_ref(L, LUA_REGISTRYINDEX);
   }
 
-  auto *cb = new LuaEventCb{ctx, ref, user_data_ref, code};
-  lvgl_call_void([=]() { lv_obj_add_event_cb(obj, lua_event_trampoline, LV_EVENT_ALL, cb); });
+  auto *cb = new LuaEventCb{ctx, ref, user_data_ref, code, obj, nullptr};
+  lv_event_dsc_t *dsc = lvgl_call_ret([=]() -> lv_event_dsc_t * {
+    return lv_obj_add_event_cb(obj, lua_event_trampoline, LV_EVENT_ALL, cb);
+  });
+  if (dsc == nullptr) {
+    delete_lua_event_cb(L, cb);
+    return 0;
+  }
+  cb->dsc = dsc;
+  ctx->event_cbs.insert(cb);
   return 0;
 }
 
@@ -1239,7 +1309,7 @@ static int l_timer_create(lua_State *L) {
     return 1;
   }
 
-  auto *cb = new LuaTimerCb{ctx, LUA_NOREF, LUA_NOREF, nullptr, true};
+  auto *cb = new LuaTimerCb{ctx, LUA_NOREF, LUA_NOREF, nullptr, true, false};
   lua_pushvalue(L, 1);
   cb->ref = luaL_ref(L, LUA_REGISTRYINDEX);
   if (!lua_isnoneornil(L, 3)) {
@@ -1275,21 +1345,15 @@ static int l_timer_del(lua_State *L) {
       LuaTimerCb *cb = it->second;
       ctx->timers.erase(it);
       if (cb != nullptr) {
-        cb->active = false;
-        cb->timer = nullptr;
-        if (cb->ref != LUA_NOREF) {
-          luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
-          cb->ref = LUA_NOREF;
-        }
-        if (cb->user_data_ref != LUA_NOREF) {
-          luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
-          cb->user_data_ref = LUA_NOREF;
-        }
+        retire_lua_timer_cb(L, ctx, cb);
       }
     }
   }
 
-  lvgl_call_void([=]() { lv_timer_del(timer); });
+  lvgl_call_void([=]() {
+    timer->user_data = nullptr;
+    lv_timer_del(timer);
+  });
   return 0;
 }
 
@@ -1600,22 +1664,36 @@ void cleanup_lvgl_api(lua_State *L) {
   LuaLvglContext *ctx = get_lvgl_ctx(L);
   if (ctx == nullptr) return;
   ctx->alive = false;
+
   for (auto &entry : ctx->timers) {
     LuaTimerCb *cb = entry.second;
     if (cb == nullptr) continue;
-    cb->active = false;
-    cb->ctx = nullptr;
-    cb->timer = nullptr;
-    if (cb->ref != LUA_NOREF) {
-      luaL_unref(L, LUA_REGISTRYINDEX, cb->ref);
-      cb->ref = LUA_NOREF;
-    }
-    if (cb->user_data_ref != LUA_NOREF) {
-      luaL_unref(L, LUA_REGISTRYINDEX, cb->user_data_ref);
-      cb->user_data_ref = LUA_NOREF;
+    lv_timer_t *timer = cb->timer;
+    retire_lua_timer_cb(L, ctx, cb);
+    if (timer != nullptr) {
+      lvgl_call_void([timer]() {
+        timer->user_data = nullptr;
+        lv_timer_del(timer);
+      });
     }
   }
   ctx->timers.clear();
+
+  std::vector<LuaEventCb *> event_cbs(ctx->event_cbs.begin(), ctx->event_cbs.end());
+  for (LuaEventCb *cb : event_cbs) {
+    if (cb == nullptr) continue;
+    lv_obj_t *obj = cb->obj;
+    lv_event_dsc_t *dsc = cb->dsc;
+    bool obj_valid = false;
+    if (obj != nullptr && dsc != nullptr) {
+      obj_valid = lvgl_call_ret([obj]() -> bool { return lv_obj_is_valid(obj); });
+    }
+    if (obj_valid) {
+      lvgl_call_void([obj, dsc]() { lv_obj_remove_event_dsc(obj, dsc); });
+    }
+    delete_lua_event_cb(L, cb);
+  }
+
   for (auto &entry : ctx->fonts) {
     lv_font_t *font = entry.first;
     LuaFontKind kind = entry.second;
@@ -1638,8 +1716,9 @@ void cleanup_lvgl_api(lua_State *L) {
     vQueueDelete(ctx->queue);
     ctx->queue = nullptr;
   }
-  // Keep ctx allocated to avoid UAF from late LVGL delete events carrying user_data.
+  sweep_retired_lua_timer_cbs(ctx);
   set_lvgl_ctx(L, nullptr);
+  delete ctx;
 }
 
 }  // namespace lua_runtime

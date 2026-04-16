@@ -201,7 +201,16 @@ script:
           - lambda: |
               ESP_LOGD("987IoT", "Started updating weather");
               std::string mac = id(text_sensor_mac_address).state;
-              id(mqtt_client).subscribe_json("weather/response/" + mac, [=](const std::string &topic, JsonObject root) {
+              static std::string subscribed_topic;
+              std::string topic = "weather/response/" + mac;
+              if (subscribed_topic == topic) {
+                return;
+              }
+              if (!subscribed_topic.empty()) {
+                id(mqtt_client).unsubscribe(subscribed_topic);
+              }
+              subscribed_topic = topic;
+              id(mqtt_client).subscribe_json(topic, [=](const std::string &topic, JsonObject root) {
                 if (root["error"]){
                   int icon = 999;
                   std::string text = "N/A";
