@@ -377,7 +377,7 @@ struct LuaEventCb {
   int user_data_ref;
   int code_filter;
   lv_obj_t *obj;
-  lv_event_dsc_t *dsc;
+  struct _lv_event_dsc_t *dsc;
 };
 
 struct LuaTimerCb {
@@ -709,7 +709,7 @@ static int l_obj_add_event_cb(lua_State *L) {
   }
 
   auto *cb = new LuaEventCb{ctx, ref, user_data_ref, code, obj, nullptr};
-  lv_event_dsc_t *dsc = lvgl_call_ret([=]() -> lv_event_dsc_t * {
+  struct _lv_event_dsc_t *dsc = lvgl_call_ret([=]() -> struct _lv_event_dsc_t * {
     return lv_obj_add_event_cb(obj, lua_event_trampoline, LV_EVENT_ALL, cb);
   });
   if (dsc == nullptr) {
@@ -1683,7 +1683,7 @@ void cleanup_lvgl_api(lua_State *L) {
   for (LuaEventCb *cb : event_cbs) {
     if (cb == nullptr) continue;
     lv_obj_t *obj = cb->obj;
-    lv_event_dsc_t *dsc = cb->dsc;
+    struct _lv_event_dsc_t *dsc = cb->dsc;
     bool obj_valid = false;
     if (obj != nullptr && dsc != nullptr) {
       obj_valid = lvgl_call_ret([obj]() -> bool { return lv_obj_is_valid(obj); });
