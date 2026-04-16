@@ -1177,12 +1177,17 @@ lvgl:
             align: CENTER
             width: 320
             height: 240
-        - label:
+        # - label:
+        #     align: CENTER
+        #     text_font: cookielogo
+        #     recolor: true
+        #     text: "#ffffff \uF564#"
+        #     y: -40
+        - img:
+            id: img_ota_logo
+            src: lemonadeos_logo
             align: CENTER
-            text_font: cookielogo
-            recolor: true
-            text: "#ffffff \uF564#"
-            y: -40
+            y: -30
         - bar:
             id: bar_ota_progress
             align: CENTER
