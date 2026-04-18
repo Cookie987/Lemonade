@@ -10,6 +10,73 @@ script:
       - delay: 500ms
       - switch.turn_off: acc
 
+  - id: power_menu_open
+    mode: restart
+    then:
+      - script.execute: security_register_activity
+      - if:
+          condition:
+            lambda: 'return id(is_sleeping);'
+          then:
+            - script.execute: wakeup_script
+            - delay: 250ms
+      - lvgl.widget.hide: [msgbox_power_reboot_confirm, msgbox_power_shutdown_confirm]
+      - lvgl.widget.show: msgbox_power_menu
+
+  - id: power_menu_close
+    mode: restart
+    then:
+      - lvgl.widget.hide: [msgbox_power_menu, msgbox_power_reboot_confirm, msgbox_power_shutdown_confirm]
+
+  - id: power_menu_show_reboot_confirm
+    mode: restart
+    then:
+      - script.execute: security_register_activity
+      - lvgl.widget.hide: msgbox_power_menu
+      - lvgl.widget.show: msgbox_power_reboot_confirm
+
+  - id: power_menu_show_shutdown_confirm
+    mode: restart
+    then:
+      - script.execute: security_register_activity
+      - lvgl.widget.hide: msgbox_power_menu
+      - lvgl.widget.show: msgbox_power_shutdown_confirm
+
+  - id: power_menu_lock_screen
+    mode: restart
+    then:
+      - script.execute: power_menu_close
+      - script.execute: security_register_activity
+      - if:
+          condition:
+            lambda: |-
+              const bool has_secret =
+                  (id(security_lock_type) == 1 && !id(security_pin_code).empty()) ||
+                  (id(security_lock_type) == 2 && !id(security_pattern_code).empty());
+              return id(security_lock_type) != 0 && has_secret;
+          then:
+            - script.execute: security_lock_now
+          else:
+            - script.execute: security_capture_resume_page
+            - lvgl.page.show:
+                id: page_lock_screen
+                animation: FADE_IN
+                time: 200ms
+
+  - id: power_menu_reboot
+    mode: restart
+    then:
+      - script.execute: power_menu_close
+      - delay: 100ms
+      - button.press: restart_device
+
+  - id: power_menu_shutdown
+    mode: restart
+    then:
+      - script.execute: power_menu_close
+      - delay: 100ms
+      - script.execute: halt
+
   - id: wakeup_button
     then:
       - script.execute: security_register_activity

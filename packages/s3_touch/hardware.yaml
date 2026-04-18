@@ -81,6 +81,10 @@ binary_sensor:
       - settle: 20ms
     on_multi_click:
       - timing:
+          - ON for at least 0.8s
+        then:
+          - script.execute: power_menu_open
+      - timing:
           - ON for at most 0.8s
           - OFF for at least 0.1s
         then:

@@ -309,6 +309,11 @@ wifi:
       #       - delay: 5s
       #       - wifi.enable
 
+button:
+  - platform: restart
+    id: restart_device
+    internal: true
+
 switch:
   - platform: template
     id: switch_powermanage_lock

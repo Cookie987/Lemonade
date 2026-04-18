@@ -111,6 +111,70 @@ lvgl:
           on_click:
             then:
               - lvgl.widget.hide: msgbox_battery_low
+    - id: msgbox_power_menu
+      close_button: false
+      title: 电源菜单
+      text_font: chinese_font14
+      body:
+        text: "请选择要执行的操作。"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_power_menu_lock
+          text: "锁屏"
+          on_click:
+            then:
+              - script.execute: power_menu_lock_screen
+        - id: btn_power_menu_reboot
+          text: "重启"
+          on_click:
+            then:
+              - script.execute: power_menu_show_reboot_confirm
+        - id: btn_power_menu_shutdown
+          text: "关机"
+          on_click:
+            then:
+              - script.execute: power_menu_show_shutdown_confirm
+        - id: btn_power_menu_cancel
+          text: "取消"
+          on_click:
+            then:
+              - script.execute: power_menu_close
+    - id: msgbox_power_reboot_confirm
+      close_button: false
+      title: 重启设备
+      text_font: chinese_font14
+      body:
+        text: "确认要重启设备吗？"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_power_reboot_cancel
+          text: "取消"
+          on_click:
+            then:
+              - script.execute: power_menu_open
+        - id: btn_power_reboot_ok
+          text: "确认"
+          on_click:
+            then:
+              - script.execute: power_menu_reboot
+    - id: msgbox_power_shutdown_confirm
+      close_button: false
+      title: 关闭设备
+      text_font: chinese_font14
+      body:
+        text: "确认要关闭设备吗？"
+        text_font: chinese_font14
+      buttons:
+        - id: btn_power_shutdown_cancel
+          text: "取消"
+          on_click:
+            then:
+              - script.execute: power_menu_open
+        - id: btn_power_shutdown_ok
+          text: "确认"
+          on_click:
+            then:
+              - script.execute: power_menu_shutdown
 
   default_font: chinese_font14
   pages:
