@@ -208,16 +208,9 @@ script:
           global_preferences->sync();
       - script.execute: security_render_settings_page
       - lambda: |
-          std::string text = "锁屏方式已切换为";
-          if (id(security_lock_type) == 0) {
-            text += "关闭";
-          } else if (id(security_lock_type) == 1) {
-            text += "数字密码";
-          } else {
-            text += "九点连线";
-          }
+          std::string text;
           if (id(security_lock_type) != 0) {
-            text += "，请重新设置密码";
+            text = "请重新设置密码";
           }
           id(show_notification)->execute(text, "", 3000);
 
