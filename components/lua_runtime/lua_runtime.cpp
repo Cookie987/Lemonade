@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "esphome/core/log.h"
+#include "lua_fskv.h"
 #include "lua_esphome.h"
 #include "lua_lvgl.h"
 
@@ -799,6 +800,7 @@ static void register_base_api(lua_State *L, const std::string &script_path) {
   register_esp_api(L);
   register_esphome_api(L);
   register_lvgl_api(L, script_path);
+  register_fskv_api(L, script_path);
   luaL_requiref(L, "json", luaopen_json, 1);
   lua_pop(L, 1);
   luaL_requiref(L, "http", luaopen_http, 1);
