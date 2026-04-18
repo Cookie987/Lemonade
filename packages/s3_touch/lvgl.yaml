@@ -565,8 +565,11 @@ lvgl:
                   if (idx >= 0 && idx < (int) st->icon_count) {
                     if (!icon_init_paths[idx].empty() && !icon_init_ran[idx]) {
                       ESP_LOGD("AppLua", "Run %s", icon_init_paths[idx].c_str());
-                      id(lua).run_file_async(icon_init_paths[idx].c_str());
-                      icon_init_ran[idx] = true;
+                      bool started = id(lua).run_file_async(icon_init_paths[idx].c_str());
+                      icon_init_ran[idx] = started;
+                      if (!started) {
+                        ESP_LOGW("AppLua", "Failed to start init.lua for %s", icon_init_paths[idx].c_str());
+                      }
                     }
                     if (!icon_main_paths[idx].empty() && !icon_main_ran[idx]) {
                       ESP_LOGD("AppLua", "Run %s", icon_main_paths[idx].c_str());
@@ -716,6 +719,8 @@ lvgl:
                   lv_obj_add_flag(id(btn_edit_done), LV_OBJ_FLAG_HIDDEN);
                 }
 
+                id(lua).abort_all();
+
                 size_t previous_count = st->icon_count;
                 for (size_t i = BASE_ICONS; i < previous_count; i++) {
                   std::string app_dir = icon_main_paths[i].empty() ? std::string() : icon_main_paths[i].substr(0, icon_main_paths[i].find_last_of('/'));
@@ -723,11 +728,11 @@ lvgl:
                     esphome::lua_runtime::unregister_app_page(app_dir);
                   }
                   if (icon_pages[i] != nullptr) {
-                    lv_obj_del(icon_pages[i]);
+                    lv_obj_del_async(icon_pages[i]);
                     icon_pages[i] = nullptr;
                   }
                   if (icons[i].obj != nullptr) {
-                    lv_obj_del(icons[i].obj);
+                    lv_obj_del_async(icons[i].obj);
                   }
                   icons[i] = {nullptr, nullptr, nullptr, nullptr, 0, 0};
                   icon_ids[i].clear();

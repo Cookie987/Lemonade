@@ -47,6 +47,7 @@ static const char *LVGL_SCRIPT_DIR_KEY = "lua_lvgl.script_dir";
 static constexpr int32_t NOTIFICATION_BAR_Y_HIDE = -45;
 static constexpr int32_t NOTIFICATION_BAR_Y_SHOW = 10;
 static constexpr uint32_t LUA_NOTIFICATION_MAGIC = 0x4C55494E;
+static constexpr lv_obj_flag_t LUA_NOTIFICATION_BAR_FLAG = LV_OBJ_FLAG_USER_1;
 
 struct LuaEventCb;
 struct LuaTimerCb;
@@ -869,6 +870,7 @@ static LuaTopbarRefs find_topbar_refs(lv_obj_t *top_layer) {
 
 static LuaNotificationBar *get_notification_bar_data(lv_obj_t *obj) {
   if (obj == nullptr) return nullptr;
+  if (!lv_obj_has_flag(obj, LUA_NOTIFICATION_BAR_FLAG)) return nullptr;
   auto *data = static_cast<LuaNotificationBar *>(lv_obj_get_user_data(obj));
   if (data == nullptr || data->magic != LUA_NOTIFICATION_MAGIC) return nullptr;
   return data;
@@ -1046,6 +1048,7 @@ static int l_ui_show_notification(lua_State *L) {
     lv_obj_set_scrollbar_mode(bar, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_style_bg_opa(bar, 175, 0);
     lv_obj_set_style_pad_all(bar, 0, 0);
+    lv_obj_add_flag(bar, LUA_NOTIFICATION_BAR_FLAG);
 
     auto *data = new LuaNotificationBar{LUA_NOTIFICATION_MAGIC, bar, nullptr, false};
     lv_obj_set_user_data(bar, data);
