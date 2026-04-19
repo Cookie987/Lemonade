@@ -28,6 +28,7 @@ void register_fskv_api(lua_State *, const std::string &) {}
 #else
 
 #include <ArduinoJson.h>
+#include "esp_vfs_fat.h"
 
 #include "lua.hpp"
 #include "lua_json_util.h"
@@ -40,6 +41,7 @@ namespace {
 static const char *TAG = "lua_fskv";
 static const char *APP_ROOT_PREFIX = "/sdcard/opt/";
 static const char *DATA_ROOT = "/sdcard/var/opt";
+static const char *SDCARD_MOUNT_POINT = "/sdcard";
 static const char *FSKV_PACKAGE_KEY = "lua_fskv.package";
 static const char *FSKV_DATA_DIR_KEY = "lua_fskv.data_dir";
 static const char *FSKV_FILE_KEY = "lua_fskv.file";
@@ -299,9 +301,15 @@ size_t file_size_or_zero(const std::string &path) {
 }
 
 size_t volume_total_or_zero(const std::string &path) {
-  struct statvfs vfs;
-  if (statvfs(path.c_str(), &vfs) != 0) return 0;
-  return static_cast<size_t>(vfs.f_frsize) * static_cast<size_t>(vfs.f_blocks);
+  if (!starts_with(path, SDCARD_MOUNT_POINT)) return 0;
+
+  FATFS *fs = nullptr;
+  DWORD free_clusters = 0;
+  FRESULT res = f_getfree(SDCARD_MOUNT_POINT, &free_clusters, &fs);
+  if (res != FR_OK || fs == nullptr) return 0;
+
+  DWORD total_sectors = (fs->n_fatent - 2U) * fs->csize;
+  return static_cast<size_t>(total_sectors) * FF_SS_SDCARD;
 }
 
 int l_fskv_init(lua_State *L) {
