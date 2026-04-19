@@ -8,7 +8,6 @@
 #include <vector>
 
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "esphome/core/log.h"
