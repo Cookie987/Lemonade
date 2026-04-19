@@ -1,8 +1,6 @@
 #include "lua_runtime.h"
 
 #include <cctype>
-#include <fstream>
-#include <streambuf>
 #include <unordered_map>
 
 #include "esphome/core/log.h"
@@ -12,6 +10,7 @@
 #include "lua_lvgl.h"
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
@@ -880,14 +879,6 @@ bool LuaRuntime::run_file(const std::string &path) {
     ESP_LOGW(TAG, "Skip Lua file while OTA is in progress: %s", path.c_str());
     return false;
   }
-  std::ifstream file(path, std::ios::in | std::ios::binary);
-  if (!file.is_open()) {
-    ESP_LOGE(TAG, "Failed to open Lua file: %s", path.c_str());
-    return false;
-  }
-
-  std::string script((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-  file.close();
 
   lua_State *L = luaL_newstate();
   if (L == nullptr) {
@@ -918,7 +909,7 @@ bool LuaRuntime::run_file(const std::string &path) {
   set_package_path(L, path);
   lua_sethook(L, lua_ota_hook, LUA_MASKCOUNT, 1000);
 
-  int load_status = luaL_loadbuffer(L, script.data(), script.size(), path.c_str());
+  int load_status = luaL_loadfilex(L, path.c_str(), nullptr);
   if (load_status != LUA_OK) {
     const char *err = lua_tostring(L, -1);
     std::string error_message = err ? err : "(unknown)";
@@ -956,17 +947,23 @@ bool LuaRuntime::run_file(const std::string &path) {
 struct LuaTaskArgs {
   LuaRuntime *self;
   std::string path;
+  bool use_caps_delete;
 };
 
 static void lua_task_entry(void *param) {
   auto *args = static_cast<LuaTaskArgs *>(param);
   LuaRuntime *self = args->self;
   std::string path = args->path;
+  bool use_caps_delete = args->use_caps_delete;
   delete args;
 
   self->run_file(path);
   self->mark_task_done(path);
-  vTaskDelete(nullptr);
+  if (use_caps_delete) {
+    vTaskDeleteWithCaps(nullptr);
+  } else {
+    vTaskDelete(nullptr);
+  }
 }
 
 bool LuaRuntime::run_file_async(const std::string &path) {
@@ -983,11 +980,34 @@ bool LuaRuntime::run_file_async(const std::string &path) {
     ESP_LOGI(TAG, "Lua task already running, skip: %s", path.c_str());
     return false;
   }
-  auto *args = new LuaTaskArgs{this, path};
-  BaseType_t ok = xTaskCreatePinnedToCore(
-      lua_task_entry, "lua_task", LUA_TASK_STACK, args, LUA_TASK_PRIO, nullptr, this->async_core_);
+  auto *args = new LuaTaskArgs{this, path, true};
+  size_t internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  size_t internal_largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  size_t psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  ESP_LOGI(TAG,
+           "Lua task memory before create: internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u stack=%u",
+           static_cast<unsigned>(internal_free), static_cast<unsigned>(internal_largest), static_cast<unsigned>(psram_free),
+           static_cast<unsigned>(psram_largest), static_cast<unsigned>(LUA_TASK_STACK));
+
+  BaseType_t ok = xTaskCreatePinnedToCoreWithCaps(lua_task_entry, "lua_task", LUA_TASK_STACK, args, LUA_TASK_PRIO, nullptr,
+                                                  this->async_core_, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (ok != pdPASS) {
-    ESP_LOGE(TAG, "Failed to create Lua task on core %d", this->async_core_);
+    ESP_LOGW(TAG, "Lua task create in PSRAM failed, retrying with internal RAM");
+    args->use_caps_delete = false;
+    ok = xTaskCreatePinnedToCore(lua_task_entry, "lua_task", LUA_TASK_STACK, args, LUA_TASK_PRIO, nullptr,
+                                 this->async_core_);
+  }
+  if (ok != pdPASS) {
+    internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    internal_largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    ESP_LOGE(TAG,
+             "Failed to create Lua task on core %d internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u stack=%u",
+             this->async_core_, static_cast<unsigned>(internal_free), static_cast<unsigned>(internal_largest),
+             static_cast<unsigned>(psram_free), static_cast<unsigned>(psram_largest),
+             static_cast<unsigned>(LUA_TASK_STACK));
     delete args;
     release_run_path(path);
     return false;

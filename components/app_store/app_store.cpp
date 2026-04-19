@@ -12,6 +12,7 @@
 
 #include <zlib.h>
 
+#include "esp_heap_caps.h"
 #include "esphome/components/json/json_util.h"
 #include "esphome/components/lua_runtime/lua_runtime.h"
 #include "esphome/core/application.h"
@@ -30,6 +31,7 @@ static const char *const TMP_ROOT = "/sdcard/tmp/appstore";
 static const char *const TMP_PACKAGE_ROOT = "/sdcard/tmp/appstore/packages";
 static const char *const TMP_STAGE_ROOT = "/sdcard/tmp/appstore/stage";
 static const char *const BACKUP_ROOT = "/sdcard/var/appstore/backup";
+static constexpr configSTACK_DEPTH_TYPE WORKER_STACK_SIZE = 14336;
 
 static constexpr uint32_t ZIP_EOCD_SIGNATURE = 0x06054b50UL;
 static constexpr uint32_t ZIP_CENTRAL_SIGNATURE = 0x02014b50UL;
@@ -377,7 +379,24 @@ bool AppStore::start_worker_(WorkerOp op, const std::string &app_id) {
   };
 
   auto *args = new WorkerArgs{this, op, app_id};
-  BaseType_t ok = xTaskCreate(&AppStore::worker_task_entry_, "app_store", 14336, args, 1, nullptr);
+  size_t internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  size_t internal_largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  size_t psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  size_t psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  ESP_LOGI(TAG,
+           "Worker memory before create: internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u stack=%u",
+           static_cast<unsigned>(internal_free), static_cast<unsigned>(internal_largest), static_cast<unsigned>(psram_free),
+           static_cast<unsigned>(psram_largest), static_cast<unsigned>(WORKER_STACK_SIZE));
+
+  // The app-store worker performs network, filesystem, and zip processing. Keep
+  // its large stack in PSRAM first so fragmented internal RAM does not prevent
+  // task creation after the device has been running for hours.
+  BaseType_t ok = xTaskCreatePinnedToCoreWithCaps(&AppStore::worker_task_entry_, "app_store", WORKER_STACK_SIZE, args, 1,
+                                                  nullptr, tskNO_AFFINITY, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (ok != pdPASS) {
+    ESP_LOGW(TAG, "Worker create in PSRAM failed, retrying with internal RAM");
+    ok = xTaskCreate(&AppStore::worker_task_entry_, "app_store", WORKER_STACK_SIZE, args, 1, nullptr);
+  }
   if (ok != pdPASS) {
     delete args;
     LockGuard lock(this->mutex_);
@@ -388,7 +407,14 @@ bool AppStore::start_worker_(WorkerOp op, const std::string &app_id) {
     this->notification_requested_ = true;
     this->notification_message_ = "无法创建应用商店任务";
     this->notification_delay_ms_ = 2500;
-    ESP_LOGE(TAG, "Failed to create worker task");
+    internal_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    internal_largest = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    psram_free = heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    psram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    ESP_LOGE(TAG,
+             "Failed to create worker task internal_free=%u internal_largest=%u psram_free=%u psram_largest=%u stack=%u",
+             static_cast<unsigned>(internal_free), static_cast<unsigned>(internal_largest), static_cast<unsigned>(psram_free),
+             static_cast<unsigned>(psram_largest), static_cast<unsigned>(WORKER_STACK_SIZE));
     return false;
   }
   return true;
@@ -408,7 +434,7 @@ void AppStore::worker_task_entry_(void *param) {
   delete args;
 
   self->run_worker_(op, app_id);
-  vTaskDelete(nullptr);
+  vTaskDeleteWithCaps(nullptr);
 }
 
 void AppStore::run_worker_(WorkerOp op, std::string app_id) {
