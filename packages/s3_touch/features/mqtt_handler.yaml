@@ -64,6 +64,15 @@ script:
                       unlink("/data/custom_bg.jpg");
                       ESP_LOGI("CookieIoT", "Deleted existing background image.");
                     }
+                    if (stat("/data/custom_bg.bin", &st) == 0)
+                    {
+                      unlink("/data/custom_bg.bin");
+                      ESP_LOGI("CookieIoT", "Deleted existing converted background image.");
+                    }
+                    if (stat("/data/custom_bg.bin.tmp", &st) == 0)
+                    {
+                      unlink("/data/custom_bg.bin.tmp");
+                    }
                     // --- 1. 获取 Base64 字符串 ---
                     // 假设 JSON 路径 "image_base64" 存在且为字符串
                     const char *base64_str = root["image_base64"].as<const char *>();
@@ -123,14 +132,21 @@ script:
                     }
                     file.close();
                     ESP_LOGI("CookieIoT", "File saved successfully: %s (%zu bytes)", LOCAL_FILE_PATH, decoded_len);
-                    const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
                     if (id(background_image) == nullptr) {
                         ESP_LOGW("CookieIoT", "LVGL image object (background_image) not initialized.");
                         return false;
                     }
-                    lv_img_set_src(id(background_image), LVGL_FILE_PATH);
-                    lv_img_set_src(id(img_lock_screen_bg), LVGL_FILE_PATH);
-                    ESP_LOGI("CookieIoT", "Image source updated.");
+                    if (lemonade::background::load_custom_background_jpg_from_memory(decoded_data.data(), decoded_len)) {
+                        auto *runtime_bg = lemonade::background::get_custom_background_image();
+                        lv_img_set_src(id(background_image), runtime_bg);
+                        lv_img_set_src(id(img_lock_screen_bg), runtime_bg);
+                        ESP_LOGI("CookieIoT", "Image source updated from runtime image.");
+                    } else {
+                        const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
+                        lv_img_set_src(id(background_image), LVGL_FILE_PATH);
+                        lv_img_set_src(id(img_lock_screen_bg), LVGL_FILE_PATH);
+                        ESP_LOGW("CookieIoT", "Runtime background load failed, fell back to file source.");
+                    }
                     id(show_notification)->execute("获取背景图片成功", "", 5000);
                     return true;
                   }

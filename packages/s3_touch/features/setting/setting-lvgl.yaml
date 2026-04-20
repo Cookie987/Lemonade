@@ -74,8 +74,12 @@ lvgl:
           on_click:
             then:
               - lambda: |
-                  lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_wifi_message);
-                  const char *txt = lv_label_get_text(msgbox_text);
+                  lv_obj_t * msgbox_content = lv_msgbox_get_content(msgbox_delete_wifi_message);
+                  lv_obj_t * msgbox_text =
+                      (msgbox_content != nullptr && lv_obj_get_child_count(msgbox_content) > 0)
+                          ? lv_obj_get_child(msgbox_content, 0)
+                          : nullptr;
+                  const char *txt = msgbox_text != nullptr ? lv_label_get_text(msgbox_text) : nullptr;
                   if (txt == nullptr) {
                       lv_obj_add_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
                       return;
@@ -122,12 +126,12 @@ lvgl:
               - ota.http_request.flash:
                   md5_url: !lambda |-
                     return id(setting_update_ota_md5_url).empty()
-                               ? std::string("${lemonade_ota_md5_url}")
-                               : id(setting_update_ota_md5_url);
+                              ? std::string("${lemonade_ota_md5_url}")
+                              : id(setting_update_ota_md5_url);
                   url: !lambda |-
                     return id(setting_update_ota_url).empty()
-                               ? std::string("${lemonade_ota_url}")
-                               : id(setting_update_ota_url);
+                                ? std::string("${lemonade_ota_url}")
+                                : id(setting_update_ota_url);
   pages:
     - id: page_setting_menu
       on_load:
@@ -283,7 +287,7 @@ lvgl:
                       id: usb_voltage_indicator
                       width: 2
                       color: 0xFF0000
-                      r_mod: -4
+                      length: -4
                   - tick_style:
                       start_value: 0
                       end_value: 60
@@ -337,7 +341,7 @@ lvgl:
                       id: battery_voltage_indicator
                       width: 2
                       color: 0xFF0000
-                      r_mod: -4
+                      length: -4
                   - tick_style:
                       start_value: 0
                       end_value: 50
@@ -992,7 +996,11 @@ lvgl:
                     std::string message =
                         std::string("将更新至 ") + target_version +
                         "，系统将暂时无响应(~60s)，请确保电量充足，网络连接稳定。系统将自动重启。";
-                    lv_obj_t *msgbox_text = lv_msgbox_get_text(msgbox_update_message);
+                    lv_obj_t *msgbox_content = lv_msgbox_get_content(msgbox_update_message);
+                    lv_obj_t *msgbox_text =
+                        (msgbox_content != nullptr && lv_obj_get_child_count(msgbox_content) > 0)
+                            ? lv_obj_get_child(msgbox_content, 0)
+                            : nullptr;
                     if (msgbox_text != nullptr) {
                       lv_label_set_text(msgbox_text, message.c_str());
                     }
@@ -1104,7 +1112,7 @@ lvgl:
             id: lbl_new_wifi_ssid
             text: "连接到的Wi-Fi"
             align: TOP_MID
-            transform_zoom: 1
+            transform_scale: 1
             x: 0
             y: 40
             text_font: chinese_font14

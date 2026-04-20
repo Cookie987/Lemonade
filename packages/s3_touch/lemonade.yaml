@@ -2,8 +2,20 @@ esphome:
   name: "${lemonade_device_name}"
   friendly_name: ${lemonade_device_friendly_name}
   platformio_options:
+    extra_scripts:
+      - pre:pre_build.py
+      - pre:cxx_flags.py
+      - post:post_build.py
+      - pre:../../../scripts/remove_stale_internal_temperature.py
     upload_speed: 1152000
+    lib_deps:
+      - https://github.com/bitbank2/JPEGDEC#1.8.4
+      - pngle@1.1.0
   includes:
+    - packages/s3_touch/background_runtime_image.h
+    - packages/s3_touch/background_runtime_image.cpp
+    - packages/s3_touch/runtime_icon_image.h
+    - packages/s3_touch/runtime_icon_image.cpp
     - <esp_littlefs.h>
     - <mbedtls/base64.h>
     - <fstream>
@@ -66,9 +78,9 @@ esphome:
             condition:
               lambda: 'return id(invert_color_switch).state;'
             then:
-              - lambda: id(watchface)->set_command(0x21);
+              - lambda: id(watchface)->set_invert_colors(true);
             else:
-              - lambda: id(watchface)->set_command(0x20);
+              - lambda: id(watchface)->set_invert_colors(false);
         - lvgl.widget.hide: boot_screen
         - lambda: |
             const esp_partition_t *running = esp_ota_get_running_partition();
@@ -99,11 +111,13 @@ esp32:
       - name: joltwallet/littlefs
         source: https://github.com/joltwallet/esp_littlefs.git
       - espressif/zlib~1.3
+      - espressif/esp-dsp~1.7.1
     advanced:
       execute_from_psram: false
       disable_vfs_support_termios: false
       disable_vfs_support_select: false
       disable_vfs_support_dir: false
+      loop_task_stack_size: 16384
     sdkconfig_options:
       CONFIG_PM_ENABLE: y
       CONFIG_PM_DFS_INIT_AUTO: y
@@ -386,10 +400,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     on_turn_on:
       then:
-        - lambda: id(watchface)->set_command(0x21);
+        - lambda: id(watchface)->set_invert_colors(true);
     on_turn_off:
       then:
-        - lambda: id(watchface)->set_command(0x20);
+        - lambda: id(watchface)->set_invert_colors(false);
 
 mqtt:
   id: mqtt_client

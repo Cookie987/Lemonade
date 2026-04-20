@@ -12,7 +12,7 @@ lvgl:
       widgets:
         - tabview:
             id: tabview_timer
-            anim_time: 0.5s
+            anim_duration: 0.5s
             x: 0
             y: 18
             width: 320
@@ -111,7 +111,7 @@ lvgl:
                       height: 100
                       mode: INFINITE
                       selected:
-                        transform_zoom: 1.5
+                        transform_scale: 1.5
                       options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
                   # 分隔符
                   - label:

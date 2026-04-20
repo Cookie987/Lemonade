@@ -44,7 +44,7 @@ lvgl:
       widgets:
         - tabview:
             id: tabview_weather
-            anim_time: 0.5s
+            anim_duration: 0.5s
             x: 0
             y: 18
             width: 320

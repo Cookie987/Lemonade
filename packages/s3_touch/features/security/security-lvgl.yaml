@@ -511,6 +511,8 @@ lvgl:
                       };
 
                       lv_canvas_fill_bg(canvas_obj, lv_color_hex(0x101820), LV_OPA_COVER);
+                      lv_layer_t layer;
+                      lv_canvas_init_layer(canvas_obj, &layer);
 
                       lv_draw_line_dsc_t line_dsc;
                       lv_draw_line_dsc_init(&line_dsc);
@@ -527,16 +529,22 @@ lvgl:
                         }
                         lv_point_t current = points[c - '1'];
                         if (have_prev) {
-                          lv_point_t pts[2] = {prev, current};
-                          lv_canvas_draw_line(canvas_obj, pts, 2, &line_dsc);
+                          line_dsc.p1.x = prev.x;
+                          line_dsc.p1.y = prev.y;
+                          line_dsc.p2.x = current.x;
+                          line_dsc.p2.y = current.y;
+                          lv_draw_line(&layer, &line_dsc);
                         }
                         prev = current;
                         have_prev = true;
                       }
 
                       if (cursor != nullptr && have_prev) {
-                        lv_point_t pts[2] = {prev, *cursor};
-                        lv_canvas_draw_line(canvas_obj, pts, 2, &line_dsc);
+                        line_dsc.p1.x = prev.x;
+                        line_dsc.p1.y = prev.y;
+                        line_dsc.p2.x = cursor->x;
+                        line_dsc.p2.y = cursor->y;
+                        lv_draw_line(&layer, &line_dsc);
                       }
 
                       for (int i = 0; i < 9; i++) {
@@ -551,8 +559,13 @@ lvgl:
                         outer_dsc.border_color =
                             selected ? lv_color_hex(0x4FC3F7) : lv_color_hex(0x8AA4B8);
                         outer_dsc.radius = LV_RADIUS_CIRCLE;
-                        lv_canvas_draw_rect(
-                            canvas_obj, points[i].x - 14, points[i].y - 14, 28, 28, &outer_dsc);
+                        lv_area_t outer_area = {
+                            static_cast<lv_coord_t>(points[i].x - 14),
+                            static_cast<lv_coord_t>(points[i].y - 14),
+                            static_cast<lv_coord_t>(points[i].x + 13),
+                            static_cast<lv_coord_t>(points[i].y + 13),
+                        };
+                        lv_draw_rect(&layer, &outer_dsc, &outer_area);
 
                         lv_draw_rect_dsc_t inner_dsc;
                         lv_draw_rect_dsc_init(&inner_dsc);
@@ -561,10 +574,16 @@ lvgl:
                             selected ? lv_color_hex(0x4FC3F7) : lv_color_hex(0x29404F);
                         inner_dsc.border_opa = LV_OPA_TRANSP;
                         inner_dsc.radius = LV_RADIUS_CIRCLE;
-                        lv_canvas_draw_rect(
-                            canvas_obj, points[i].x - 5, points[i].y - 5, 10, 10, &inner_dsc);
+                        lv_area_t inner_area = {
+                            static_cast<lv_coord_t>(points[i].x - 5),
+                            static_cast<lv_coord_t>(points[i].y - 5),
+                            static_cast<lv_coord_t>(points[i].x + 4),
+                            static_cast<lv_coord_t>(points[i].y + 4),
+                        };
+                        lv_draw_rect(&layer, &inner_dsc, &inner_area);
                       }
 
+                      lv_canvas_finish_layer(canvas_obj, &layer);
                       lv_obj_invalidate(canvas_obj);
                     };
 
@@ -624,7 +643,7 @@ lvgl:
                       return;
                     }
 
-                    lv_obj_t *obj = lv_event_get_target(e);
+                    lv_obj_t *obj = static_cast<lv_obj_t *>(lv_event_get_target(e));
                     lv_event_code_t code = lv_event_get_code(e);
                     lv_indev_t *indev = lv_indev_get_act();
                     if (indev == nullptr || obj == nullptr) {

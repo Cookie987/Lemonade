@@ -296,7 +296,7 @@ lvgl:
       widgets:
         - tabview:
             id: tabview_timer
-            anim_time: 0.5s
+            anim_duration: 0.5s
             x: 0
             y: 18
             width: 320
@@ -375,7 +375,7 @@ lvgl:
                       height: 100
                       mode: INFINITE
                       selected:
-                        transform_zoom: 1.5
+                        transform_scale: 1.5
                       options: [0,1,2,3,4,5,6,7,8,9]
                   # 分隔符
                   - label:
@@ -544,7 +544,7 @@ lvgl:
             id: lbl_new_wifi_ssid
             text: "连接到的Wi-Fi"
             align: TOP_MID
-            transform_zoom: 1
+            transform_scale: 1
             x: 0
             y: 40
             text_font: chinese_font14
@@ -644,7 +644,7 @@ lvgl:
                       id: usb_voltage_indicator
                       width: 2
                       color: 0xFF0000
-                      r_mod: -4
+                      length: -4
                   - tick_style:
                       start_value: 0
                       end_value: 60
@@ -698,7 +698,7 @@ lvgl:
                       id: battery_voltage_indicator
                       width: 2
                       color: 0xFF0000
-                      r_mod: -4
+                      length: -4
                   - tick_style:
                       start_value: 0
                       end_value: 50

@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC_TXT = ROOT / "lvgl_bindings.txt"
 SPEC_JSON = ROOT / "lvgl_bindings.json"
 OUT = ROOT / "lua_lvgl_gen.h"
+HEADER_SKIP_PARTS = {"docs", "tests", "demos", "examples", "env_support", "__pycache__"}
 
 INT_TYPES = {
     "int",
@@ -49,6 +50,16 @@ MANUAL_BINDINGS = {
 }
 
 
+def parse_alias_macros(text: str) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for line in text.splitlines():
+        m = re.match(r"^\s*#define\s+(lv_[A-Za-z0-9_]+)\s+(lv_[A-Za-z0-9_]+)\b", line)
+        if not m:
+            continue
+        aliases[m.group(1)] = m.group(2)
+    return aliases
+
+
 def strip_comments(text: str) -> str:
     text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
     text = re.sub(r"//.*?$", " ", text, flags=re.M)
@@ -59,6 +70,8 @@ def strip_comments(text: str) -> str:
 def normalize_type(type_name: str) -> str:
     t = type_name.strip()
     t = t.replace("struct _lv_obj_t", "lv_obj_t")
+    t = re.sub(r"\bstatic\b", " ", t)
+    t = re.sub(r"\binline\b", " ", t)
     t = re.sub(r"\bLV_ATTRIBUTE_[A-Z0-9_]+\b", " ", t)
     t = re.sub(r"\bLV_ATTRIBUTE_FAST_MEM\b", " ", t)
     t = t.replace("*", " * ")
@@ -117,9 +130,19 @@ def split_args(args_src: str):
     return args
 
 
-def find_decl(function_name: str, header_texts):
+def resolve_alias(function_name: str, aliases: dict[str, str]) -> str:
+    seen = set()
+    current = function_name
+    while current in aliases and current not in seen:
+        seen.add(current)
+        current = aliases[current]
+    return current
+
+
+def find_decl(function_name: str, header_texts, aliases):
+    lookup_name = resolve_alias(function_name, aliases)
     pattern = re.compile(
-        rf"([A-Za-z_][\w\s\*]*?)\s+{re.escape(function_name)}\s*\(([^;{{}}]*)\)\s*;",
+        rf"([A-Za-z_][\w\s\*]*?)\s+{re.escape(lookup_name)}\s*\(([^;{{}}]*)\)\s*(?:;|\{{)",
         flags=re.S,
     )
     for _path, text in header_texts:
@@ -250,31 +273,51 @@ def load_function_names():
     return deduped
 
 
+def normalize_lvgl_root(path: Path | None):
+    if path is None:
+        return None
+    p = Path(path)
+    if (p / "src").exists() and (p / "lvgl.h").exists():
+        return p
+    if p.name == "src" and (p / "lvgl.h").exists() and (p.parent / "lvgl.h").exists():
+        return p.parent
+    return None
+
+
 def find_default_lvgl_root():
     candidates = [
         os.getenv("LVGL_ROOT", ""),
+        str((ROOT.parents[1] / ".esphome" / "build" / "lemonade-tc" / "managed_components" / "lvgl__lvgl")),
         str((ROOT.parents[1] / ".esphome" / "build" / "lemonade-tc" / ".piolibdeps" / "lemonade-tc" / "lvgl-c")),
         str((ROOT.parents[1] / "misc" / "lvgl8")),
     ]
     for c in candidates:
         if not c:
             continue
-        p = Path(c)
-        if (p / "src").exists() and (p / "lvgl.h").exists():
-            return p
+        normalized = normalize_lvgl_root(Path(c))
+        if normalized is not None:
+            return normalized
     return None
 
 
 def collect_headers(lvgl_root: Path):
     headers = [lvgl_root / "lvgl.h"]
-    headers.extend(sorted((lvgl_root / "src").rglob("*.h")))
+    headers.extend(
+        sorted(
+            header for header in (lvgl_root / "src").rglob("*.h")
+            if not any(part in HEADER_SKIP_PARTS for part in header.parts)
+        )
+    )
     out = []
+    aliases = {}
     for header in headers:
         if not header.exists():
             continue
-        text = strip_comments(header.read_text(encoding="utf-8", errors="ignore"))
+        raw_text = header.read_text(encoding="utf-8", errors="ignore")
+        aliases.update(parse_alias_macros(raw_text))
+        text = strip_comments(raw_text)
         out.append((header, text))
-    return out
+    return out, aliases
 
 
 def main() -> int:
@@ -283,12 +326,12 @@ def main() -> int:
     parser.add_argument("--strict", action="store_true", help="Fail on any unsupported/missing function")
     cli_args = parser.parse_args()
 
-    lvgl_root = cli_args.lvgl_root or find_default_lvgl_root()
+    lvgl_root = normalize_lvgl_root(cli_args.lvgl_root) if cli_args.lvgl_root else find_default_lvgl_root()
     if lvgl_root is None:
         print("LVGL root not found. Pass --lvgl-root or set LVGL_ROOT.", file=sys.stderr)
         return 2
 
-    header_texts = collect_headers(lvgl_root)
+    header_texts, aliases = collect_headers(lvgl_root)
     names = load_function_names()
 
     lines = []
@@ -304,7 +347,7 @@ def main() -> int:
             continue
         lua_name = c_name[3:] if c_name.startswith("lv_") else c_name
         try:
-            ret_type, fn_args = find_decl(c_name, header_texts)
+            ret_type, fn_args = find_decl(c_name, header_texts, aliases)
             fn_lines = []
             fn_lines.append(f"static int l_{lua_name}(lua_State *L) {{")
 

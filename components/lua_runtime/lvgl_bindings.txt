@@ -58,12 +58,9 @@ lv_obj_set_style_bg_grad_dir
 lv_obj_set_style_bg_main_stop
 lv_obj_set_style_bg_grad_stop
 lv_obj_set_style_bg_grad
-lv_obj_set_style_bg_dither_mode
 lv_obj_set_style_bg_img_src
-lv_obj_set_style_bg_img_opa
 lv_obj_set_style_bg_img_recolor
 lv_obj_set_style_bg_img_recolor_opa
-lv_obj_set_style_bg_img_tiled
 lv_obj_set_style_border_width
 lv_obj_set_style_border_color
 lv_obj_set_style_border_opa
@@ -94,12 +91,11 @@ lv_obj_set_style_transform_width
 lv_obj_set_style_transform_height
 lv_obj_set_style_translate_x
 lv_obj_set_style_translate_y
-lv_obj_set_style_transform_zoom
+lv_obj_set_style_transform_scale
 lv_obj_set_style_transform_angle
 lv_obj_set_style_transform_pivot_x
 lv_obj_set_style_transform_pivot_y
 lv_obj_set_style_anim_time
-lv_obj_set_style_anim_speed
 lv_obj_set_style_img_opa
 lv_obj_set_style_img_recolor
 lv_obj_set_style_img_recolor_opa
@@ -123,7 +119,6 @@ lv_obj_set_style_arc_width
 lv_obj_set_style_arc_rounded
 lv_obj_set_style_arc_color
 lv_obj_set_style_arc_opa
-lv_obj_set_style_arc_img_src
 lv_obj_set_style_opa
 lv_obj_set_style_opa_layered
 lv_obj_set_style_color_filter_dsc
@@ -191,7 +186,6 @@ lv_img_set_angle
 lv_img_set_pivot
 lv_img_set_zoom
 lv_img_set_antialias
-lv_img_set_size_mode
 lv_img_get_src
 lv_img_get_offset_x
 lv_img_get_offset_y
@@ -208,8 +202,8 @@ lv_label_set_text
 lv_label_set_text_static 
 lv_label_set_long_mode
 lv_label_set_recolor
-lv_label_set_text_sel_start
-lv_label_set_text_sel_end
+lv_label_set_text_selection_start
+lv_label_set_text_selection_end
 lv_label_get_text
 lv_label_get_long_mode
 lv_label_get_recolor
@@ -225,8 +219,8 @@ lv_label_cut_text
 lv_textarea_create
 lv_textarea_add_char
 lv_textarea_add_text
-lv_textarea_del_char
-lv_textarea_del_char_forward
+lv_textarea_delete_char
+lv_textarea_delete_char_forward
 lv_textarea_set_text
 lv_textarea_set_placeholder_text
 lv_textarea_set_cursor_pos
@@ -267,7 +261,6 @@ lv_keyboard_set_popovers
 lv_keyboard_set_map
 lv_keyboard_get_textarea
 lv_keyboard_get_mode
-lv_btnmatrix_get_popovers
 
 # list
 lv_list_create
@@ -278,12 +271,7 @@ lv_list_get_btn_text
 # msgbox
 lv_msgbox_create
 lv_msgbox_get_title
-lv_msgbox_get_close_btn
-lv_msgbox_get_text
 lv_msgbox_get_content
-lv_msgbox_get_btns
-lv_msgbox_get_active_btn
-lv_msgbox_get_active_btn_text
 lv_msgbox_close
 lv_msgbox_close_async
 
@@ -307,5 +295,5 @@ lv_btnmatrix_set_one_checked
 # lv_btnmatrix_get_map
 # lv_btnmatrix_get_selected_btn
 # lv_btnmatrix_get_btn_text
-lv_btnmatrix_has_btn_ctrl
+lv_buttonmatrix_has_button_ctrl
 lv_btnmatrix_get_one_checked

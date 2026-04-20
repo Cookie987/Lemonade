@@ -9,7 +9,7 @@ if not page then return end
 
 lv.obj_clean(page)
 
-local font = lv.font_load("assets/jetbrains_mono_bold_32.bin")
+local font = lv.font_load("assets/JetBrainsMono-Bold-7.ttf", 32)
 if not font then
     ui.show_notification("字体加载失败", "", 2000)
     return
@@ -51,7 +51,7 @@ local display_label = lv.label_create(display_panel)
 lv.obj_set_style_text_font(display_label, font, 0)
 lv.obj_set_width(display_label, 300)
 lv.obj_set_style_text_align(display_label, lv.TEXT_ALIGN_RIGHT, 0)
-lv.obj_align(display_label, lv.ALIGN_BOTTOM_RIGHT, -10, -8)
+lv.obj_align(display_label, lv.ALIGN_BOTTOM_RIGHT, -10, -2)
 
 local hint_label = lv.label_create(display_panel)
 lv.obj_set_width(hint_label, 300)

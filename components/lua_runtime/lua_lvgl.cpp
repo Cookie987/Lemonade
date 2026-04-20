@@ -613,7 +613,7 @@ static void lua_event_trampoline(lv_event_t *e) {
 }
 
 static void lua_timer_trampoline(lv_timer_t *timer) {
-  auto *cb = static_cast<LuaTimerCb *>(timer != nullptr ? timer->user_data : nullptr);
+  auto *cb = static_cast<LuaTimerCb *>(timer != nullptr ? lv_timer_get_user_data(timer) : nullptr);
   if (cb == nullptr || cb->ctx == nullptr || !cb->ctx->alive || cb->ctx->queue == nullptr) return;
   if (!cb->active || cb->ref == LUA_NOREF) return;
 
@@ -910,7 +910,7 @@ static int count_notification_bars(lv_obj_t *top_layer) {
 }
 
 static void notification_bar_delete_cb(lv_event_t *e) {
-  lv_obj_t *bar = lv_event_get_target(e);
+  lv_obj_t *bar = static_cast<lv_obj_t *>(lv_event_get_target(e));
   auto *data = get_notification_bar_data(bar);
   if (data == nullptr) return;
 
@@ -954,7 +954,7 @@ static void close_notification_bar(lv_obj_t *bar) {
 }
 
 static void notification_bar_timer_cb(lv_timer_t *timer) {
-  auto *data = static_cast<LuaNotificationBar *>(timer != nullptr ? timer->user_data : nullptr);
+  auto *data = static_cast<LuaNotificationBar *>(timer != nullptr ? lv_timer_get_user_data(timer) : nullptr);
   if (data == nullptr || data->magic != LUA_NOTIFICATION_MAGIC) return;
   data->close_timer = nullptr;
   if (data->bar == nullptr || !lv_obj_is_valid(data->bar)) return;
@@ -963,7 +963,7 @@ static void notification_bar_timer_cb(lv_timer_t *timer) {
 
 static void notification_bar_click_cb(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
-  close_notification_bar(lv_event_get_target(e));
+  close_notification_bar(static_cast<lv_obj_t *>(lv_event_get_target(e)));
 }
 
 static void set_notification_bar_timer(LuaNotificationBar *data, int delay_ms) {
@@ -1195,13 +1195,13 @@ static int l_font_load(lua_State *L) {
   lv_font_t *font = nullptr;
   LuaFontKind kind = LuaFontKind::BIN;
   if (is_bin_font) {
-    font = lvgl_call_ret([=]() -> lv_font_t * { return lv_font_load(path_str.c_str()); });
+    font = lvgl_call_ret([=]() -> lv_font_t * { return lv_binfont_create(path_str.c_str()); });
   } else {
     lv_coord_t font_size = (lv_coord_t) luaL_checkinteger(L, 2);
     size_t cache_size = (size_t) luaL_optinteger(L, 3, 4096);
 #if LV_USE_TINY_TTF && LV_TINY_TTF_FILE_SUPPORT
     font = lvgl_call_ret([=]() -> lv_font_t * {
-      return lv_tiny_ttf_create_file_ex(path_str.c_str(), font_size, cache_size);
+      return lv_tiny_ttf_create_file_ex(path_str.c_str(), font_size, LV_FONT_KERNING_NORMAL, cache_size);
     });
     kind = LuaFontKind::TINY_TTF;
 #else
@@ -1266,7 +1266,7 @@ static int l_obj_set_style_size(lua_State *L) {
   lv_style_selector_t selector = (lv_style_selector_t) luaL_checkinteger(L, 3);
   if (obj == nullptr) return 0;
 
-  lvgl_call_void([=]() { lv_obj_set_style_size(obj, value, selector); });
+  lvgl_call_void([=]() { lv_obj_set_style_size(obj, value, value, selector); });
   return 0;
 }
 
@@ -1290,7 +1290,7 @@ static int l_font_free(lua_State *L) {
   lvgl_call_void([=]() {
     switch (kind) {
       case LuaFontKind::BIN:
-        lv_font_free(font);
+        lv_binfont_destroy(font);
         break;
       case LuaFontKind::TINY_TTF:
 #if LV_USE_TINY_TTF
@@ -1354,7 +1354,7 @@ static int l_timer_del(lua_State *L) {
   }
 
   lvgl_call_void([=]() {
-    timer->user_data = nullptr;
+    lv_timer_set_user_data(timer, nullptr);
     lv_timer_del(timer);
   });
   return 0;
@@ -1397,7 +1397,7 @@ static int l_btnmatrix_get_map(lua_State *L) {
     lua_pushnil(L);
     return 1;
   }
-  const char **map = lvgl_call_ret([=]() -> const char ** {
+  const char * const *map = lvgl_call_ret([=]() -> const char * const * {
     return lv_btnmatrix_get_map(obj);
   });
   if (map == nullptr) {
@@ -1590,11 +1590,6 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   set_int_field(L, "GRAD_DIR_VER", LV_GRAD_DIR_VER);
   set_int_field(L, "GRAD_DIR_HOR", LV_GRAD_DIR_HOR);
 
-  // dither
-  set_int_field(L, "DITHER_NONE", LV_DITHER_NONE);
-  set_int_field(L, "DITHER_ORDERED", LV_DITHER_ORDERED);
-  set_int_field(L, "DITHER_ERR_DIFF", LV_DITHER_ERR_DIFF);
-
   // border side
   set_int_field(L, "BORDER_SIDE_NONE", LV_BORDER_SIDE_NONE);
   set_int_field(L, "BORDER_SIDE_BOTTOM", LV_BORDER_SIDE_BOTTOM);
@@ -1621,7 +1616,7 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   set_int_field(L, "BLEND_MODE_ADDITIVE", LV_BLEND_MODE_ADDITIVE);
   set_int_field(L, "BLEND_MODE_SUBTRACTIVE", LV_BLEND_MODE_SUBTRACTIVE);
   set_int_field(L, "BLEND_MODE_MULTIPLY", LV_BLEND_MODE_MULTIPLY);
-  set_int_field(L, "BLEND_MODE_REPLACE", LV_BLEND_MODE_REPLACE);
+  set_int_field(L, "BLEND_MODE_DIFFERENCE", LV_BLEND_MODE_DIFFERENCE);
 
   // text align
   set_int_field(L, "TEXT_ALIGN_LEFT", LV_TEXT_ALIGN_LEFT);
@@ -1675,7 +1670,7 @@ void cleanup_lvgl_api(lua_State *L) {
     retire_lua_timer_cb(L, ctx, cb);
     if (timer != nullptr) {
       lvgl_call_void([timer]() {
-        timer->user_data = nullptr;
+        lv_timer_set_user_data(timer, nullptr);
         lv_timer_del(timer);
       });
     }
@@ -1704,7 +1699,7 @@ void cleanup_lvgl_api(lua_State *L) {
     lvgl_call_void([=]() {
       switch (kind) {
         case LuaFontKind::BIN:
-          lv_font_free(font);
+          lv_binfont_destroy(font);
           break;
         case LuaFontKind::TINY_TTF:
 #if LV_USE_TINY_TTF

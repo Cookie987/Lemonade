@@ -8,7 +8,7 @@ script:
               auto bind_message_long_press = [](lv_obj_t * list_obj, lv_obj_t * btn) {
                 if (list_obj == nullptr || btn == nullptr) return;
                 lv_obj_add_event_cb(btn, [](lv_event_t * e) {
-                  lv_obj_t * target_btn = lv_event_get_target(e);
+                  lv_obj_t * target_btn = static_cast<lv_obj_t *>(lv_event_get_target(e));
                   lv_obj_t * parent_list = (lv_obj_t *) lv_event_get_user_data(e);
                   if (target_btn == nullptr || parent_list == nullptr) return;
 
@@ -185,10 +185,10 @@ script:
                         lv_obj_t * list_btn = lv_list_add_btn(friend_list, NULL, content.c_str());
                         bind_message_long_press(friend_list, list_btn);
                         lv_label_set_recolor(lv_obj_get_child(list_btn, 0), true);
-                        // 只保留最近的100条，但是名称标签也算，所以是200
+                        // 只保留最近的25条，但是名称标签也算，所以是200
                         uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
-                        if (children_count > 200) {
-                          for (uint32_t i = 0; i < children_count - 200; i++) {
+                        if (children_count > 50) {
+                          for (uint32_t i = 0; i < children_count - 50; i++) {
                             lv_obj_del(lv_obj_get_child(list_message_friend, 0));
                           }
                         }

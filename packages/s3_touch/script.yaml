@@ -147,7 +147,7 @@ script:
     mode: restart
     then:
       - lambda: |
-          lv_event_send(id(page_main)->obj, LV_EVENT_REFRESH, nullptr);
+          lv_obj_send_event(id(page_main)->obj, LV_EVENT_REFRESH, nullptr);
 
   - id: sd_card_inserted
     mode: single
@@ -223,16 +223,21 @@ script:
     then:
       - lambda: |
           ESP_LOGI("CookieIoT", "Selected Cookie IoT background image.");
-          struct stat st;
-          const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
-          ESP_LOGI("CookieIoT", "Have custom background image.");
           if (id(background_image) == nullptr) {
               ESP_LOGW("CookieIoT", "LVGL image object (background_image) not initialized.");
               return;
           }
+          if (lemonade::background::load_custom_background_jpg_from_file("/data/custom_bg.jpg")) {
+              auto *runtime_bg = lemonade::background::get_custom_background_image();
+              lv_img_set_src(id(background_image), runtime_bg);
+              lv_img_set_src(id(img_lock_screen_bg), runtime_bg);
+              ESP_LOGI("CookieIoT", "Background image source updated from runtime image.");
+              return;
+          }
+          const char *LVGL_FILE_PATH = "A:/data/custom_bg.jpg";
           lv_img_set_src(id(background_image), LVGL_FILE_PATH);
           lv_img_set_src(id(img_lock_screen_bg), LVGL_FILE_PATH);
-          ESP_LOGI("CookieIoT", "Background image source updated form LittleFS.");
+          ESP_LOGW("CookieIoT", "Runtime background load failed, fell back to file source.");
 
   - id: get_background_img
     mode: single
@@ -706,8 +711,8 @@ script:
 
   # 创建或修改通知
   # para1: 新的通知内容
-  # para2: （若非空）要修改的通知消息的后缀
-  # para3: （若非0）在该毫秒数后关闭该通知
+  # para2: （若非空）用于匹配并替换已有通知的后缀
+  # para3: （若非0）在该毫秒数后关闭当前显示的通知内容
   - id: show_notification
     parameters:
       notification_message: string
@@ -803,7 +808,7 @@ script:
 
           // 3. 给背景框添加点击事件
           lv_obj_add_event_cb(obj_notification_bar, [](lv_event_t * e) {
-            lv_obj_t * bar = lv_event_get_target(e);
+            lv_obj_t * bar = static_cast<lv_obj_t *>(lv_event_get_target(e));
             if (bar == nullptr || !lv_obj_is_valid(bar)) {
               return;
             }
@@ -851,7 +856,7 @@ script:
           then:
             - delay: !lambda 'return delay_ms;'
             - lambda: |
-                id(close_notification)->execute(suffix.empty() ? notification_message : suffix);
+                id(close_notification)->execute(notification_message);
       - if:
           condition:
             lambda: 'return id(is_sleeping);'

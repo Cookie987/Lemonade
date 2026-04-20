@@ -150,7 +150,7 @@ lvgl:
       widgets:
         - tabview:
             id: tabview_message
-            anim_time: 0.5s
+            anim_duration: 0.5s
             x: 0
             y: 18
             width: 320
@@ -204,15 +204,21 @@ lvgl:
                               lv_obj_set_size(id(textarea_message_public_input), 320, 95);
                               lv_textarea_set_placeholder_text(textarea_message_public_input, "收起键盘退出全屏输入");
                           - script.execute: keyboard_message_show
-                          - lvgl.keyboard.update:
-                              id: keyboard_message_input
-                              textarea: textarea_message_public_input
+                          - lambda: |
+                              auto kb = id(keyboard_message_input)->obj;
+                              auto ta = id(textarea_message_public_input);
+                              lv_keyboard_reset_ime(kb);
+                              lv_keyboard_set_textarea(kb, ta);
+                              lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
                       on_click:
                         then:
                           - script.execute: keyboard_message_show
-                          - lvgl.keyboard.update:
-                              id: keyboard_message_input
-                              textarea: textarea_message_public_input
+                          - lambda: |
+                              auto kb = id(keyboard_message_input)->obj;
+                              auto ta = id(textarea_message_public_input);
+                              lv_keyboard_reset_ime(kb);
+                              lv_keyboard_set_textarea(kb, ta);
+                              lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
               - name: 设置
                 scrollable: true
                 scroll_dir: "VER"
@@ -405,15 +411,21 @@ lvgl:
                           lv_obj_set_size(id(textarea_message_friend_input), 320, 120);
                           lv_textarea_set_placeholder_text(textarea_message_friend_input, "收起键盘退出全屏输入");
                       - script.execute: keyboard_message_show
-                      - lvgl.keyboard.update:
-                          id: keyboard_message_input
-                          textarea: textarea_message_friend_input
+                      - lambda: |
+                          auto kb = id(keyboard_message_input)->obj;
+                          auto ta = id(textarea_message_friend_input);
+                          lv_keyboard_reset_ime(kb);
+                          lv_keyboard_set_textarea(kb, ta);
+                          lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
                   on_click:
                     then:
                       - script.execute: keyboard_message_show
-                      - lvgl.keyboard.update:
-                          id: keyboard_message_input
-                          textarea: textarea_message_friend_input
+                      - lambda: |
+                          auto kb = id(keyboard_message_input)->obj;
+                          auto ta = id(textarea_message_friend_input);
+                          lv_keyboard_reset_ime(kb);
+                          lv_keyboard_set_textarea(kb, ta);
+                          lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
         - obj:
             id: obj_contact_add_overlay
             hidden: true
@@ -449,9 +461,12 @@ lvgl:
                         on_click:
                           then:
                             - script.execute: keyboard_message_show
-                            - lvgl.keyboard.update:
-                                id: keyboard_message_input
-                                textarea: textarea_contact_add_input
+                            - lambda: |
+                                auto kb = id(keyboard_message_input)->obj;
+                                auto ta = id(textarea_contact_add_input);
+                                lv_keyboard_reset_ime(kb);
+                                lv_keyboard_set_textarea(kb, ta);
+                                lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
                     - button:
                         id: btn_contact_add_cancel
                         width: 90
@@ -549,9 +564,16 @@ lvgl:
                             - lambda: |
                                 std::string name = id(pending_action_contact);
                                 id(pending_delete_contact) = name;
-                                lv_obj_t * msgbox_text = lv_msgbox_get_text(msgbox_delete_contact);
-                                lv_label_set_text(msgbox_text, (std::string("确定删除 ") + name + " 吗？").c_str());
-                                if (name == "cookie987" && id(uid) == "srr321" || name == "srr321" && id(uid) == "cookie987") {
+                                lv_obj_t * msgbox_content = lv_msgbox_get_content(msgbox_delete_contact);
+                                lv_obj_t * msgbox_text =
+                                    (msgbox_content != nullptr && lv_obj_get_child_count(msgbox_content) > 0)
+                                        ? lv_obj_get_child(msgbox_content, 0)
+                                        : nullptr;
+                                if (msgbox_text != nullptr) {
+                                  lv_label_set_text(msgbox_text, (std::string("确定删除 ") + name + " 吗？").c_str());
+                                }
+                                if (msgbox_text != nullptr &&
+                                    (name == "cookie987" && id(uid) == "srr321" || name == "srr321" && id(uid) == "cookie987")) {
                                   lv_label_set_text(msgbox_text, (std::string("不要删掉我 QAQ\n") + std::string("确定删除 ") + name + " 吗？").c_str());
                                 }
                                 lv_obj_clear_flag(msgbox_delete_contact_outer, LV_OBJ_FLAG_HIDDEN);
@@ -730,6 +752,7 @@ script:
           auto pub_list = id(list_message_public);
           auto fri_input = id(textarea_message_friend_input);
           auto fri_list = id(list_message_friend);
+          auto contact_input = id(textarea_contact_add_input);
 
           // 1. 立即停止所有动画，回归静止状态
           lv_anim_del(kb, nullptr);
@@ -762,6 +785,11 @@ script:
           lv_obj_set_size(fri_input, 320, 40);
 
           // 4. 重置其他属性
+          lv_keyboard_reset_ime(kb);
+          lv_keyboard_set_textarea(kb, nullptr);
           lv_textarea_set_placeholder_text(pub_input, "单击输入消息，长按进入全屏输入");
           lv_textarea_set_placeholder_text(fri_input, "单击输入消息，长按进入全屏输入");
+          lv_obj_clear_state(pub_input, LV_STATE_FOCUSED);
+          lv_obj_clear_state(fri_input, LV_STATE_FOCUSED);
+          lv_obj_clear_state(contact_input, LV_STATE_FOCUSED);
           id(keyboard_showing) = false;

@@ -153,7 +153,7 @@ end
 local function set_tile_transform(tile, translate_x, translate_y, zoom, opa)
     lv.obj_set_style_translate_x(tile, round(translate_x or 0), 0)
     lv.obj_set_style_translate_y(tile, round(translate_y or 0), 0)
-    lv.obj_set_style_transform_zoom(tile, round(zoom or TILE_ZOOM_DEFAULT), 0)
+    lv.obj_set_style_transform_scale(tile, round(zoom or TILE_ZOOM_DEFAULT), 0)
     lv.obj_set_style_opa(tile, round(opa or TILE_OPA_DEFAULT), 0)
 end
 
@@ -710,7 +710,7 @@ with_batch(function()
             lv.obj_set_style_shadow_width(tile, 0, 0)
             lv.obj_set_style_transform_pivot_x(tile, math.floor(TILE_SIZE / 2), 0)
             lv.obj_set_style_transform_pivot_y(tile, math.floor(TILE_SIZE / 2), 0)
-            lv.obj_set_style_transform_zoom(tile, TILE_ZOOM_DEFAULT, 0)
+            lv.obj_set_style_transform_scale(tile, TILE_ZOOM_DEFAULT, 0)
             lv.obj_clear_flag(tile, lv.FLAG_SCROLLABLE)
             lv.obj_add_flag(tile, lv.FLAG_CLICKABLE)
 

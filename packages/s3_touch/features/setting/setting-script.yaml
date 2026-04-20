@@ -660,7 +660,7 @@ script:
                     return trim_copy(cleaned);
                   };
 
-                  lv_obj_t *target_btn = lv_event_get_target(e);
+                  lv_obj_t *target_btn = static_cast<lv_obj_t *>(lv_event_get_target(e));
                   if (target_btn == nullptr) {
                     return;
                   }
@@ -683,8 +683,14 @@ script:
                   bool managed_wifi = selected_text.find("(已保存)") != std::string::npos ||
                                       selected_text.find("(已连接)") != std::string::npos;
                   if (managed_wifi) {
-                    lv_obj_t *msgbox_text = lv_msgbox_get_text(msgbox_delete_wifi_message);
-                    lv_label_set_text(msgbox_text, (std::string("确定要删除 ") + selected_ssid + " 吗？").c_str());
+                    lv_obj_t *msgbox_content = lv_msgbox_get_content(msgbox_delete_wifi_message);
+                    lv_obj_t *msgbox_text =
+                        (msgbox_content != nullptr && lv_obj_get_child_count(msgbox_content) > 0)
+                            ? lv_obj_get_child(msgbox_content, 0)
+                            : nullptr;
+                    if (msgbox_text != nullptr) {
+                      lv_label_set_text(msgbox_text, (std::string("确定要删除 ") + selected_ssid + " 吗？").c_str());
+                    }
                     lv_obj_clear_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
                     lv_obj_move_foreground(msgbox_delete_wifi_message_outer);
                     return;
