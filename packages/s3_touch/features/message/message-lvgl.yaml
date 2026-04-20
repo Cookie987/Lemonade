@@ -209,7 +209,6 @@ lvgl:
                               auto ta = id(textarea_message_public_input);
                               lv_keyboard_reset_ime(kb);
                               lv_keyboard_set_textarea(kb, ta);
-                              lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
                       on_click:
                         then:
                           - script.execute: keyboard_message_show
@@ -218,7 +217,6 @@ lvgl:
                               auto ta = id(textarea_message_public_input);
                               lv_keyboard_reset_ime(kb);
                               lv_keyboard_set_textarea(kb, ta);
-                              lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
               - name: 设置
                 scrollable: true
                 scroll_dir: "VER"
@@ -416,7 +414,6 @@ lvgl:
                           auto ta = id(textarea_message_friend_input);
                           lv_keyboard_reset_ime(kb);
                           lv_keyboard_set_textarea(kb, ta);
-                          lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
                   on_click:
                     then:
                       - script.execute: keyboard_message_show
@@ -425,7 +422,6 @@ lvgl:
                           auto ta = id(textarea_message_friend_input);
                           lv_keyboard_reset_ime(kb);
                           lv_keyboard_set_textarea(kb, ta);
-                          lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
         - obj:
             id: obj_contact_add_overlay
             hidden: true
@@ -466,7 +462,6 @@ lvgl:
                                 auto ta = id(textarea_contact_add_input);
                                 lv_keyboard_reset_ime(kb);
                                 lv_keyboard_set_textarea(kb, ta);
-                                lv_textarea_set_cursor_pos(ta, LV_TEXTAREA_CURSOR_LAST);
                     - button:
                         id: btn_contact_add_cancel
                         width: 90
