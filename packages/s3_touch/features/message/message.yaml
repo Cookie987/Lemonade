@@ -899,7 +899,7 @@ script:
           item["content"] = content;
 
           // 6. 长度控制
-          while (arr.size() > 100) {
+          while (arr.size() > 25) {
               arr.remove(0);
           }
 
@@ -952,7 +952,7 @@ script:
           item["content"] = content;
 
           // 5. 队列修剪：公共频道消息多，严格控制 100 条
-          while (arr.size() > 100) {
+          while (arr.size() > 25) {
               arr.remove(0);
           }
 
@@ -1020,7 +1020,7 @@ script:
           // 2. 渲染函数优化：减少冗余判断
           auto render_and_trim = [&](JsonArray arr) -> bool {
             bool modified = false;
-            while (arr.size() > 100) { arr.remove(0); modified = true; }
+            while (arr.size() > 25) { arr.remove(0); modified = true; }
 
             lv_obj_clean(list); // 渲染前通常需要清空旧视图，如不需要请删除此行
             lv_obj_t *last_btn = nullptr;

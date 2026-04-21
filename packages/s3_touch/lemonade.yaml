@@ -536,7 +536,7 @@ sensor:
             condition:
               sensor.in_range:
                 id: internal_temp
-                above: 45.0
+                above: 48.0
             then:
               - script.execute: security_capture_resume_page
               - lvgl.page.show: page_temperature_high
@@ -546,7 +546,7 @@ sensor:
                     - lvgl.page.is_showing: page_temperature_high
                     - sensor.in_range:
                         id: internal_temp
-                        below: 40.0
+                        below: 42.0
                   then:
                     - script.execute: security_resume_saved_page
 
