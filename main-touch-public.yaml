@@ -42,6 +42,7 @@ packages:
   # - !include packages/storage.yaml
   # 设置
   - !include packages/s3_touch/features/setting/setting.yaml
+  - !include packages/s3_touch/features/security/security.yaml
   - !include packages/s3_touch/features/app_store/app_store.yaml
   # 秒表
   - !include packages/s3_touch/features/timer/timer.yaml
