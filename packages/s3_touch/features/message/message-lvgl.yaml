@@ -141,6 +141,8 @@ lvgl:
             id: close_notification
             notification_message: "条私聊消息（特别关心）"
         - script.execute: contacts_refresh_list
+        - script.execute: chat_public_load
+        - script.execute: message_init_chat_scroll_loaders
         - script.execute: message_init_unread_dots
         - script.execute: message_update_unread_indicators
       on_unload:

@@ -5,33 +5,6 @@ script:
           std::string mac = id(text_sensor_mac_address).state;
           id(mqtt_client).subscribe("chat/" + mac + "/#", [=](const std::string &topic, const std::string &payload) {
               ESP_LOGI("CookieIoT", "Received from topic %s: %s", topic.c_str(), payload.c_str());
-              auto bind_message_long_press = [](lv_obj_t * list_obj, lv_obj_t * btn) {
-                if (list_obj == nullptr || btn == nullptr) return;
-                lv_obj_add_event_cb(btn, [](lv_event_t * e) {
-                  lv_obj_t * target_btn = static_cast<lv_obj_t *>(lv_event_get_target(e));
-                  lv_obj_t * parent_list = (lv_obj_t *) lv_event_get_user_data(e);
-                  if (target_btn == nullptr || parent_list == nullptr) return;
-
-                  const char * content_txt = lv_list_get_btn_text(parent_list, target_btn);
-                  if (content_txt == nullptr) return;
-
-                  std::string sender;
-                  uint32_t index = lv_obj_get_index(target_btn);
-                  if (index > 0) {
-                    lv_obj_t * header = lv_obj_get_child(parent_list, index - 1);
-                    const char * header_txt = header ? lv_label_get_text(header) : nullptr;
-                    if (header_txt != nullptr) {
-                      std::string header_str = header_txt;
-                      size_t pos = header_str.rfind(" - ");
-                      if (pos != std::string::npos) {
-                        sender = header_str.substr(pos + 3);
-                      }
-                    }
-                  }
-
-                  id(message_open_action_menu)->execute(sender, std::string(content_txt));
-                }, LV_EVENT_LONG_PRESSED, list_obj);
-              };
               // 提取mac后的内容
               std::string response_suffix = "";
               size_t pos = topic.find(mac + "/");
@@ -154,50 +127,7 @@ script:
                         id(message_refresh_alert_indicator)->execute();
                       }
                       if (is_active_contact) {
-                        lv_obj_t * friend_list = id(list_message_friend);
-                        int32_t friend_scroll_top = 0;
-                        bool keep_friend_bottom = false;
-                        if (friend_list != nullptr) {
-                          auto near_bottom_threshold = [](lv_obj_t * list_obj) -> int32_t {
-                            if (list_obj == nullptr) return 12;
-                            uint32_t child_count = lv_obj_get_child_cnt(list_obj);
-                            int32_t threshold = 0;
-                            uint8_t counted_messages = 0;
-                            for (int32_t i = static_cast<int32_t>(child_count) - 1; i >= 0 && counted_messages < 2; --i) {
-                              lv_obj_t * child = lv_obj_get_child(list_obj, static_cast<uint32_t>(i));
-                              if (child == nullptr) continue;
-                              threshold += lv_obj_get_height(child);
-                              if ((i % 2) == 1) counted_messages++;
-                            }
-                            if (threshold <= 0) threshold = 12;
-                            return threshold;
-                          };
-                          friend_scroll_top = lv_obj_get_scroll_top(friend_list);
-                          keep_friend_bottom = lv_obj_get_scroll_bottom(friend_list) <= near_bottom_threshold(friend_list);
-                        }
-                        lv_list_add_text(friend_list,
-                                          (
-                                            time_str +
-                                            std::string(" - ") +
-                                            from_name
-                                          ).c_str()
-                                        );
-                        lv_obj_t * list_btn = lv_list_add_btn(friend_list, NULL, content.c_str());
-                        bind_message_long_press(friend_list, list_btn);
-                        lv_label_set_recolor(lv_obj_get_child(list_btn, 0), true);
-                        // 只保留最近的25条，但是名称标签也算，所以是200
-                        uint32_t children_count = lv_obj_get_child_cnt(list_message_friend);
-                        if (children_count > 50) {
-                          for (uint32_t i = 0; i < children_count - 50; i++) {
-                            lv_obj_del(lv_obj_get_child(list_message_friend, 0));
-                          }
-                        }
-                        lv_obj_update_layout(friend_list);
-                        if (keep_friend_bottom) {
-                          lv_obj_scroll_to_view(list_btn, LV_ANIM_ON);
-                        } else {
-                          lv_obj_scroll_to_y(friend_list, friend_scroll_top, LV_ANIM_OFF);
-                        }
+                        id(chat_private_load)->execute(active_contact);
                       }
                     }
                   }
