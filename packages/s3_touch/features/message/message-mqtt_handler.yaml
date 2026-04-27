@@ -127,7 +127,7 @@ script:
                         id(message_refresh_alert_indicator)->execute();
                       }
                       if (is_active_contact) {
-                        id(chat_private_load)->execute(active_contact);
+                        id(chat_private_append_visible)->execute(active_contact, from_name, content, time_str);
                       }
                     }
                   }

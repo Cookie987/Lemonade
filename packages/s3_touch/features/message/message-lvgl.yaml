@@ -140,9 +140,8 @@ lvgl:
         - script.execute:
             id: close_notification
             notification_message: "条私聊消息（特别关心）"
-        - script.execute: contacts_refresh_list
-        - script.execute: chat_public_load
         - script.execute: message_init_chat_scroll_loaders
+        - script.execute: message_resume_visible_content
         - script.execute: message_init_unread_dots
         - script.execute: message_update_unread_indicators
       on_unload:
@@ -165,6 +164,9 @@ lvgl:
                     uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
                     if (tab_act == 1) {
                       id(unread_messages_public_badge) = 0;
+                      id(chat_public_load)->execute();
+                    } else if (tab_act == 0) {
+                      id(contacts_refresh_list)->execute();
                     }
                     id(message_update_unread_indicators)->execute();
             size: 15%
