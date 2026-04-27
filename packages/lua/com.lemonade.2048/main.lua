@@ -15,7 +15,8 @@ local TILE_GAP = 5
 local TILE_SIZE = 43
 local BOARD_X_OFFSET = 35
 local ANIM_FRAME_MS = 16
-local SPAWN_ANIM_MS = 140
+local SPAWN_ANIM_MS = 96
+local SWIPE_TRIGGER_THRESHOLD = 12
 local TILE_ZOOM_DEFAULT = 256
 local TILE_ZOOM_SPAWN_START = 96
 local TILE_OPA_DEFAULT = 255
@@ -57,6 +58,7 @@ local state = {
     overlay = nil,
     overlay_label = nil,
     touch_start = nil,
+    touch_consumed = false,
     anim_timer = nil,
     animations = {},
     animating = false,
@@ -516,7 +518,7 @@ local function new_game()
 end
 
 local function attempt_move(move_fn)
-    if state.game_over or state.animating then
+    if state.game_over then
         dbg("attempt_move ignored: game_over")
         return
     end
@@ -525,6 +527,10 @@ local function attempt_move(move_fn)
     if not success then
         dbg("attempt_move no_change")
         return
+    end
+
+    if state.animating then
+        clear_animations()
     end
 
     local animations = {}
@@ -549,60 +555,14 @@ local function gesture_move(dir)
     end
 end
 
-local function read_event_point(e)
-    local point = e and e.point or nil
-    if point then
-        dbg("event_point", point.x, point.y)
-    else
-        dbg("event_point nil")
-    end
-    return point
-end
-
-local function on_board_touch(e)
-    local code = lv.event_get_code(e)
-    dbg("touch_event code=", code)
-
-    if code == lv.EVENT_PRESSED then
-        local point = read_event_point(e)
-        if point then
-            state.touch_start = { x = point.x, y = point.y }
-            dbg("touch_start", point.x, point.y)
-        else
-            dbg("touch_start missing_point")
-        end
-        return
-    end
-
-    if code ~= lv.EVENT_RELEASED then
-        dbg("touch_event ignored")
-        return
-    end
-
-    local start = state.touch_start
-    state.touch_start = nil
-    if not start then
-        dbg("touch_release without_start")
-        return
-    end
-
-    local point = read_event_point(e)
-    if not point then
-        dbg("touch_release missing_end_point")
-        return
-    end
-
-    local dx = point.x - start.x
-    local dy = point.y - start.y
+local function try_handle_swipe(dx, dy, threshold)
     local adx = math.abs(dx)
     local ady = math.abs(dy)
-    local threshold = 16
 
     dbg("touch_delta", "dx=", dx, "dy=", dy, "threshold=", threshold)
 
     if adx < threshold and ady < threshold then
-        dbg("touch_delta below_threshold")
-        return
+        return false
     end
 
     if adx >= ady then
@@ -621,6 +581,83 @@ local function on_board_touch(e)
             dbg("gesture resolved UP")
             gesture_move(lv.DIR_TOP)
         end
+    end
+
+    return true
+end
+
+local function read_event_point(e)
+    local point = e and e.point or nil
+    if point then
+        dbg("event_point", point.x, point.y)
+    else
+        dbg("event_point nil")
+    end
+    return point
+end
+
+local function on_board_touch(e)
+    local code = lv.event_get_code(e)
+    dbg("touch_event code=", code)
+
+    if code == lv.EVENT_PRESSED then
+        local point = read_event_point(e)
+        if point then
+            state.touch_start = { x = point.x, y = point.y }
+            state.touch_consumed = false
+            dbg("touch_start", point.x, point.y)
+        else
+            dbg("touch_start missing_point")
+        end
+        return
+    end
+
+    if code == lv.EVENT_PRESSING then
+        local start = state.touch_start
+        if not start or state.touch_consumed then
+            return
+        end
+
+        local point = read_event_point(e)
+        if not point then
+            return
+        end
+
+        if try_handle_swipe(point.x - start.x, point.y - start.y, SWIPE_TRIGGER_THRESHOLD) then
+            state.touch_consumed = true
+            state.touch_start = nil
+        end
+        return
+    end
+
+    if code ~= lv.EVENT_RELEASED then
+        dbg("touch_event ignored")
+        return
+    end
+
+    local start = state.touch_start
+    state.touch_start = nil
+    local consumed = state.touch_consumed
+    state.touch_consumed = false
+    if not start then
+        dbg("touch_release without_start")
+        return
+    end
+
+    if consumed then
+        dbg("touch_release consumed")
+        return
+    end
+
+    local point = read_event_point(e)
+    if not point then
+        dbg("touch_release missing_end_point")
+        return
+    end
+
+    if not try_handle_swipe(point.x - start.x, point.y - start.y, SWIPE_TRIGGER_THRESHOLD) then
+        dbg("touch_delta below_threshold")
+        return
     end
 end
 
@@ -720,6 +757,7 @@ with_batch(function()
             lv.obj_center(label)
 
             lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_PRESSED)
+            lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_PRESSING)
             lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_RELEASED)
 
             state.tiles[row][col] = tile
@@ -745,6 +783,7 @@ with_batch(function()
     lv.obj_add_flag(state.overlay, lv.FLAG_HIDDEN)
     lv.obj_add_flag(state.overlay, lv.FLAG_CLICKABLE)
     lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_PRESSED)
+    lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_PRESSING)
     lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_RELEASED)
 
     lv.obj_add_event_cb(restart_btn, function(e)
@@ -755,6 +794,7 @@ with_batch(function()
 
     lv.obj_add_flag(board_panel, lv.FLAG_CLICKABLE)
     lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_PRESSED)
+    lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_PRESSING)
     lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_RELEASED)
 
     lv.obj_add_event_cb(page, function(e)

@@ -8,7 +8,7 @@ if not page then return end
 
 lv.obj_clean(page)
 
-local unifont_24 = lv.font_load("assets/unifont-17.0.03.otf", 14)
+local unifont_24 = lv.font_load("assets/unifont_24.bin")
 local mask_chars = "$%&*@?!<>/ "
 local speed_ms = 80
 local reveal_every = 4
@@ -252,7 +252,7 @@ lv.obj_set_style_bg_color(page, 0x000000, 0)
 ui.hide_topbar()
 
 local logo = lv.img_create(page)
-lv.img_set_src(logo, "assets/prescript_logo.png")
+lv.img_set_src(logo, "assets/prescript_logo.png") -- 假设路径
 lv.obj_align(logo, lv.ALIGN_TOP_MID, 0, 5)
 
 local lbl_content = lv.label_create(page)
