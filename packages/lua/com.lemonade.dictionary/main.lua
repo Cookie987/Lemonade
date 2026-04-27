@@ -15,7 +15,7 @@ if not ipa_font then
     return
 end
 
-local API_BASE = "https://v2.xxapi.cn/api/englishwords?word="
+local API_BASE = "https://dict.youdao.com/jsonapi_s?doctype=json&jsonversion=4&q="
 local SECTION_COLOR = "1B54A6"
 local history_limit = 4
 local KEYBOARD_OK = "\239\128\140"
@@ -60,6 +60,88 @@ local function join_parts(parts, sep)
         end
     end
     return table.concat(buffer, sep or " ")
+end
+
+local function strip_html(text)
+    local value = trim(text or "")
+    if value == "" then
+        return ""
+    end
+    value = value:gsub("<br%s*/?>", "\n")
+    value = value:gsub("</?[^>]+>", "")
+    value = value:gsub("&quot;", "\"")
+    value = value:gsub("&apos;", "'")
+    value = value:gsub("&nbsp;", " ")
+    value = value:gsub("&amp;", "&")
+    value = value:gsub("&lt;", "<")
+    value = value:gsub("&gt;", ">")
+    return trim(value)
+end
+
+local function ensure_list(value)
+    if type(value) == "table" then
+        return value
+    end
+    return {}
+end
+
+local function replace_object_field(text, key, replacement)
+    local pattern = '"' .. key .. '"%s*:%s*%b{}'
+    return text:gsub(pattern, '"' .. key .. '":' .. (replacement or "{}"))
+end
+
+local function shrink_youdao_payload(body, level)
+    local text = body or ""
+    if text == "" then
+        return text
+    end
+
+    local mode = level or 1
+    text = text:gsub('"encryptedData"%s*:%s*"[^"]*"', '"encryptedData":""')
+
+    local bulky_sections = {
+        "oxfordAdvanceHtml",
+        "oxfordAdvanceTen",
+        "oxford",
+        "webster",
+        "senior",
+        "oxfordAdvance",
+        "auth_sents_part",
+        "media_sents_part",
+        "music_sents",
+        "wikipedia_digest",
+        "ee",
+        "individual",
+        "expand_ec",
+    }
+
+    for _, key in ipairs(bulky_sections) do
+        text = replace_object_field(text, key, "{}")
+    end
+
+    if mode >= 2 then
+        text = replace_object_field(text, "collins", "{}")
+        text = replace_object_field(text, "collins_primary", "{}")
+        text = text:gsub('"summary"%s*:%s*%b{}', '"summary":{}')
+        text = text:gsub('"aligned%-words"%s*:%s*%b{}', '"aligned-words":{}')
+    end
+
+    if mode >= 3 then
+        text = replace_object_field(text, "blng_sents_part", "{}")
+        text = replace_object_field(text, "web_trans", "{}")
+    end
+
+    return text
+end
+
+local function decode_youdao_payload(body)
+    for level = 1, 3 do
+        local parsed_ok, payload = pcall(json.decode, shrink_youdao_payload(body, level))
+        if parsed_ok and type(payload) == "table" then
+            return payload, level
+        end
+    end
+    return nil, nil
 end
 
 local function set_word_summary(title, phonetic)
@@ -150,26 +232,28 @@ local function add_section(lines, title, items)
     end
 end
 
-local function format_translations(data)
+local function format_translations(payload)
     local rows = {}
-    for _, item in ipairs(data.translations or {}) do
+    local ec_word = payload.ec and payload.ec.word or nil
+    for _, item in ipairs(ensure_list(ec_word and ec_word.trs)) do
         local pos = trim(item.pos or "")
-        local tran = trim(item.tran_cn or item.tran or "")
+        local tran = strip_html(item.tran or "")
         if tran ~= "" then
             rows[#rows + 1] = string.format("%d. %s", #rows + 1, join_parts({ pos, tran }, " "))
         end
-        if #rows >= 4 then
+        if #rows >= 6 then
             break
         end
     end
     return rows
 end
 
-local function format_phrases(data)
+local function format_phrases(payload)
     local rows = {}
-    for _, item in ipairs(data.phrases or {}) do
-        local phrase = trim(item.p_content or "")
-        local meaning = trim(item.p_cn or "")
+    local section = payload.phrs or {}
+    for _, item in ipairs(ensure_list(section.phrs)) do
+        local phrase = trim(item.headword or "")
+        local meaning = strip_html(item.translation or "")
         if phrase ~= "" or meaning ~= "" then
             if phrase ~= "" and meaning ~= "" then
                 rows[#rows + 1] = string.format("- %s - %s", phrase, meaning)
@@ -186,11 +270,12 @@ local function format_phrases(data)
     return rows
 end
 
-local function format_sentences(data)
+local function format_sentences(payload)
     local rows = {}
-    for _, item in ipairs(data.sentences or {}) do
-        local english = trim(item.s_content or "")
-        local chinese = trim(item.s_cn or "")
+    local section = payload.blng_sents_part or {}
+    for _, item in ipairs(ensure_list(section["sentence-pair"])) do
+        local english = strip_html(item["sentence-eng"] or item.sentence or "")
+        local chinese = strip_html(item["sentence-translation"] or "")
         if english ~= "" then
             rows[#rows + 1] = string.format("%d. %s", #rows + 1, english)
             if chinese ~= "" then
@@ -204,16 +289,19 @@ local function format_sentences(data)
     return rows
 end
 
-local function format_synonyms(data)
+local function format_synonyms(payload)
     local rows = {}
     local seen = {}
-    for _, group in ipairs(data.synonyms or {}) do
-        for _, item in ipairs(group.Hwds or {}) do
-            local word = trim(item.word or item.hwd or "")
-            local tran = trim(group.tran or item.tran or "")
-            if word ~= "" and not seen[word] then
-                seen[word] = true
-                rows[#rows + 1] = string.format("- %s%s", word, tran ~= "" and (" - " .. tran) or "")
+    local section = payload.syno or {}
+    for _, group in ipairs(ensure_list(section.synos)) do
+        for _, word in ipairs(ensure_list(group.ws)) do
+            local item_word = trim(word or "")
+            local tran = strip_html(group.tran or "")
+            if item_word ~= "" and not seen[item_word] then
+                seen[item_word] = true
+                local pos = trim(group.pos or "")
+                local prefix = pos ~= "" and ("[" .. pos .. "] ") or ""
+                rows[#rows + 1] = string.format("- %s%s%s", prefix, item_word, tran ~= "" and (" - " .. tran) or "")
             end
             if #rows >= 4 then
                 return rows
@@ -223,35 +311,41 @@ local function format_synonyms(data)
     return rows
 end
 
-local function format_related_words(data)
+local function format_web_translations(payload)
     local rows = {}
+    local section = payload.web_trans or {}
     local seen = {}
-    for _, group in ipairs(data.relWords or {}) do
-        local pos = trim(group.Pos or group.pos or "")
-        for _, item in ipairs(group.Hwds or {}) do
-            local word = trim(item.hwd or item.word or "")
-            local tran = trim(item.tran or "")
-            if word ~= "" and not seen[word] then
-                seen[word] = true
-                local prefix = pos ~= "" and ("[" .. pos .. "] ") or ""
-                rows[#rows + 1] = string.format("- %s%s%s", prefix, word, tran ~= "" and (" - " .. tran) or "")
+    for _, group in ipairs(ensure_list(section["web-translation"])) do
+        local key = trim(group.key or "")
+        local values = {}
+        for _, item in ipairs(ensure_list(group.trans)) do
+            local value = strip_html(item.value or "")
+            if value ~= "" then
+                values[#values + 1] = value
             end
-            if #rows >= 6 then
-                return rows
+            if #values >= 3 then
+                break
             end
+        end
+        if key ~= "" and #values > 0 and not seen[key] then
+            seen[key] = true
+            rows[#rows + 1] = string.format("- %s: %s", key, table.concat(values, " / "))
+        end
+        if #rows >= 4 then
+            break
         end
     end
     return rows
 end
 
-local function build_result_text(data)
+local function build_result_text(payload)
     local lines = {}
 
-    add_section(lines, "释义", format_translations(data))
-    add_section(lines, "短语", format_phrases(data))
-    add_section(lines, "例句", format_sentences(data))
-    add_section(lines, "近义词", format_synonyms(data))
-    add_section(lines, "相关词", format_related_words(data))
+    add_section(lines, "基础释义", format_translations(payload))
+    add_section(lines, "短语", format_phrases(payload))
+    add_section(lines, "双语例句", format_sentences(payload))
+    add_section(lines, "近义词", format_synonyms(payload))
+    add_section(lines, "网页翻译", format_web_translations(payload))
 
     if #lines == 0 then
         return "接口已返回数据，但没有可展示的释义内容。"
@@ -259,13 +353,17 @@ local function build_result_text(data)
     return table.concat(lines, "\n")
 end
 
-local function build_phonetic_text(data)
+local function build_phonetic_text(payload)
     local parts = {}
-    if data.ukphone and data.ukphone ~= "" then
-        parts[#parts + 1] = "英 /" .. data.ukphone .. "/"
+    local simple_word = ensure_list(payload.simple and payload.simple.word)[1] or {}
+    local ec_word = payload.ec and payload.ec.word or {}
+    local ukphone = trim(simple_word.ukphone or ec_word.ukphone or "")
+    local usphone = trim(simple_word.usphone or ec_word.usphone or "")
+    if ukphone ~= "" then
+        parts[#parts + 1] = "英 /" .. ukphone .. "/"
     end
-    if data.usphone and data.usphone ~= "" then
-        parts[#parts + 1] = "美 /" .. data.usphone .. "/"
+    if usphone ~= "" then
+        parts[#parts + 1] = "美 /" .. usphone .. "/"
     end
     if #parts == 0 then
         return "未提供音标"
@@ -307,25 +405,30 @@ local function query_word(word)
         return
     end
 
-    local parsed_ok, payload = pcall(json.decode, body)
-    if not parsed_ok or type(payload) ~= "table" then
+    local payload = decode_youdao_payload(body)
+    if type(payload) ~= "table" then
         render_error(normalized, "JSON 解析失败，请稍后重试。")
         return
     end
 
-    if tonumber(payload.code or 0) ~= 200 or type(payload.data) ~= "table" then
-        local error_text = trim(payload.msg or "")
+    local has_data = type(payload.meta) == "table"
+        or type(payload.ec) == "table"
+        or type(payload.simple) == "table"
+        or type(payload.web_trans) == "table"
+    if not has_data then
+        local error_text = trim(payload.error_msg or payload.message or "")
         if error_text == "" then
-            error_text = "接口没有返回有效的单词数据。"
+            error_text = "接口没有返回有效的词典数据。"
         end
         render_error(normalized, error_text)
         return
     end
 
-    local data = payload.data
-    local title = trim(data.word or normalized)
-    local phonetic = build_phonetic_text(data)
-    local result_text = build_result_text(data)
+    local simple_word = ensure_list(payload.simple and payload.simple.word)[1] or {}
+    local ec_word = payload.ec and payload.ec.word or {}
+    local title = trim(ec_word["return-phrase"] or simple_word["return-phrase"] or payload.input or normalized)
+    local phonetic = build_phonetic_text(payload)
+    local result_text = build_result_text(payload)
     set_result_state(title, phonetic, result_text)
 end
 
@@ -379,7 +482,7 @@ lv.obj_set_size(refs.input_box, 196, 34)
 lv.obj_align(refs.input_box, lv.ALIGN_TOP_LEFT, 12, 34)
 lv.textarea_set_one_line(refs.input_box, true)
 lv.textarea_set_cursor_click_pos(refs.input_box, true)
-lv.textarea_set_placeholder_text(refs.input_box, "输入单词，例如 seven")
+lv.textarea_set_placeholder_text(refs.input_box, "输入单词，例如 hello")
 
 local search_btn, search_label = make_button(page, "查询", 94, 34, 0x1B54A6, function()
     query_word(lv.textarea_get_text(refs.input_box))
@@ -419,7 +522,7 @@ end
 
 local result_card = lv.obj_create(page)
 refs.result_card = result_card
-lv.obj_set_size(result_card, 296, 120)
+lv.obj_set_size(result_card, 296, 132)
 lv.obj_align(result_card, lv.ALIGN_TOP_MID, 0, 106)
 lv.obj_set_style_bg_color(result_card, 0xFFFFFF, 0)
 lv.obj_set_style_border_width(result_card, 0, 0)
@@ -484,7 +587,7 @@ lv.obj_add_event_cb(page, function(e)
     end
 end, lv.EVENT_SCREEN_UNLOAD_START)
 
-set_result_state("英语词典", "支持音标、释义、短语、例句和近义词", "点击下方历史词，或在上方输入框中输入单词后查询。")
+set_result_state("英语词典", "支持有道词典释义、短语、例句、近义词", "点击下方历史词，或在上方输入框中输入单词后查询。")
 
 sys.timerLoopStart(function()
     lv.poll_events(10)
