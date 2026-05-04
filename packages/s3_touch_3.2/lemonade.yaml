@@ -96,12 +96,6 @@ esphome:
         - script.execute: prase_wifi_list
         - lambda: |
             id(lua).run_file_async("/sdcard/init.lua");
-        - light.turn_on:
-            id: led
-            brightness: 100%
-            red: 100%
-            green: 10%
-            blue: 100%
     - priority: 100
       then:
         - script.execute: mqtt_response_handler
