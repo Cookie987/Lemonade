@@ -93,13 +93,19 @@ script:
           id(stopwatch_timer) = lv_timer_create([](lv_timer_t * t) {
             if (page_timer->is_showing() && !id(is_sleeping)) {
               unsigned long elapsed = millis() - id(stopwatch_start_time);
+              unsigned long elapsed_centiseconds = elapsed / 10;
+              static unsigned long last_elapsed_centiseconds = static_cast<unsigned long>(-1);
+              if (elapsed_centiseconds == last_elapsed_centiseconds) {
+                return;
+              }
+              last_elapsed_centiseconds = elapsed_centiseconds;
               int hours = (elapsed / 1000) / 3600;
               int minutes = ((elapsed / 1000) / 60) % 60;
               int seconds = (elapsed / 1000) % 60;
               int hundredths = (elapsed % 1000) / 10;  // 精确到0.01秒
-              char buf[16];
-              sprintf(buf, "%02d:%02d:%02d.%02d", hours, minutes, seconds, hundredths);
-              lv_label_set_text(id(lbl_stopwatch), buf);
+              static char buf[16];
+              snprintf(buf, sizeof(buf), "%02d:%02d:%02d.%02d", hours, minutes, seconds, hundredths);
+              lv_label_set_text_static(id(lbl_stopwatch), buf);
             }
           }, 10, nullptr);
           lv_timer_pause(id(stopwatch_timer));

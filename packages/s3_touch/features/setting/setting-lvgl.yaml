@@ -126,11 +126,11 @@ lvgl:
               - ota.http_request.flash:
                   md5_url: !lambda |-
                     return id(setting_update_ota_md5_url).empty()
-                              ? std::string("${lemonade_ota_md5_url}")
+                              ? std::string("127.0.0.1")
                               : id(setting_update_ota_md5_url);
                   url: !lambda |-
                     return id(setting_update_ota_url).empty()
-                                ? std::string("${lemonade_ota_url}")
+                                ? std::string("127.0.0.1")
                                 : id(setting_update_ota_url);
   pages:
     - id: page_setting_menu

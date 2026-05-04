@@ -1,9 +1,12 @@
 #include "lua_runtime.h"
 
+#include <array>
 #include <cctype>
+#include <cstdio>
 #include <unordered_map>
 
 #include "esphome/core/log.h"
+#include "esphome/core/preferences.h"
 #include "lua_app.h"
 #include "lua_fskv.h"
 #include "lua_esphome.h"
@@ -15,6 +18,7 @@
 #include "freertos/task.h"
 
 #include "esp_heap_caps.h"
+#include "esp_mac.h"
 #include "esp_random.h"
 #include "esp_system.h"
 #include "esp_timer.h"
@@ -83,6 +87,9 @@ static const char *CTX_KEY = "lua_runtime.ctx";
 static const char *ABORT_GEN_KEY = "lua_runtime.abort_generation";
 static volatile bool g_ota_active = false;
 static volatile uint32_t g_abort_generation = 0;
+static constexpr uint32_t UID_NAME_HASH = 2557596578U;
+static constexpr uint32_t GLOBAL_PREFERENCE_SEED = 1944399030U;
+static constexpr size_t UID_RESTORE_SIZE = 64;
 
 static bool ota_is_active() { return g_ota_active; }
 
@@ -686,6 +693,42 @@ static int lua_esp_random(lua_State *L) {
   return 1;
 }
 
+static int lua_esp_mac(lua_State *L) {
+  uint8_t mac[6] = {0};
+  if (esp_read_mac(mac, ESP_MAC_WIFI_STA) != ESP_OK) {
+    lua_pushnil(L);
+    return 1;
+  }
+  char mac_str[18];
+  std::snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4],
+                mac[5]);
+  lua_pushstring(L, mac_str);
+  return 1;
+}
+
+static std::string load_uid_from_preferences() {
+  if (global_preferences == nullptr) return "0000";
+
+  std::array<char, UID_RESTORE_SIZE> temp{};
+  auto pref = global_preferences->make_preference<std::array<char, UID_RESTORE_SIZE>>(
+      GLOBAL_PREFERENCE_SEED ^ UID_NAME_HASH);
+  if (!pref.load(&temp)) return "0000";
+
+  size_t len = static_cast<unsigned char>(temp[0]);
+  if (len >= UID_RESTORE_SIZE) len = UID_RESTORE_SIZE - 1;
+  return std::string(temp.data() + 1, len);
+}
+
+static int lua_lemonade_uid(lua_State *L) {
+  std::string uid = load_uid_from_preferences();
+  if (uid.empty()) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lua_pushstring(L, uid.c_str());
+  return 1;
+}
+
 static void rtos_cleanup(RtosContext &ctx) {
   ctx.alive = false;
   if (ctx.lock) xSemaphoreTake(ctx.lock, portMAX_DELAY);
@@ -790,14 +833,26 @@ static void register_esp_api(lua_State *L) {
 
   lua_pushcfunction(L, lua_esp_random);
   lua_setfield(L, -2, "random");
+  lua_pushcfunction(L, lua_esp_mac);
+  lua_setfield(L, -2, "mac");
 
   lua_setglobal(L, "esp");
+}
+
+static void register_lemonade_api(lua_State *L) {
+  lua_newtable(L);  // lemonade
+
+  lua_pushcfunction(L, lua_lemonade_uid);
+  lua_setfield(L, -2, "uid");
+
+  lua_setglobal(L, "lemonade");
 }
 
 static void register_base_api(lua_State *L, const std::string &script_path) {
   register_log_api(L);
   register_rtos_api(L);
   register_esp_api(L);
+  register_lemonade_api(L);
   register_app_api(L, script_path);
   register_esphome_api(L);
   register_lvgl_api(L, script_path);

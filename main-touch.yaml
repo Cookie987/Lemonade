@@ -14,14 +14,12 @@ substitutions:
   lemonade_device_model: "智能时钟_T"
   lemonade_version: "1.7.1 Canary"
   lemonade_ota_password: !secret ota_password
-  lemonade_app_store_index_url: "***REMOVED***lemonade/s3-touch/store/index.json"
+  lemonade_app_store_index_url: "***REMOVED***apps/index.json"
   lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
   lemonade_ibeacon_major: "987"
   lemonade_ibeacon_minor: "114"
   lemonade_ibeacon_measured_power: "-59"
-  lemonade_ota_md5_url: ***REMOVED***lemonade/s3-touch/canary/lemonade.md5
-  lemonade_ota_url: ***REMOVED***lemonade/s3-touch/canary/firmware.ota.bin
-  lemonade_update_info_url: ***REMOVED***lemonade/s3-touch/canary/release.json
+  lemonade_update_info_url: ***REMOVED***uploads/firmware/smartclock_t/canary/release.json
 ***REMOVED***  log_level: DEBUG
 
 external_components:

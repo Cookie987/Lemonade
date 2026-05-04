@@ -26,11 +26,9 @@ globals:
   - id: setting_update_ota_url
     type: std::string
     restore_value: no
-    initial_value: '"${lemonade_ota_url}"'
   - id: setting_update_ota_md5_url
     type: std::string
     restore_value: no
-    initial_value: '"${lemonade_ota_md5_url}"'
 
 script:
   - id: render_system_update_page
@@ -117,8 +115,6 @@ script:
           id(setting_update_status_text) = "正在检查更新...";
           id(setting_update_checked_at) = "进行中";
           id(setting_update_changelog) = "正在从服务器获取更新日志...";
-          id(setting_update_ota_url) = "${lemonade_ota_url}";
-          id(setting_update_ota_md5_url) = "${lemonade_ota_md5_url}";
       - script.execute: render_system_update_page
       - if:
           condition:
@@ -211,12 +207,6 @@ script:
                         }
                         if (changelog.empty()) {
                           changelog = "暂无更新日志";
-                        }
-                        if (ota_url.empty()) {
-                          ota_url = "${lemonade_ota_url}";
-                        }
-                        if (md5_url.empty()) {
-                          md5_url = "${lemonade_ota_md5_url}";
                         }
 
                         id(setting_update_latest_version) = latest_version;
