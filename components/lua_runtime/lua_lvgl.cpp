@@ -1220,6 +1220,58 @@ static int l_font_load(lua_State *L) {
   return 1;
 }
 
+static int l_font_set_fallback(lua_State *L) {
+  lv_font_t *font = (lv_font_t *) lua_touserdata(L, 1);
+  const lv_font_t *fallback = nullptr;
+  if (!lua_isnoneornil(L, 2)) {
+    fallback = (const lv_font_t *) lua_touserdata(L, 2);
+  }
+  if (font == nullptr) return 0;
+  if (fallback == font) fallback = nullptr;
+
+  lvgl_call_void([=]() { font->fallback = fallback; });
+  return 0;
+}
+
+static int l_font_get_fallback(lua_State *L) {
+  const lv_font_t *font = (const lv_font_t *) lua_touserdata(L, 1);
+  if (font == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+
+  const lv_font_t *fallback = lvgl_call_ret([=]() -> const lv_font_t * { return font->fallback; });
+  if (fallback == nullptr) {
+    lua_pushnil(L);
+  } else {
+    lua_pushlightuserdata(L, (void *) fallback);
+  }
+  return 1;
+}
+
+static void clear_font_fallback_refs(LuaLvglContext *ctx, lv_font_t *target) {
+  if (ctx == nullptr || target == nullptr) return;
+  lvgl_call_void([ctx, target]() {
+    for (auto &entry : ctx->fonts) {
+      lv_font_t *font = entry.first;
+      if (font == nullptr) continue;
+      if (font == target || font->fallback == target) {
+        font->fallback = nullptr;
+      }
+    }
+  });
+}
+
+static void clear_all_font_fallback_refs(LuaLvglContext *ctx) {
+  if (ctx == nullptr) return;
+  lvgl_call_void([ctx]() {
+    for (auto &entry : ctx->fonts) {
+      lv_font_t *font = entry.first;
+      if (font != nullptr) font->fallback = nullptr;
+    }
+  });
+}
+
 static int l_obj_set_style_pad_all(lua_State *L) {
   lv_obj_t *obj = check_obj(L, 1);
   lv_coord_t value = (lv_coord_t) luaL_checkinteger(L, 2);
@@ -1287,6 +1339,7 @@ static int l_font_free(lua_State *L) {
   }
   if (!owned) return 0;
 
+  clear_font_fallback_refs(ctx, font);
   lvgl_call_void([=]() {
     switch (kind) {
       case LuaFontKind::BIN:
@@ -1478,6 +1531,10 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "obj_set_style_size");
   lua_pushcfunction(L, l_font_load);
   lua_setfield(L, -2, "font_load");
+  lua_pushcfunction(L, l_font_set_fallback);
+  lua_setfield(L, -2, "font_set_fallback");
+  lua_pushcfunction(L, l_font_get_fallback);
+  lua_setfield(L, -2, "font_get_fallback");
   lua_pushcfunction(L, l_font_free);
   lua_setfield(L, -2, "font_free");
   lua_pushcfunction(L, l_timer_create);
@@ -1692,6 +1749,7 @@ void cleanup_lvgl_api(lua_State *L) {
     delete_lua_event_cb(L, cb);
   }
 
+  clear_all_font_fallback_refs(ctx);
   for (auto &entry : ctx->fonts) {
     lv_font_t *font = entry.first;
     LuaFontKind kind = entry.second;
