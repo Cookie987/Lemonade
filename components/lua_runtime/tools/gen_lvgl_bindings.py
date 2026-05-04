@@ -11,6 +11,7 @@ SPEC_TXT = ROOT / "lvgl_bindings.txt"
 SPEC_JSON = ROOT / "lvgl_bindings.json"
 OUT = ROOT / "lua_lvgl_gen.h"
 HEADER_SKIP_PARTS = {"docs", "tests", "demos", "examples", "env_support", "__pycache__"}
+CONSTANT_HEADER_SKIP_PARTS = HEADER_SKIP_PARTS | {"debugging", "drivers", "libs", "osal"}
 
 INT_TYPES = {
     "int",
@@ -65,6 +66,103 @@ def strip_comments(text: str) -> str:
     text = re.sub(r"//.*?$", " ", text, flags=re.M)
     text = re.sub(r"^\s*#.*?$", " ", text, flags=re.M)
     return text
+
+
+def strip_c_comments(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+    text = re.sub(r"//.*?$", " ", text, flags=re.M)
+    return text
+
+
+def lua_const_name(c_name: str) -> str:
+    return c_name[3:] if c_name.startswith("LV_") else c_name
+
+
+def pp_condition_from_line(line: str) -> tuple[str, str] | None:
+    stripped = line.strip()
+    m = re.match(r"^#\s*ifdef\s+([A-Za-z_]\w*)", stripped)
+    if m:
+        return "if", f"defined({m.group(1)})"
+    m = re.match(r"^#\s*ifndef\s+([A-Za-z_]\w*)", stripped)
+    if m:
+        name = m.group(1)
+        if name.endswith("_H") or name.endswith("_H_"):
+            return "if", "1"
+        return "if", f"!defined({name})"
+    m = re.match(r"^#\s*if\s+(.+)$", stripped)
+    if m:
+        return "if", m.group(1).strip()
+    m = re.match(r"^#\s*elif\s+(.+)$", stripped)
+    if m:
+        return "elif", m.group(1).strip()
+    if re.match(r"^#\s*else\b", stripped):
+        return "else", ""
+    if re.match(r"^#\s*endif\b", stripped):
+        return "endif", ""
+    return None
+
+
+def combine_pp_stack(stack: list[dict[str, str]]) -> str:
+    parts = [frame["current"] for frame in stack if frame["current"] and frame["current"] != "1"]
+    return " && ".join(f"({part})" for part in parts)
+
+
+def update_pp_stack(stack: list[dict[str, str]], directive: tuple[str, str]) -> None:
+    kind, cond = directive
+    if kind == "if":
+        stack.append({"current": cond, "seen": cond})
+    elif kind == "elif":
+        if not stack:
+            return
+        frame = stack[-1]
+        previous = frame["seen"]
+        frame["current"] = f"({cond}) && !({previous})" if previous else cond
+        frame["seen"] = f"({previous}) || ({cond})" if previous else cond
+    elif kind == "else":
+        if not stack:
+            return
+        frame = stack[-1]
+        previous = frame["seen"]
+        frame["current"] = f"!({previous})" if previous else "1"
+        frame["seen"] = "1"
+    elif kind == "endif":
+        if stack:
+            stack.pop()
+
+
+def collect_lvgl_constants(raw_header_texts) -> list[tuple[str, str]]:
+    constants: dict[str, str] = {}
+    for _path, raw_text in raw_header_texts:
+        text = strip_c_comments(raw_text)
+        pp_stack: list[dict[str, str]] = []
+        enum_depth = 0
+
+        for line in text.splitlines():
+            directive = pp_condition_from_line(line)
+            if directive is not None:
+                update_pp_stack(pp_stack, directive)
+                continue
+
+            cond = combine_pp_stack(pp_stack)
+
+            if "enum" in line and "{" in line:
+                enum_depth += line.count("{") - line.count("}")
+            elif enum_depth > 0:
+                enum_depth += line.count("{") - line.count("}")
+
+            if enum_depth > 0 or ("enum" in line and "{" in line):
+                enum_part = line.split("//", 1)[0]
+                line_enum = re.match(r"^\s*(LV_[A-Z][A-Z0-9_]*)\b\s*(?:=|,|$)", enum_part)
+                if line_enum:
+                    constants.setdefault(line_enum.group(1), cond)
+                for enum_match in re.finditer(r"\b(LV_[A-Z][A-Z0-9_]*)\b\s*(?=[=,])", enum_part):
+                    name = enum_match.group(1)
+                    constants.setdefault(name, cond)
+
+            if enum_depth < 0:
+                enum_depth = 0
+
+    return sorted(constants.items())
 
 
 def normalize_type(type_name: str) -> str:
@@ -320,6 +418,33 @@ def collect_headers(lvgl_root: Path):
     return out, aliases
 
 
+def collect_included_headers_for_constants(lvgl_root: Path):
+    seen: set[Path] = set()
+    out = []
+
+    def visit(header: Path) -> None:
+        header = header.resolve()
+        if header in seen or not header.exists():
+            return
+        seen.add(header)
+        if any(part in CONSTANT_HEADER_SKIP_PARTS for part in header.parts) or "private" in header.name:
+            return
+
+        raw_text = header.read_text(encoding="utf-8", errors="ignore")
+        out.append((header, raw_text))
+        text = strip_c_comments(raw_text)
+        for match in re.finditer(r"^\s*#\s*include\s+\"([^\"]+)\"", text, flags=re.M):
+            include_path = (header.parent / match.group(1)).resolve()
+            try:
+                include_path.relative_to(lvgl_root.resolve())
+            except ValueError:
+                continue
+            visit(include_path)
+
+    visit(lvgl_root / "lvgl.h")
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate Lua LVGL bindings")
     parser.add_argument("--lvgl-root", type=Path, default=None, help="Path to LVGL root (contains lvgl.h and src/)")
@@ -333,6 +458,7 @@ def main() -> int:
 
     header_texts, aliases = collect_headers(lvgl_root)
     names = load_function_names()
+    constants = collect_lvgl_constants(collect_included_headers_for_constants(lvgl_root))
 
     lines = []
     lines.append("// Auto-generated by tools/gen_lvgl_bindings.py. Do not edit manually.")
@@ -397,6 +523,16 @@ def main() -> int:
     for lua_name in bound:
         lines.append(f"  lua_pushcfunction(L, l_{lua_name});")
         lines.append(f"  lua_setfield(L, -2, \"{lua_name}\");")
+    if constants:
+        lines.append("")
+        lines.append("  // LVGL integer macros and enum constants")
+    for c_name, cond in constants:
+        lua_name = lua_const_name(c_name)
+        if cond:
+            lines.append(f"#if {cond}")
+        lines.append(f"  set_int_field(L, \"{lua_name}\", {c_name});")
+        if cond:
+            lines.append("#endif")
     lines.append("}")
     lines.append("")
     lines.append("#endif  // LUA_LVGL_IMPL")

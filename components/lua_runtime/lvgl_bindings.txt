@@ -267,6 +267,7 @@ lv_list_create
 lv_list_add_text
 lv_list_add_btn
 lv_list_get_btn_text
+lv_list_set_button_text
 
 # msgbox
 lv_msgbox_create
@@ -297,3 +298,20 @@ lv_btnmatrix_set_one_checked
 # lv_btnmatrix_get_btn_text
 lv_buttonmatrix_has_button_ctrl
 lv_btnmatrix_get_one_checked
+
+# bar
+lv_bar_create
+lv_bar_set_value
+lv_bar_set_start_value
+lv_bar_set_range
+lv_bar_set_min_value
+lv_bar_set_max_value
+lv_bar_set_mode
+lv_bar_set_orientation
+lv_bar_get_value
+lv_bar_get_start_value
+lv_bar_get_min_value
+lv_bar_get_max_value
+lv_bar_get_mode
+lv_bar_get_orientation
+lv_bar_is_symmetrical

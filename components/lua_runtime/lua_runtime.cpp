@@ -720,7 +720,8 @@ static std::string load_uid_from_preferences() {
 }
 
 static int lua_lemonade_uid(lua_State *L) {
-  std::string uid = load_uid_from_preferences();
+  auto *runtime = static_cast<LuaRuntime *>(lua_touserdata(L, lua_upvalueindex(1)));
+  std::string uid = runtime != nullptr ? runtime->get_uid() : "0000";
   if (uid.empty()) {
     lua_pushnil(L);
     return 1;
@@ -839,20 +840,21 @@ static void register_esp_api(lua_State *L) {
   lua_setglobal(L, "esp");
 }
 
-static void register_lemonade_api(lua_State *L) {
+static void register_lemonade_api(lua_State *L, LuaRuntime *runtime) {
   lua_newtable(L);  // lemonade
 
-  lua_pushcfunction(L, lua_lemonade_uid);
+  lua_pushlightuserdata(L, runtime);
+  lua_pushcclosure(L, lua_lemonade_uid, 1);
   lua_setfield(L, -2, "uid");
 
   lua_setglobal(L, "lemonade");
 }
 
-static void register_base_api(lua_State *L, const std::string &script_path) {
+static void register_base_api(lua_State *L, const std::string &script_path, LuaRuntime *runtime) {
   register_log_api(L);
   register_rtos_api(L);
   register_esp_api(L);
-  register_lemonade_api(L);
+  register_lemonade_api(L, runtime);
   register_app_api(L, script_path);
   register_esphome_api(L);
   register_lvgl_api(L, script_path);
@@ -870,6 +872,7 @@ static void register_base_api(lua_State *L, const std::string &script_path) {
 void LuaRuntime::setup() {
 #ifndef LUA_RUNTIME_STUB
   set_lvgl_owner_task((void *) xTaskGetCurrentTaskHandle());
+  this->cached_uid_ = load_uid_from_preferences();
 #endif
 }
 
@@ -960,7 +963,7 @@ bool LuaRuntime::run_file(const std::string &path) {
 
   luaL_openlibs(L);
   set_abort_generation(L, g_abort_generation);
-  register_base_api(L, path);
+  register_base_api(L, path, this);
   set_package_path(L, path);
   lua_sethook(L, lua_ota_hook, LUA_MASKCOUNT, 1000);
 

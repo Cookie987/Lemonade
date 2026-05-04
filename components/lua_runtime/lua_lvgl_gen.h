@@ -2548,6 +2548,17 @@ static int l_list_get_btn_text(lua_State *L) {
   return 1;
 }
 
+static int l_list_set_button_text(lua_State *L) {
+  lv_obj_t * a0_list = (lv_obj_t *) check_obj(L, 1);
+  lv_obj_t * a1_btn = (lv_obj_t *) check_obj(L, 2);
+  const char * a2_txt = luaL_checkstring(L, 3);
+  if (a0_list == nullptr || a1_btn == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_list_set_button_text(a0_list, a1_btn, a2_txt); });
+  return 0;
+}
+
 static int l_msgbox_create(lua_State *L) {
   lv_obj_t * a0_parent = (lv_obj_t *) check_obj(L, 1);
   if (a0_parent == nullptr) {
@@ -2758,6 +2769,181 @@ static int l_btnmatrix_get_one_checked(lua_State *L) {
     return 1;
   }
   bool res = lvgl_call_ret([=]() -> bool { return lv_btnmatrix_get_one_checked(a0_obj); });
+  lua_pushboolean(L, res);
+  return 1;
+}
+
+static int l_bar_create(lua_State *L) {
+  lv_obj_t * a0_parent = (lv_obj_t *) check_obj(L, 1);
+  if (a0_parent == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lv_obj_t * res = lvgl_call_ret([=]() -> lv_obj_t * { return lv_bar_create(a0_parent); });
+  if (res) {
+    lua_pushlightuserdata(L, (void *) res);
+  } else {
+    lua_pushnil(L);
+  }
+  return 1;
+}
+
+static int l_bar_set_value(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  int32_t a1_value = (int32_t) luaL_checkinteger(L, 2);
+  lv_anim_enable_t a2_anim;
+  if (lua_isboolean(L, 3)) {
+    a2_anim = lua_toboolean(L, 3) ? LV_ANIM_ON : LV_ANIM_OFF;
+  } else {
+    a2_anim = (lv_anim_enable_t) luaL_checkinteger(L, 3);
+  }
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_bar_set_value(a0_obj, a1_value, a2_anim); });
+  return 0;
+}
+
+static int l_bar_set_start_value(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  int32_t a1_start_value = (int32_t) luaL_checkinteger(L, 2);
+  lv_anim_enable_t a2_anim;
+  if (lua_isboolean(L, 3)) {
+    a2_anim = lua_toboolean(L, 3) ? LV_ANIM_ON : LV_ANIM_OFF;
+  } else {
+    a2_anim = (lv_anim_enable_t) luaL_checkinteger(L, 3);
+  }
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_bar_set_start_value(a0_obj, a1_start_value, a2_anim); });
+  return 0;
+}
+
+static int l_bar_set_range(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  int32_t a1_min = (int32_t) luaL_checkinteger(L, 2);
+  int32_t a2_max = (int32_t) luaL_checkinteger(L, 3);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_bar_set_range(a0_obj, a1_min, a2_max); });
+  return 0;
+}
+
+static int l_bar_set_min_value(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  int32_t a1_min = (int32_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_bar_set_min_value(a0_obj, a1_min); });
+  return 0;
+}
+
+static int l_bar_set_max_value(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  int32_t a1_max = (int32_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_bar_set_max_value(a0_obj, a1_max); });
+  return 0;
+}
+
+static int l_bar_set_mode(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_bar_mode_t a1_mode = (lv_bar_mode_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_bar_set_mode(a0_obj, a1_mode); });
+  return 0;
+}
+
+static int l_bar_set_orientation(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  lv_bar_orientation_t a1_orientation = (lv_bar_orientation_t) luaL_checkinteger(L, 2);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_bar_set_orientation(a0_obj, a1_orientation); });
+  return 0;
+}
+
+static int l_bar_get_value(lua_State *L) {
+  const lv_obj_t * a0_obj = (const lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  int32_t res = lvgl_call_ret([=]() -> int32_t { return lv_bar_get_value(a0_obj); });
+  lua_pushinteger(L, (lua_Integer) res);
+  return 1;
+}
+
+static int l_bar_get_start_value(lua_State *L) {
+  const lv_obj_t * a0_obj = (const lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  int32_t res = lvgl_call_ret([=]() -> int32_t { return lv_bar_get_start_value(a0_obj); });
+  lua_pushinteger(L, (lua_Integer) res);
+  return 1;
+}
+
+static int l_bar_get_min_value(lua_State *L) {
+  const lv_obj_t * a0_obj = (const lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  int32_t res = lvgl_call_ret([=]() -> int32_t { return lv_bar_get_min_value(a0_obj); });
+  lua_pushinteger(L, (lua_Integer) res);
+  return 1;
+}
+
+static int l_bar_get_max_value(lua_State *L) {
+  const lv_obj_t * a0_obj = (const lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  int32_t res = lvgl_call_ret([=]() -> int32_t { return lv_bar_get_max_value(a0_obj); });
+  lua_pushinteger(L, (lua_Integer) res);
+  return 1;
+}
+
+static int l_bar_get_mode(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lv_bar_mode_t res = lvgl_call_ret([=]() -> lv_bar_mode_t { return lv_bar_get_mode(a0_obj); });
+  lua_pushinteger(L, (lua_Integer) res);
+  return 1;
+}
+
+static int l_bar_get_orientation(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  lv_bar_orientation_t res = lvgl_call_ret([=]() -> lv_bar_orientation_t { return lv_bar_get_orientation(a0_obj); });
+  lua_pushinteger(L, (lua_Integer) res);
+  return 1;
+}
+
+static int l_bar_is_symmetrical(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    lua_pushnil(L);
+    return 1;
+  }
+  bool res = lvgl_call_ret([=]() -> bool { return lv_bar_is_symmetrical(a0_obj); });
   lua_pushboolean(L, res);
   return 1;
 }
@@ -3219,6 +3405,8 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "list_add_btn");
   lua_pushcfunction(L, l_list_get_btn_text);
   lua_setfield(L, -2, "list_get_btn_text");
+  lua_pushcfunction(L, l_list_set_button_text);
+  lua_setfield(L, -2, "list_set_button_text");
   lua_pushcfunction(L, l_msgbox_create);
   lua_setfield(L, -2, "msgbox_create");
   lua_pushcfunction(L, l_msgbox_get_title);
@@ -3259,6 +3447,1588 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "buttonmatrix_has_button_ctrl");
   lua_pushcfunction(L, l_btnmatrix_get_one_checked);
   lua_setfield(L, -2, "btnmatrix_get_one_checked");
+  lua_pushcfunction(L, l_bar_create);
+  lua_setfield(L, -2, "bar_create");
+  lua_pushcfunction(L, l_bar_set_value);
+  lua_setfield(L, -2, "bar_set_value");
+  lua_pushcfunction(L, l_bar_set_start_value);
+  lua_setfield(L, -2, "bar_set_start_value");
+  lua_pushcfunction(L, l_bar_set_range);
+  lua_setfield(L, -2, "bar_set_range");
+  lua_pushcfunction(L, l_bar_set_min_value);
+  lua_setfield(L, -2, "bar_set_min_value");
+  lua_pushcfunction(L, l_bar_set_max_value);
+  lua_setfield(L, -2, "bar_set_max_value");
+  lua_pushcfunction(L, l_bar_set_mode);
+  lua_setfield(L, -2, "bar_set_mode");
+  lua_pushcfunction(L, l_bar_set_orientation);
+  lua_setfield(L, -2, "bar_set_orientation");
+  lua_pushcfunction(L, l_bar_get_value);
+  lua_setfield(L, -2, "bar_get_value");
+  lua_pushcfunction(L, l_bar_get_start_value);
+  lua_setfield(L, -2, "bar_get_start_value");
+  lua_pushcfunction(L, l_bar_get_min_value);
+  lua_setfield(L, -2, "bar_get_min_value");
+  lua_pushcfunction(L, l_bar_get_max_value);
+  lua_setfield(L, -2, "bar_get_max_value");
+  lua_pushcfunction(L, l_bar_get_mode);
+  lua_setfield(L, -2, "bar_get_mode");
+  lua_pushcfunction(L, l_bar_get_orientation);
+  lua_setfield(L, -2, "bar_get_orientation");
+  lua_pushcfunction(L, l_bar_is_symmetrical);
+  lua_setfield(L, -2, "bar_is_symmetrical");
+
+  // LVGL integer macros and enum constants
+  set_int_field(L, "ALIGN_BOTTOM_LEFT", LV_ALIGN_BOTTOM_LEFT);
+  set_int_field(L, "ALIGN_BOTTOM_MID", LV_ALIGN_BOTTOM_MID);
+  set_int_field(L, "ALIGN_BOTTOM_RIGHT", LV_ALIGN_BOTTOM_RIGHT);
+  set_int_field(L, "ALIGN_CENTER", LV_ALIGN_CENTER);
+  set_int_field(L, "ALIGN_DEFAULT", LV_ALIGN_DEFAULT);
+  set_int_field(L, "ALIGN_LEFT_MID", LV_ALIGN_LEFT_MID);
+  set_int_field(L, "ALIGN_OUT_BOTTOM_LEFT", LV_ALIGN_OUT_BOTTOM_LEFT);
+  set_int_field(L, "ALIGN_OUT_BOTTOM_MID", LV_ALIGN_OUT_BOTTOM_MID);
+  set_int_field(L, "ALIGN_OUT_BOTTOM_RIGHT", LV_ALIGN_OUT_BOTTOM_RIGHT);
+  set_int_field(L, "ALIGN_OUT_LEFT_BOTTOM", LV_ALIGN_OUT_LEFT_BOTTOM);
+  set_int_field(L, "ALIGN_OUT_LEFT_MID", LV_ALIGN_OUT_LEFT_MID);
+  set_int_field(L, "ALIGN_OUT_LEFT_TOP", LV_ALIGN_OUT_LEFT_TOP);
+  set_int_field(L, "ALIGN_OUT_RIGHT_BOTTOM", LV_ALIGN_OUT_RIGHT_BOTTOM);
+  set_int_field(L, "ALIGN_OUT_RIGHT_MID", LV_ALIGN_OUT_RIGHT_MID);
+  set_int_field(L, "ALIGN_OUT_RIGHT_TOP", LV_ALIGN_OUT_RIGHT_TOP);
+  set_int_field(L, "ALIGN_OUT_TOP_LEFT", LV_ALIGN_OUT_TOP_LEFT);
+  set_int_field(L, "ALIGN_OUT_TOP_MID", LV_ALIGN_OUT_TOP_MID);
+  set_int_field(L, "ALIGN_OUT_TOP_RIGHT", LV_ALIGN_OUT_TOP_RIGHT);
+  set_int_field(L, "ALIGN_RIGHT_MID", LV_ALIGN_RIGHT_MID);
+  set_int_field(L, "ALIGN_TOP_LEFT", LV_ALIGN_TOP_LEFT);
+  set_int_field(L, "ALIGN_TOP_MID", LV_ALIGN_TOP_MID);
+  set_int_field(L, "ALIGN_TOP_RIGHT", LV_ALIGN_TOP_RIGHT);
+#if (LV_USE_ANIMIMG != 0)
+  set_int_field(L, "ANIM_IMAGE_PART_MAIN", LV_ANIM_IMAGE_PART_MAIN);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_DIR_CLOCKWISE", LV_ARCLABEL_DIR_CLOCKWISE);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_DIR_COUNTER_CLOCKWISE", LV_ARCLABEL_DIR_COUNTER_CLOCKWISE);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_OVERFLOW_CLIP", LV_ARCLABEL_OVERFLOW_CLIP);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_OVERFLOW_ELLIPSIS", LV_ARCLABEL_OVERFLOW_ELLIPSIS);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_OVERFLOW_VISIBLE", LV_ARCLABEL_OVERFLOW_VISIBLE);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_TEXT_ALIGN_CENTER", LV_ARCLABEL_TEXT_ALIGN_CENTER);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_TEXT_ALIGN_DEFAULT", LV_ARCLABEL_TEXT_ALIGN_DEFAULT);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_TEXT_ALIGN_LEADING", LV_ARCLABEL_TEXT_ALIGN_LEADING);
+#endif
+#if (LV_USE_ARCLABEL != 0)
+  set_int_field(L, "ARCLABEL_TEXT_ALIGN_TRAILING", LV_ARCLABEL_TEXT_ALIGN_TRAILING);
+#endif
+#if (LV_USE_ARC != 0)
+  set_int_field(L, "ARC_MODE_NORMAL", LV_ARC_MODE_NORMAL);
+#endif
+#if (LV_USE_ARC != 0)
+  set_int_field(L, "ARC_MODE_REVERSE", LV_ARC_MODE_REVERSE);
+#endif
+#if (LV_USE_ARC != 0)
+  set_int_field(L, "ARC_MODE_SYMMETRICAL", LV_ARC_MODE_SYMMETRICAL);
+#endif
+#if (LV_USE_BAR != 0)
+  set_int_field(L, "BAR_MODE_NORMAL", LV_BAR_MODE_NORMAL);
+#endif
+#if (LV_USE_BAR != 0)
+  set_int_field(L, "BAR_MODE_RANGE", LV_BAR_MODE_RANGE);
+#endif
+#if (LV_USE_BAR != 0)
+  set_int_field(L, "BAR_MODE_SYMMETRICAL", LV_BAR_MODE_SYMMETRICAL);
+#endif
+#if (LV_USE_BAR != 0)
+  set_int_field(L, "BAR_ORIENTATION_AUTO", LV_BAR_ORIENTATION_AUTO);
+#endif
+#if (LV_USE_BAR != 0)
+  set_int_field(L, "BAR_ORIENTATION_HORIZONTAL", LV_BAR_ORIENTATION_HORIZONTAL);
+#endif
+#if (LV_USE_BAR != 0)
+  set_int_field(L, "BAR_ORIENTATION_VERTICAL", LV_BAR_ORIENTATION_VERTICAL);
+#endif
+  set_int_field(L, "BASE_DIR_AUTO", LV_BASE_DIR_AUTO);
+  set_int_field(L, "BASE_DIR_LTR", LV_BASE_DIR_LTR);
+  set_int_field(L, "BASE_DIR_NEUTRAL", LV_BASE_DIR_NEUTRAL);
+  set_int_field(L, "BASE_DIR_RTL", LV_BASE_DIR_RTL);
+  set_int_field(L, "BASE_DIR_WEAK", LV_BASE_DIR_WEAK);
+  set_int_field(L, "BLEND_MODE_ADDITIVE", LV_BLEND_MODE_ADDITIVE);
+  set_int_field(L, "BLEND_MODE_DIFFERENCE", LV_BLEND_MODE_DIFFERENCE);
+  set_int_field(L, "BLEND_MODE_MULTIPLY", LV_BLEND_MODE_MULTIPLY);
+  set_int_field(L, "BLEND_MODE_NORMAL", LV_BLEND_MODE_NORMAL);
+  set_int_field(L, "BLEND_MODE_SUBTRACTIVE", LV_BLEND_MODE_SUBTRACTIVE);
+  set_int_field(L, "BLUR_QUALITY_AUTO", LV_BLUR_QUALITY_AUTO);
+  set_int_field(L, "BLUR_QUALITY_PRECISION", LV_BLUR_QUALITY_PRECISION);
+  set_int_field(L, "BLUR_QUALITY_SPEED", LV_BLUR_QUALITY_SPEED);
+  set_int_field(L, "BORDER_SIDE_BOTTOM", LV_BORDER_SIDE_BOTTOM);
+  set_int_field(L, "BORDER_SIDE_FULL", LV_BORDER_SIDE_FULL);
+  set_int_field(L, "BORDER_SIDE_INTERNAL", LV_BORDER_SIDE_INTERNAL);
+  set_int_field(L, "BORDER_SIDE_LEFT", LV_BORDER_SIDE_LEFT);
+  set_int_field(L, "BORDER_SIDE_NONE", LV_BORDER_SIDE_NONE);
+  set_int_field(L, "BORDER_SIDE_RIGHT", LV_BORDER_SIDE_RIGHT);
+  set_int_field(L, "BORDER_SIDE_TOP", LV_BORDER_SIDE_TOP);
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_CHECKABLE", LV_BUTTONMATRIX_CTRL_CHECKABLE);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_CHECKED", LV_BUTTONMATRIX_CTRL_CHECKED);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_CLICK_TRIG", LV_BUTTONMATRIX_CTRL_CLICK_TRIG);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_CUSTOM_1", LV_BUTTONMATRIX_CTRL_CUSTOM_1);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_CUSTOM_2", LV_BUTTONMATRIX_CTRL_CUSTOM_2);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_DISABLED", LV_BUTTONMATRIX_CTRL_DISABLED);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_HIDDEN", LV_BUTTONMATRIX_CTRL_HIDDEN);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_NONE", LV_BUTTONMATRIX_CTRL_NONE);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_NO_REPEAT", LV_BUTTONMATRIX_CTRL_NO_REPEAT);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_POPOVER", LV_BUTTONMATRIX_CTRL_POPOVER);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_RECOLOR", LV_BUTTONMATRIX_CTRL_RECOLOR);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_RESERVED_1", LV_BUTTONMATRIX_CTRL_RESERVED_1);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_RESERVED_2", LV_BUTTONMATRIX_CTRL_RESERVED_2);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_1", LV_BUTTONMATRIX_CTRL_WIDTH_1);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_10", LV_BUTTONMATRIX_CTRL_WIDTH_10);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_11", LV_BUTTONMATRIX_CTRL_WIDTH_11);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_12", LV_BUTTONMATRIX_CTRL_WIDTH_12);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_13", LV_BUTTONMATRIX_CTRL_WIDTH_13);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_14", LV_BUTTONMATRIX_CTRL_WIDTH_14);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_15", LV_BUTTONMATRIX_CTRL_WIDTH_15);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_2", LV_BUTTONMATRIX_CTRL_WIDTH_2);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_3", LV_BUTTONMATRIX_CTRL_WIDTH_3);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_4", LV_BUTTONMATRIX_CTRL_WIDTH_4);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_5", LV_BUTTONMATRIX_CTRL_WIDTH_5);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_6", LV_BUTTONMATRIX_CTRL_WIDTH_6);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_7", LV_BUTTONMATRIX_CTRL_WIDTH_7);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_8", LV_BUTTONMATRIX_CTRL_WIDTH_8);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0)
+  set_int_field(L, "BUTTONMATRIX_CTRL_WIDTH_9", LV_BUTTONMATRIX_CTRL_WIDTH_9);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_AXIS_LAST", LV_CHART_AXIS_LAST);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_AXIS_PRIMARY_X", LV_CHART_AXIS_PRIMARY_X);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_AXIS_PRIMARY_Y", LV_CHART_AXIS_PRIMARY_Y);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_AXIS_SECONDARY_X", LV_CHART_AXIS_SECONDARY_X);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_AXIS_SECONDARY_Y", LV_CHART_AXIS_SECONDARY_Y);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_TYPE_BAR", LV_CHART_TYPE_BAR);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_TYPE_CURVE", LV_CHART_TYPE_CURVE);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_TYPE_LINE", LV_CHART_TYPE_LINE);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_TYPE_NONE", LV_CHART_TYPE_NONE);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_TYPE_SCATTER", LV_CHART_TYPE_SCATTER);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_TYPE_STACKED", LV_CHART_TYPE_STACKED);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_UPDATE_MODE_CIRCULAR", LV_CHART_UPDATE_MODE_CIRCULAR);
+#endif
+#if (LV_USE_CHART != 0)
+  set_int_field(L, "CHART_UPDATE_MODE_SHIFT", LV_CHART_UPDATE_MODE_SHIFT);
+#endif
+  set_int_field(L, "COLOR_FORMAT_A1", LV_COLOR_FORMAT_A1);
+  set_int_field(L, "COLOR_FORMAT_A2", LV_COLOR_FORMAT_A2);
+  set_int_field(L, "COLOR_FORMAT_A4", LV_COLOR_FORMAT_A4);
+  set_int_field(L, "COLOR_FORMAT_A8", LV_COLOR_FORMAT_A8);
+  set_int_field(L, "COLOR_FORMAT_AL88", LV_COLOR_FORMAT_AL88);
+  set_int_field(L, "COLOR_FORMAT_ARGB1555", LV_COLOR_FORMAT_ARGB1555);
+  set_int_field(L, "COLOR_FORMAT_ARGB2222", LV_COLOR_FORMAT_ARGB2222);
+  set_int_field(L, "COLOR_FORMAT_ARGB4444", LV_COLOR_FORMAT_ARGB4444);
+  set_int_field(L, "COLOR_FORMAT_ARGB8565", LV_COLOR_FORMAT_ARGB8565);
+  set_int_field(L, "COLOR_FORMAT_ARGB8888", LV_COLOR_FORMAT_ARGB8888);
+  set_int_field(L, "COLOR_FORMAT_ARGB8888_PREMULTIPLIED", LV_COLOR_FORMAT_ARGB8888_PREMULTIPLIED);
+  set_int_field(L, "COLOR_FORMAT_I1", LV_COLOR_FORMAT_I1);
+  set_int_field(L, "COLOR_FORMAT_I2", LV_COLOR_FORMAT_I2);
+  set_int_field(L, "COLOR_FORMAT_I4", LV_COLOR_FORMAT_I4);
+  set_int_field(L, "COLOR_FORMAT_I400", LV_COLOR_FORMAT_I400);
+  set_int_field(L, "COLOR_FORMAT_I420", LV_COLOR_FORMAT_I420);
+  set_int_field(L, "COLOR_FORMAT_I422", LV_COLOR_FORMAT_I422);
+  set_int_field(L, "COLOR_FORMAT_I444", LV_COLOR_FORMAT_I444);
+  set_int_field(L, "COLOR_FORMAT_I8", LV_COLOR_FORMAT_I8);
+  set_int_field(L, "COLOR_FORMAT_L8", LV_COLOR_FORMAT_L8);
+#if (LV_COLOR_DEPTH == 1)
+  set_int_field(L, "COLOR_FORMAT_NATIVE", LV_COLOR_FORMAT_NATIVE);
+#endif
+#if (LV_COLOR_DEPTH == 1)
+  set_int_field(L, "COLOR_FORMAT_NATIVE_WITH_ALPHA", LV_COLOR_FORMAT_NATIVE_WITH_ALPHA);
+#endif
+  set_int_field(L, "COLOR_FORMAT_NEMA_TSC12", LV_COLOR_FORMAT_NEMA_TSC12);
+  set_int_field(L, "COLOR_FORMAT_NEMA_TSC12A", LV_COLOR_FORMAT_NEMA_TSC12A);
+  set_int_field(L, "COLOR_FORMAT_NEMA_TSC4", LV_COLOR_FORMAT_NEMA_TSC4);
+  set_int_field(L, "COLOR_FORMAT_NEMA_TSC6", LV_COLOR_FORMAT_NEMA_TSC6);
+  set_int_field(L, "COLOR_FORMAT_NEMA_TSC6A", LV_COLOR_FORMAT_NEMA_TSC6A);
+  set_int_field(L, "COLOR_FORMAT_NEMA_TSC6AP", LV_COLOR_FORMAT_NEMA_TSC6AP);
+  set_int_field(L, "COLOR_FORMAT_NEMA_TSC_END", LV_COLOR_FORMAT_NEMA_TSC_END);
+  set_int_field(L, "COLOR_FORMAT_NEMA_TSC_START", LV_COLOR_FORMAT_NEMA_TSC_START);
+  set_int_field(L, "COLOR_FORMAT_NV12", LV_COLOR_FORMAT_NV12);
+  set_int_field(L, "COLOR_FORMAT_NV21", LV_COLOR_FORMAT_NV21);
+  set_int_field(L, "COLOR_FORMAT_PROPRIETARY_START", LV_COLOR_FORMAT_PROPRIETARY_START);
+  set_int_field(L, "COLOR_FORMAT_RAW", LV_COLOR_FORMAT_RAW);
+  set_int_field(L, "COLOR_FORMAT_RAW_ALPHA", LV_COLOR_FORMAT_RAW_ALPHA);
+  set_int_field(L, "COLOR_FORMAT_RGB565", LV_COLOR_FORMAT_RGB565);
+  set_int_field(L, "COLOR_FORMAT_RGB565A8", LV_COLOR_FORMAT_RGB565A8);
+  set_int_field(L, "COLOR_FORMAT_RGB565_SWAPPED", LV_COLOR_FORMAT_RGB565_SWAPPED);
+  set_int_field(L, "COLOR_FORMAT_RGB888", LV_COLOR_FORMAT_RGB888);
+  set_int_field(L, "COLOR_FORMAT_UNKNOWN", LV_COLOR_FORMAT_UNKNOWN);
+  set_int_field(L, "COLOR_FORMAT_UYVY", LV_COLOR_FORMAT_UYVY);
+  set_int_field(L, "COLOR_FORMAT_XRGB8888", LV_COLOR_FORMAT_XRGB8888);
+  set_int_field(L, "COLOR_FORMAT_YUV_END", LV_COLOR_FORMAT_YUV_END);
+  set_int_field(L, "COLOR_FORMAT_YUV_START", LV_COLOR_FORMAT_YUV_START);
+  set_int_field(L, "COLOR_FORMAT_YUY2", LV_COLOR_FORMAT_YUY2);
+  set_int_field(L, "COVER_RES_COVER", LV_COVER_RES_COVER);
+  set_int_field(L, "COVER_RES_MASKED", LV_COVER_RES_MASKED);
+  set_int_field(L, "COVER_RES_NOT_COVER", LV_COVER_RES_NOT_COVER);
+  set_int_field(L, "DIR_ALL", LV_DIR_ALL);
+  set_int_field(L, "DIR_BOTTOM", LV_DIR_BOTTOM);
+  set_int_field(L, "DIR_HOR", LV_DIR_HOR);
+  set_int_field(L, "DIR_LEFT", LV_DIR_LEFT);
+  set_int_field(L, "DIR_NONE", LV_DIR_NONE);
+  set_int_field(L, "DIR_RIGHT", LV_DIR_RIGHT);
+  set_int_field(L, "DIR_TOP", LV_DIR_TOP);
+  set_int_field(L, "DIR_VER", LV_DIR_VER);
+  set_int_field(L, "DISPLAY_RENDER_MODE_DIRECT", LV_DISPLAY_RENDER_MODE_DIRECT);
+  set_int_field(L, "DISPLAY_RENDER_MODE_FULL", LV_DISPLAY_RENDER_MODE_FULL);
+  set_int_field(L, "DISPLAY_RENDER_MODE_PARTIAL", LV_DISPLAY_RENDER_MODE_PARTIAL);
+  set_int_field(L, "DISPLAY_ROTATION_0", LV_DISPLAY_ROTATION_0);
+  set_int_field(L, "DISPLAY_ROTATION_180", LV_DISPLAY_ROTATION_180);
+  set_int_field(L, "DISPLAY_ROTATION_270", LV_DISPLAY_ROTATION_270);
+  set_int_field(L, "DISPLAY_ROTATION_90", LV_DISPLAY_ROTATION_90);
+#if (LV_USE_DRAW_EVE)
+  set_int_field(L, "DRAW_EVE_OPERATION_CS_ASSERT", LV_DRAW_EVE_OPERATION_CS_ASSERT);
+#endif
+#if (LV_USE_DRAW_EVE)
+  set_int_field(L, "DRAW_EVE_OPERATION_CS_DEASSERT", LV_DRAW_EVE_OPERATION_CS_DEASSERT);
+#endif
+#if (LV_USE_DRAW_EVE)
+  set_int_field(L, "DRAW_EVE_OPERATION_POWERDOWN_CLEAR", LV_DRAW_EVE_OPERATION_POWERDOWN_CLEAR);
+#endif
+#if (LV_USE_DRAW_EVE)
+  set_int_field(L, "DRAW_EVE_OPERATION_POWERDOWN_SET", LV_DRAW_EVE_OPERATION_POWERDOWN_SET);
+#endif
+#if (LV_USE_DRAW_EVE)
+  set_int_field(L, "DRAW_EVE_OPERATION_SPI_RECEIVE", LV_DRAW_EVE_OPERATION_SPI_RECEIVE);
+#endif
+#if (LV_USE_DRAW_EVE)
+  set_int_field(L, "DRAW_EVE_OPERATION_SPI_SEND", LV_DRAW_EVE_OPERATION_SPI_SEND);
+#endif
+  set_int_field(L, "DRAW_TASK_STATE_BLOCKED", LV_DRAW_TASK_STATE_BLOCKED);
+  set_int_field(L, "DRAW_TASK_STATE_FINISHED", LV_DRAW_TASK_STATE_FINISHED);
+  set_int_field(L, "DRAW_TASK_STATE_IN_PROGRESS", LV_DRAW_TASK_STATE_IN_PROGRESS);
+  set_int_field(L, "DRAW_TASK_STATE_QUEUED", LV_DRAW_TASK_STATE_QUEUED);
+  set_int_field(L, "DRAW_TASK_STATE_WAITING", LV_DRAW_TASK_STATE_WAITING);
+#if (LV_USE_3DTEXTURE)
+  set_int_field(L, "DRAW_TASK_TYPE_3D", LV_DRAW_TASK_TYPE_3D);
+#endif
+  set_int_field(L, "DRAW_TASK_TYPE_ARC", LV_DRAW_TASK_TYPE_ARC);
+  set_int_field(L, "DRAW_TASK_TYPE_BLUR", LV_DRAW_TASK_TYPE_BLUR);
+  set_int_field(L, "DRAW_TASK_TYPE_BORDER", LV_DRAW_TASK_TYPE_BORDER);
+  set_int_field(L, "DRAW_TASK_TYPE_BOX_SHADOW", LV_DRAW_TASK_TYPE_BOX_SHADOW);
+  set_int_field(L, "DRAW_TASK_TYPE_FILL", LV_DRAW_TASK_TYPE_FILL);
+  set_int_field(L, "DRAW_TASK_TYPE_IMAGE", LV_DRAW_TASK_TYPE_IMAGE);
+  set_int_field(L, "DRAW_TASK_TYPE_LABEL", LV_DRAW_TASK_TYPE_LABEL);
+  set_int_field(L, "DRAW_TASK_TYPE_LAYER", LV_DRAW_TASK_TYPE_LAYER);
+  set_int_field(L, "DRAW_TASK_TYPE_LETTER", LV_DRAW_TASK_TYPE_LETTER);
+  set_int_field(L, "DRAW_TASK_TYPE_LINE", LV_DRAW_TASK_TYPE_LINE);
+  set_int_field(L, "DRAW_TASK_TYPE_MASK_BITMAP", LV_DRAW_TASK_TYPE_MASK_BITMAP);
+  set_int_field(L, "DRAW_TASK_TYPE_MASK_RECTANGLE", LV_DRAW_TASK_TYPE_MASK_RECTANGLE);
+  set_int_field(L, "DRAW_TASK_TYPE_NONE", LV_DRAW_TASK_TYPE_NONE);
+  set_int_field(L, "DRAW_TASK_TYPE_TRIANGLE", LV_DRAW_TASK_TYPE_TRIANGLE);
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "DRAW_TASK_TYPE_VECTOR", LV_DRAW_TASK_TYPE_VECTOR);
+#endif
+  set_int_field(L, "EVENT_ALL", LV_EVENT_ALL);
+  set_int_field(L, "EVENT_CANCEL", LV_EVENT_CANCEL);
+  set_int_field(L, "EVENT_CHILD_CHANGED", LV_EVENT_CHILD_CHANGED);
+  set_int_field(L, "EVENT_CHILD_CREATED", LV_EVENT_CHILD_CREATED);
+  set_int_field(L, "EVENT_CHILD_DELETED", LV_EVENT_CHILD_DELETED);
+  set_int_field(L, "EVENT_CLICKED", LV_EVENT_CLICKED);
+  set_int_field(L, "EVENT_COLOR_FORMAT_CHANGED", LV_EVENT_COLOR_FORMAT_CHANGED);
+  set_int_field(L, "EVENT_COVER_CHECK", LV_EVENT_COVER_CHECK);
+  set_int_field(L, "EVENT_CREATE", LV_EVENT_CREATE);
+  set_int_field(L, "EVENT_DEFOCUSED", LV_EVENT_DEFOCUSED);
+  set_int_field(L, "EVENT_DELETE", LV_EVENT_DELETE);
+  set_int_field(L, "EVENT_DOUBLE_CLICKED", LV_EVENT_DOUBLE_CLICKED);
+  set_int_field(L, "EVENT_DRAW_MAIN", LV_EVENT_DRAW_MAIN);
+  set_int_field(L, "EVENT_DRAW_MAIN_BEGIN", LV_EVENT_DRAW_MAIN_BEGIN);
+  set_int_field(L, "EVENT_DRAW_MAIN_END", LV_EVENT_DRAW_MAIN_END);
+  set_int_field(L, "EVENT_DRAW_POST", LV_EVENT_DRAW_POST);
+  set_int_field(L, "EVENT_DRAW_POST_BEGIN", LV_EVENT_DRAW_POST_BEGIN);
+  set_int_field(L, "EVENT_DRAW_POST_END", LV_EVENT_DRAW_POST_END);
+  set_int_field(L, "EVENT_DRAW_TASK_ADDED", LV_EVENT_DRAW_TASK_ADDED);
+  set_int_field(L, "EVENT_FLUSH_FINISH", LV_EVENT_FLUSH_FINISH);
+  set_int_field(L, "EVENT_FLUSH_START", LV_EVENT_FLUSH_START);
+  set_int_field(L, "EVENT_FLUSH_WAIT_FINISH", LV_EVENT_FLUSH_WAIT_FINISH);
+  set_int_field(L, "EVENT_FLUSH_WAIT_START", LV_EVENT_FLUSH_WAIT_START);
+  set_int_field(L, "EVENT_FOCUSED", LV_EVENT_FOCUSED);
+  set_int_field(L, "EVENT_GESTURE", LV_EVENT_GESTURE);
+  set_int_field(L, "EVENT_GET_SELF_SIZE", LV_EVENT_GET_SELF_SIZE);
+  set_int_field(L, "EVENT_HIT_TEST", LV_EVENT_HIT_TEST);
+  set_int_field(L, "EVENT_HOVER_LEAVE", LV_EVENT_HOVER_LEAVE);
+  set_int_field(L, "EVENT_HOVER_OVER", LV_EVENT_HOVER_OVER);
+  set_int_field(L, "EVENT_INDEV_RESET", LV_EVENT_INDEV_RESET);
+  set_int_field(L, "EVENT_INSERT", LV_EVENT_INSERT);
+  set_int_field(L, "EVENT_INVALIDATE_AREA", LV_EVENT_INVALIDATE_AREA);
+  set_int_field(L, "EVENT_KEY", LV_EVENT_KEY);
+  set_int_field(L, "EVENT_LAST", LV_EVENT_LAST);
+  set_int_field(L, "EVENT_LAYOUT_CHANGED", LV_EVENT_LAYOUT_CHANGED);
+  set_int_field(L, "EVENT_LEAVE", LV_EVENT_LEAVE);
+  set_int_field(L, "EVENT_LONG_PRESSED", LV_EVENT_LONG_PRESSED);
+  set_int_field(L, "EVENT_LONG_PRESSED_REPEAT", LV_EVENT_LONG_PRESSED_REPEAT);
+  set_int_field(L, "EVENT_MARKED_DELETING", LV_EVENT_MARKED_DELETING);
+  set_int_field(L, "EVENT_PREPROCESS", LV_EVENT_PREPROCESS);
+  set_int_field(L, "EVENT_PRESSED", LV_EVENT_PRESSED);
+  set_int_field(L, "EVENT_PRESSING", LV_EVENT_PRESSING);
+  set_int_field(L, "EVENT_PRESS_LOST", LV_EVENT_PRESS_LOST);
+  set_int_field(L, "EVENT_READY", LV_EVENT_READY);
+  set_int_field(L, "EVENT_REFRESH", LV_EVENT_REFRESH);
+  set_int_field(L, "EVENT_REFR_EXT_DRAW_SIZE", LV_EVENT_REFR_EXT_DRAW_SIZE);
+  set_int_field(L, "EVENT_REFR_READY", LV_EVENT_REFR_READY);
+  set_int_field(L, "EVENT_REFR_REQUEST", LV_EVENT_REFR_REQUEST);
+  set_int_field(L, "EVENT_REFR_START", LV_EVENT_REFR_START);
+  set_int_field(L, "EVENT_RELEASED", LV_EVENT_RELEASED);
+  set_int_field(L, "EVENT_RENDER_READY", LV_EVENT_RENDER_READY);
+  set_int_field(L, "EVENT_RENDER_START", LV_EVENT_RENDER_START);
+  set_int_field(L, "EVENT_RESOLUTION_CHANGED", LV_EVENT_RESOLUTION_CHANGED);
+  set_int_field(L, "EVENT_ROTARY", LV_EVENT_ROTARY);
+  set_int_field(L, "EVENT_SCREEN_LOADED", LV_EVENT_SCREEN_LOADED);
+  set_int_field(L, "EVENT_SCREEN_LOAD_START", LV_EVENT_SCREEN_LOAD_START);
+  set_int_field(L, "EVENT_SCREEN_UNLOADED", LV_EVENT_SCREEN_UNLOADED);
+  set_int_field(L, "EVENT_SCREEN_UNLOAD_START", LV_EVENT_SCREEN_UNLOAD_START);
+  set_int_field(L, "EVENT_SCROLL", LV_EVENT_SCROLL);
+  set_int_field(L, "EVENT_SCROLL_BEGIN", LV_EVENT_SCROLL_BEGIN);
+  set_int_field(L, "EVENT_SCROLL_END", LV_EVENT_SCROLL_END);
+  set_int_field(L, "EVENT_SCROLL_THROW_BEGIN", LV_EVENT_SCROLL_THROW_BEGIN);
+  set_int_field(L, "EVENT_SHORT_CLICKED", LV_EVENT_SHORT_CLICKED);
+  set_int_field(L, "EVENT_SINGLE_CLICKED", LV_EVENT_SINGLE_CLICKED);
+  set_int_field(L, "EVENT_SIZE_CHANGED", LV_EVENT_SIZE_CHANGED);
+  set_int_field(L, "EVENT_STATE_CHANGED", LV_EVENT_STATE_CHANGED);
+  set_int_field(L, "EVENT_STYLE_CHANGED", LV_EVENT_STYLE_CHANGED);
+#if (LV_USE_TRANSLATION)
+  set_int_field(L, "EVENT_TRANSLATION_LANGUAGE_CHANGED", LV_EVENT_TRANSLATION_LANGUAGE_CHANGED);
+#endif
+  set_int_field(L, "EVENT_TRIPLE_CLICKED", LV_EVENT_TRIPLE_CLICKED);
+  set_int_field(L, "EVENT_UPDATE_LAYOUT_COMPLETED", LV_EVENT_UPDATE_LAYOUT_COMPLETED);
+  set_int_field(L, "EVENT_VALUE_CHANGED", LV_EVENT_VALUE_CHANGED);
+  set_int_field(L, "EVENT_VSYNC", LV_EVENT_VSYNC);
+  set_int_field(L, "EVENT_VSYNC_REQUEST", LV_EVENT_VSYNC_REQUEST);
+#if (LV_USE_FILE_EXPLORER != 0) && (LV_FILE_EXPLORER_QUICK_ACCESS)
+  set_int_field(L, "EXPLORER_DOCS_DIR", LV_EXPLORER_DOCS_DIR);
+#endif
+#if (LV_USE_FILE_EXPLORER != 0) && (LV_FILE_EXPLORER_QUICK_ACCESS)
+  set_int_field(L, "EXPLORER_FS_DIR", LV_EXPLORER_FS_DIR);
+#endif
+#if (LV_USE_FILE_EXPLORER != 0) && (LV_FILE_EXPLORER_QUICK_ACCESS)
+  set_int_field(L, "EXPLORER_HOME_DIR", LV_EXPLORER_HOME_DIR);
+#endif
+#if (LV_USE_FILE_EXPLORER != 0) && (LV_FILE_EXPLORER_QUICK_ACCESS)
+  set_int_field(L, "EXPLORER_MUSIC_DIR", LV_EXPLORER_MUSIC_DIR);
+#endif
+#if (LV_USE_FILE_EXPLORER != 0) && (LV_FILE_EXPLORER_QUICK_ACCESS)
+  set_int_field(L, "EXPLORER_PICTURES_DIR", LV_EXPLORER_PICTURES_DIR);
+#endif
+#if (LV_USE_FILE_EXPLORER != 0)
+  set_int_field(L, "EXPLORER_SORT_KIND", LV_EXPLORER_SORT_KIND);
+#endif
+#if (LV_USE_FILE_EXPLORER != 0)
+  set_int_field(L, "EXPLORER_SORT_NONE", LV_EXPLORER_SORT_NONE);
+#endif
+#if (LV_USE_FILE_EXPLORER != 0) && (LV_FILE_EXPLORER_QUICK_ACCESS)
+  set_int_field(L, "EXPLORER_VIDEO_DIR", LV_EXPLORER_VIDEO_DIR);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_ALIGN_CENTER", LV_FLEX_ALIGN_CENTER);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_ALIGN_END", LV_FLEX_ALIGN_END);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_ALIGN_SPACE_AROUND", LV_FLEX_ALIGN_SPACE_AROUND);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_ALIGN_SPACE_BETWEEN", LV_FLEX_ALIGN_SPACE_BETWEEN);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_ALIGN_SPACE_EVENLY", LV_FLEX_ALIGN_SPACE_EVENLY);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_ALIGN_START", LV_FLEX_ALIGN_START);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_COLUMN", LV_FLEX_COLUMN);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_FLOW_COLUMN", LV_FLEX_FLOW_COLUMN);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_FLOW_COLUMN_REVERSE", LV_FLEX_FLOW_COLUMN_REVERSE);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_FLOW_COLUMN_WRAP", LV_FLEX_FLOW_COLUMN_WRAP);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_FLOW_COLUMN_WRAP_REVERSE", LV_FLEX_FLOW_COLUMN_WRAP_REVERSE);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_FLOW_ROW", LV_FLEX_FLOW_ROW);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_FLOW_ROW_REVERSE", LV_FLEX_FLOW_ROW_REVERSE);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_FLOW_ROW_WRAP", LV_FLEX_FLOW_ROW_WRAP);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_FLOW_ROW_WRAP_REVERSE", LV_FLEX_FLOW_ROW_WRAP_REVERSE);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_REVERSE", LV_FLEX_REVERSE);
+#endif
+#if (LV_USE_FLEX)
+  set_int_field(L, "FLEX_WRAP", LV_FLEX_WRAP);
+#endif
+  set_int_field(L, "FONT_FMT_TXT_CMAP_FORMAT0_FULL", LV_FONT_FMT_TXT_CMAP_FORMAT0_FULL);
+  set_int_field(L, "FONT_FMT_TXT_CMAP_FORMAT0_TINY", LV_FONT_FMT_TXT_CMAP_FORMAT0_TINY);
+  set_int_field(L, "FONT_FMT_TXT_CMAP_SPARSE_FULL", LV_FONT_FMT_TXT_CMAP_SPARSE_FULL);
+  set_int_field(L, "FONT_FMT_TXT_CMAP_SPARSE_TINY", LV_FONT_FMT_TXT_CMAP_SPARSE_TINY);
+  set_int_field(L, "FONT_FMT_TXT_COMPRESSED", LV_FONT_FMT_TXT_COMPRESSED);
+  set_int_field(L, "FONT_FMT_TXT_COMPRESSED_NO_PREFILTER", LV_FONT_FMT_TXT_COMPRESSED_NO_PREFILTER);
+  set_int_field(L, "FONT_FMT_TXT_PLAIN", LV_FONT_FMT_TXT_PLAIN);
+  set_int_field(L, "FONT_GLYPH_FORMAT_A1", LV_FONT_GLYPH_FORMAT_A1);
+  set_int_field(L, "FONT_GLYPH_FORMAT_A2", LV_FONT_GLYPH_FORMAT_A2);
+  set_int_field(L, "FONT_GLYPH_FORMAT_A3", LV_FONT_GLYPH_FORMAT_A3);
+  set_int_field(L, "FONT_GLYPH_FORMAT_A4", LV_FONT_GLYPH_FORMAT_A4);
+  set_int_field(L, "FONT_GLYPH_FORMAT_A8", LV_FONT_GLYPH_FORMAT_A8);
+  set_int_field(L, "FONT_GLYPH_FORMAT_CUSTOM", LV_FONT_GLYPH_FORMAT_CUSTOM);
+  set_int_field(L, "FONT_GLYPH_FORMAT_IMAGE", LV_FONT_GLYPH_FORMAT_IMAGE);
+  set_int_field(L, "FONT_GLYPH_FORMAT_NONE", LV_FONT_GLYPH_FORMAT_NONE);
+  set_int_field(L, "FONT_GLYPH_FORMAT_SVG", LV_FONT_GLYPH_FORMAT_SVG);
+  set_int_field(L, "FONT_GLYPH_FORMAT_VECTOR", LV_FONT_GLYPH_FORMAT_VECTOR);
+  set_int_field(L, "FONT_KERNING_NONE", LV_FONT_KERNING_NONE);
+  set_int_field(L, "FONT_KERNING_NORMAL", LV_FONT_KERNING_NORMAL);
+  set_int_field(L, "FONT_SUBPX_BOTH", LV_FONT_SUBPX_BOTH);
+  set_int_field(L, "FONT_SUBPX_HOR", LV_FONT_SUBPX_HOR);
+  set_int_field(L, "FONT_SUBPX_NONE", LV_FONT_SUBPX_NONE);
+  set_int_field(L, "FONT_SUBPX_VER", LV_FONT_SUBPX_VER);
+  set_int_field(L, "FS_MODE_RD", LV_FS_MODE_RD);
+  set_int_field(L, "FS_MODE_WR", LV_FS_MODE_WR);
+  set_int_field(L, "FS_RES_BUSY", LV_FS_RES_BUSY);
+  set_int_field(L, "FS_RES_DENIED", LV_FS_RES_DENIED);
+  set_int_field(L, "FS_RES_DRIVE_LETTER_ALREADY_USED", LV_FS_RES_DRIVE_LETTER_ALREADY_USED);
+  set_int_field(L, "FS_RES_FS_ERR", LV_FS_RES_FS_ERR);
+  set_int_field(L, "FS_RES_FULL", LV_FS_RES_FULL);
+  set_int_field(L, "FS_RES_HW_ERR", LV_FS_RES_HW_ERR);
+  set_int_field(L, "FS_RES_INV_PARAM", LV_FS_RES_INV_PARAM);
+  set_int_field(L, "FS_RES_LOCKED", LV_FS_RES_LOCKED);
+  set_int_field(L, "FS_RES_NOT_EX", LV_FS_RES_NOT_EX);
+  set_int_field(L, "FS_RES_NOT_IMP", LV_FS_RES_NOT_IMP);
+  set_int_field(L, "FS_RES_OK", LV_FS_RES_OK);
+  set_int_field(L, "FS_RES_OUT_OF_MEM", LV_FS_RES_OUT_OF_MEM);
+  set_int_field(L, "FS_RES_TOUT", LV_FS_RES_TOUT);
+  set_int_field(L, "FS_RES_UNKNOWN", LV_FS_RES_UNKNOWN);
+  set_int_field(L, "FS_SEEK_CUR", LV_FS_SEEK_CUR);
+  set_int_field(L, "FS_SEEK_END", LV_FS_SEEK_END);
+  set_int_field(L, "FS_SEEK_SET", LV_FS_SEEK_SET);
+  set_int_field(L, "GRAD_DIR_CONICAL", LV_GRAD_DIR_CONICAL);
+  set_int_field(L, "GRAD_DIR_HOR", LV_GRAD_DIR_HOR);
+  set_int_field(L, "GRAD_DIR_LINEAR", LV_GRAD_DIR_LINEAR);
+  set_int_field(L, "GRAD_DIR_NONE", LV_GRAD_DIR_NONE);
+  set_int_field(L, "GRAD_DIR_RADIAL", LV_GRAD_DIR_RADIAL);
+  set_int_field(L, "GRAD_DIR_VER", LV_GRAD_DIR_VER);
+  set_int_field(L, "GRAD_EXTEND_PAD", LV_GRAD_EXTEND_PAD);
+  set_int_field(L, "GRAD_EXTEND_REFLECT", LV_GRAD_EXTEND_REFLECT);
+  set_int_field(L, "GRAD_EXTEND_REPEAT", LV_GRAD_EXTEND_REPEAT);
+#if (LV_USE_GRIDNAV)
+  set_int_field(L, "GRIDNAV_CTRL_HORIZONTAL_MOVE_ONLY", LV_GRIDNAV_CTRL_HORIZONTAL_MOVE_ONLY);
+#endif
+#if (LV_USE_GRIDNAV)
+  set_int_field(L, "GRIDNAV_CTRL_NONE", LV_GRIDNAV_CTRL_NONE);
+#endif
+#if (LV_USE_GRIDNAV)
+  set_int_field(L, "GRIDNAV_CTRL_ROLLOVER", LV_GRIDNAV_CTRL_ROLLOVER);
+#endif
+#if (LV_USE_GRIDNAV)
+  set_int_field(L, "GRIDNAV_CTRL_SCROLL_FIRST", LV_GRIDNAV_CTRL_SCROLL_FIRST);
+#endif
+#if (LV_USE_GRIDNAV)
+  set_int_field(L, "GRIDNAV_CTRL_VERTICAL_MOVE_ONLY", LV_GRIDNAV_CTRL_VERTICAL_MOVE_ONLY);
+#endif
+#if (LV_USE_GRID)
+  set_int_field(L, "GRID_ALIGN_CENTER", LV_GRID_ALIGN_CENTER);
+#endif
+#if (LV_USE_GRID)
+  set_int_field(L, "GRID_ALIGN_END", LV_GRID_ALIGN_END);
+#endif
+#if (LV_USE_GRID)
+  set_int_field(L, "GRID_ALIGN_SPACE_AROUND", LV_GRID_ALIGN_SPACE_AROUND);
+#endif
+#if (LV_USE_GRID)
+  set_int_field(L, "GRID_ALIGN_SPACE_BETWEEN", LV_GRID_ALIGN_SPACE_BETWEEN);
+#endif
+#if (LV_USE_GRID)
+  set_int_field(L, "GRID_ALIGN_SPACE_EVENLY", LV_GRID_ALIGN_SPACE_EVENLY);
+#endif
+#if (LV_USE_GRID)
+  set_int_field(L, "GRID_ALIGN_START", LV_GRID_ALIGN_START);
+#endif
+#if (LV_USE_GRID)
+  set_int_field(L, "GRID_ALIGN_STRETCH", LV_GRID_ALIGN_STRETCH);
+#endif
+  set_int_field(L, "GROUP_REFOCUS_POLICY_NEXT", LV_GROUP_REFOCUS_POLICY_NEXT);
+  set_int_field(L, "GROUP_REFOCUS_POLICY_PREV", LV_GROUP_REFOCUS_POLICY_PREV);
+#if (LV_USE_IMAGEBUTTON != 0)
+  set_int_field(L, "IMAGEBUTTON_STATE_CHECKED_DISABLED", LV_IMAGEBUTTON_STATE_CHECKED_DISABLED);
+#endif
+#if (LV_USE_IMAGEBUTTON != 0)
+  set_int_field(L, "IMAGEBUTTON_STATE_CHECKED_PRESSED", LV_IMAGEBUTTON_STATE_CHECKED_PRESSED);
+#endif
+#if (LV_USE_IMAGEBUTTON != 0)
+  set_int_field(L, "IMAGEBUTTON_STATE_CHECKED_RELEASED", LV_IMAGEBUTTON_STATE_CHECKED_RELEASED);
+#endif
+#if (LV_USE_IMAGEBUTTON != 0)
+  set_int_field(L, "IMAGEBUTTON_STATE_DISABLED", LV_IMAGEBUTTON_STATE_DISABLED);
+#endif
+#if (LV_USE_IMAGEBUTTON != 0)
+  set_int_field(L, "IMAGEBUTTON_STATE_NUM", LV_IMAGEBUTTON_STATE_NUM);
+#endif
+#if (LV_USE_IMAGEBUTTON != 0)
+  set_int_field(L, "IMAGEBUTTON_STATE_PRESSED", LV_IMAGEBUTTON_STATE_PRESSED);
+#endif
+#if (LV_USE_IMAGEBUTTON != 0)
+  set_int_field(L, "IMAGEBUTTON_STATE_RELEASED", LV_IMAGEBUTTON_STATE_RELEASED);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_BOTTOM_LEFT", LV_IMAGE_ALIGN_BOTTOM_LEFT);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_BOTTOM_MID", LV_IMAGE_ALIGN_BOTTOM_MID);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_BOTTOM_RIGHT", LV_IMAGE_ALIGN_BOTTOM_RIGHT);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_CENTER", LV_IMAGE_ALIGN_CENTER);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_CONTAIN", LV_IMAGE_ALIGN_CONTAIN);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_COVER", LV_IMAGE_ALIGN_COVER);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_DEFAULT", LV_IMAGE_ALIGN_DEFAULT);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_LEFT_MID", LV_IMAGE_ALIGN_LEFT_MID);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_RIGHT_MID", LV_IMAGE_ALIGN_RIGHT_MID);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_STRETCH", LV_IMAGE_ALIGN_STRETCH);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_TILE", LV_IMAGE_ALIGN_TILE);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_TOP_LEFT", LV_IMAGE_ALIGN_TOP_LEFT);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_TOP_MID", LV_IMAGE_ALIGN_TOP_MID);
+#endif
+#if (LV_USE_IMAGE != 0)
+  set_int_field(L, "IMAGE_ALIGN_TOP_RIGHT", LV_IMAGE_ALIGN_TOP_RIGHT);
+#endif
+  set_int_field(L, "IMAGE_COMPRESS_LZ4", LV_IMAGE_COMPRESS_LZ4);
+  set_int_field(L, "IMAGE_COMPRESS_NONE", LV_IMAGE_COMPRESS_NONE);
+  set_int_field(L, "IMAGE_COMPRESS_RLE", LV_IMAGE_COMPRESS_RLE);
+  set_int_field(L, "IMAGE_FLAGS_ALLOCATED", LV_IMAGE_FLAGS_ALLOCATED);
+  set_int_field(L, "IMAGE_FLAGS_COMPRESSED", LV_IMAGE_FLAGS_COMPRESSED);
+  set_int_field(L, "IMAGE_FLAGS_CUSTOM_DRAW", LV_IMAGE_FLAGS_CUSTOM_DRAW);
+  set_int_field(L, "IMAGE_FLAGS_MODIFIABLE", LV_IMAGE_FLAGS_MODIFIABLE);
+  set_int_field(L, "IMAGE_FLAGS_PREMULTIPLIED", LV_IMAGE_FLAGS_PREMULTIPLIED);
+  set_int_field(L, "IMAGE_FLAGS_USER1", LV_IMAGE_FLAGS_USER1);
+  set_int_field(L, "IMAGE_FLAGS_USER2", LV_IMAGE_FLAGS_USER2);
+  set_int_field(L, "IMAGE_FLAGS_USER3", LV_IMAGE_FLAGS_USER3);
+  set_int_field(L, "IMAGE_FLAGS_USER4", LV_IMAGE_FLAGS_USER4);
+  set_int_field(L, "IMAGE_FLAGS_USER5", LV_IMAGE_FLAGS_USER5);
+  set_int_field(L, "IMAGE_FLAGS_USER6", LV_IMAGE_FLAGS_USER6);
+  set_int_field(L, "IMAGE_FLAGS_USER7", LV_IMAGE_FLAGS_USER7);
+  set_int_field(L, "IMAGE_FLAGS_USER8", LV_IMAGE_FLAGS_USER8);
+  set_int_field(L, "IMAGE_SRC_FILE", LV_IMAGE_SRC_FILE);
+  set_int_field(L, "IMAGE_SRC_SYMBOL", LV_IMAGE_SRC_SYMBOL);
+  set_int_field(L, "IMAGE_SRC_UNKNOWN", LV_IMAGE_SRC_UNKNOWN);
+  set_int_field(L, "IMAGE_SRC_VARIABLE", LV_IMAGE_SRC_VARIABLE);
+#if (LV_USE_IME_PINYIN != 0)
+  set_int_field(L, "IME_PINYIN_MODE_K26", LV_IME_PINYIN_MODE_K26);
+#endif
+#if (LV_USE_IME_PINYIN != 0)
+  set_int_field(L, "IME_PINYIN_MODE_K9", LV_IME_PINYIN_MODE_K9);
+#endif
+#if (LV_USE_IME_PINYIN != 0)
+  set_int_field(L, "IME_PINYIN_MODE_K9_NUMBER", LV_IME_PINYIN_MODE_K9_NUMBER);
+#endif
+  set_int_field(L, "INDEV_GESTURE_CNT", LV_INDEV_GESTURE_CNT);
+  set_int_field(L, "INDEV_GESTURE_NONE", LV_INDEV_GESTURE_NONE);
+  set_int_field(L, "INDEV_GESTURE_PINCH", LV_INDEV_GESTURE_PINCH);
+  set_int_field(L, "INDEV_GESTURE_ROTATE", LV_INDEV_GESTURE_ROTATE);
+  set_int_field(L, "INDEV_GESTURE_SCROLL", LV_INDEV_GESTURE_SCROLL);
+#if (LV_USE_GESTURE_RECOGNITION)
+  set_int_field(L, "INDEV_GESTURE_STATE_CANCELED", LV_INDEV_GESTURE_STATE_CANCELED);
+#endif
+#if (LV_USE_GESTURE_RECOGNITION)
+  set_int_field(L, "INDEV_GESTURE_STATE_ENDED", LV_INDEV_GESTURE_STATE_ENDED);
+#endif
+#if (LV_USE_GESTURE_RECOGNITION)
+  set_int_field(L, "INDEV_GESTURE_STATE_NONE", LV_INDEV_GESTURE_STATE_NONE);
+#endif
+#if (LV_USE_GESTURE_RECOGNITION)
+  set_int_field(L, "INDEV_GESTURE_STATE_ONGOING", LV_INDEV_GESTURE_STATE_ONGOING);
+#endif
+#if (LV_USE_GESTURE_RECOGNITION)
+  set_int_field(L, "INDEV_GESTURE_STATE_RECOGNIZED", LV_INDEV_GESTURE_STATE_RECOGNIZED);
+#endif
+  set_int_field(L, "INDEV_GESTURE_SWIPE", LV_INDEV_GESTURE_SWIPE);
+  set_int_field(L, "INDEV_GESTURE_TWO_FINGERS_SWIPE", LV_INDEV_GESTURE_TWO_FINGERS_SWIPE);
+  set_int_field(L, "INDEV_MODE_EVENT", LV_INDEV_MODE_EVENT);
+  set_int_field(L, "INDEV_MODE_NONE", LV_INDEV_MODE_NONE);
+  set_int_field(L, "INDEV_MODE_TIMER", LV_INDEV_MODE_TIMER);
+  set_int_field(L, "INDEV_STATE_PRESSED", LV_INDEV_STATE_PRESSED);
+  set_int_field(L, "INDEV_STATE_RELEASED", LV_INDEV_STATE_RELEASED);
+  set_int_field(L, "INDEV_TYPE_BUTTON", LV_INDEV_TYPE_BUTTON);
+  set_int_field(L, "INDEV_TYPE_ENCODER", LV_INDEV_TYPE_ENCODER);
+  set_int_field(L, "INDEV_TYPE_KEYPAD", LV_INDEV_TYPE_KEYPAD);
+  set_int_field(L, "INDEV_TYPE_NONE", LV_INDEV_TYPE_NONE);
+  set_int_field(L, "INDEV_TYPE_POINTER", LV_INDEV_TYPE_POINTER);
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_IME_CHN", LV_KEYBOARD_MODE_IME_CHN);
+#endif
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_NUMBER", LV_KEYBOARD_MODE_NUMBER);
+#endif
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_SPECIAL", LV_KEYBOARD_MODE_SPECIAL);
+#endif
+#if (LV_USE_KEYBOARD) && (LV_USE_ARABIC_PERSIAN_CHARS == 1)
+  set_int_field(L, "KEYBOARD_MODE_TEXT_ARABIC", LV_KEYBOARD_MODE_TEXT_ARABIC);
+#endif
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_TEXT_LOWER", LV_KEYBOARD_MODE_TEXT_LOWER);
+#endif
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_TEXT_UPPER", LV_KEYBOARD_MODE_TEXT_UPPER);
+#endif
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_USER_1", LV_KEYBOARD_MODE_USER_1);
+#endif
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_USER_2", LV_KEYBOARD_MODE_USER_2);
+#endif
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_USER_3", LV_KEYBOARD_MODE_USER_3);
+#endif
+#if (LV_USE_KEYBOARD)
+  set_int_field(L, "KEYBOARD_MODE_USER_4", LV_KEYBOARD_MODE_USER_4);
+#endif
+  set_int_field(L, "KEY_BACKSPACE", LV_KEY_BACKSPACE);
+  set_int_field(L, "KEY_DEL", LV_KEY_DEL);
+  set_int_field(L, "KEY_DOWN", LV_KEY_DOWN);
+  set_int_field(L, "KEY_END", LV_KEY_END);
+  set_int_field(L, "KEY_ENTER", LV_KEY_ENTER);
+  set_int_field(L, "KEY_ESC", LV_KEY_ESC);
+  set_int_field(L, "KEY_HOME", LV_KEY_HOME);
+  set_int_field(L, "KEY_LEFT", LV_KEY_LEFT);
+  set_int_field(L, "KEY_NEXT", LV_KEY_NEXT);
+  set_int_field(L, "KEY_PREV", LV_KEY_PREV);
+  set_int_field(L, "KEY_RIGHT", LV_KEY_RIGHT);
+  set_int_field(L, "KEY_UP", LV_KEY_UP);
+#if (LV_USE_LABEL != 0)
+  set_int_field(L, "LABEL_LONG_MODE_CLIP", LV_LABEL_LONG_MODE_CLIP);
+#endif
+#if (LV_USE_LABEL != 0)
+  set_int_field(L, "LABEL_LONG_MODE_DOTS", LV_LABEL_LONG_MODE_DOTS);
+#endif
+#if (LV_USE_LABEL != 0)
+  set_int_field(L, "LABEL_LONG_MODE_SCROLL", LV_LABEL_LONG_MODE_SCROLL);
+#endif
+#if (LV_USE_LABEL != 0)
+  set_int_field(L, "LABEL_LONG_MODE_SCROLL_CIRCULAR", LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);
+#endif
+#if (LV_USE_LABEL != 0)
+  set_int_field(L, "LABEL_LONG_MODE_WRAP", LV_LABEL_LONG_MODE_WRAP);
+#endif
+  set_int_field(L, "LAYER_TYPE_NONE", LV_LAYER_TYPE_NONE);
+  set_int_field(L, "LAYER_TYPE_SIMPLE", LV_LAYER_TYPE_SIMPLE);
+  set_int_field(L, "LAYER_TYPE_TRANSFORM", LV_LAYER_TYPE_TRANSFORM);
+#if (LV_USE_FLEX)
+  set_int_field(L, "LAYOUT_FLEX", LV_LAYOUT_FLEX);
+#endif
+#if (LV_USE_GRID)
+  set_int_field(L, "LAYOUT_GRID", LV_LAYOUT_GRID);
+#endif
+  set_int_field(L, "LAYOUT_LAST", LV_LAYOUT_LAST);
+  set_int_field(L, "LAYOUT_NONE", LV_LAYOUT_NONE);
+#if (LV_USE_MENU)
+  set_int_field(L, "MENU_HEADER_BOTTOM_FIXED", LV_MENU_HEADER_BOTTOM_FIXED);
+#endif
+#if (LV_USE_MENU)
+  set_int_field(L, "MENU_HEADER_TOP_FIXED", LV_MENU_HEADER_TOP_FIXED);
+#endif
+#if (LV_USE_MENU)
+  set_int_field(L, "MENU_HEADER_TOP_UNFIXED", LV_MENU_HEADER_TOP_UNFIXED);
+#endif
+#if (LV_USE_MENU)
+  set_int_field(L, "MENU_ROOT_BACK_BUTTON_DISABLED", LV_MENU_ROOT_BACK_BUTTON_DISABLED);
+#endif
+#if (LV_USE_MENU)
+  set_int_field(L, "MENU_ROOT_BACK_BUTTON_ENABLED", LV_MENU_ROOT_BACK_BUTTON_ENABLED);
+#endif
+  set_int_field(L, "OBJ_CLASS_EDITABLE_FALSE", LV_OBJ_CLASS_EDITABLE_FALSE);
+  set_int_field(L, "OBJ_CLASS_EDITABLE_INHERIT", LV_OBJ_CLASS_EDITABLE_INHERIT);
+  set_int_field(L, "OBJ_CLASS_EDITABLE_TRUE", LV_OBJ_CLASS_EDITABLE_TRUE);
+  set_int_field(L, "OBJ_CLASS_GROUP_DEF_FALSE", LV_OBJ_CLASS_GROUP_DEF_FALSE);
+  set_int_field(L, "OBJ_CLASS_GROUP_DEF_INHERIT", LV_OBJ_CLASS_GROUP_DEF_INHERIT);
+  set_int_field(L, "OBJ_CLASS_GROUP_DEF_TRUE", LV_OBJ_CLASS_GROUP_DEF_TRUE);
+  set_int_field(L, "OBJ_CLASS_THEME_INHERITABLE_FALSE", LV_OBJ_CLASS_THEME_INHERITABLE_FALSE);
+  set_int_field(L, "OBJ_CLASS_THEME_INHERITABLE_TRUE", LV_OBJ_CLASS_THEME_INHERITABLE_TRUE);
+  set_int_field(L, "OBJ_FLAG_ADV_HITTEST", LV_OBJ_FLAG_ADV_HITTEST);
+  set_int_field(L, "OBJ_FLAG_CHECKABLE", LV_OBJ_FLAG_CHECKABLE);
+  set_int_field(L, "OBJ_FLAG_CLICKABLE", LV_OBJ_FLAG_CLICKABLE);
+  set_int_field(L, "OBJ_FLAG_CLICK_FOCUSABLE", LV_OBJ_FLAG_CLICK_FOCUSABLE);
+  set_int_field(L, "OBJ_FLAG_EVENT_BUBBLE", LV_OBJ_FLAG_EVENT_BUBBLE);
+  set_int_field(L, "OBJ_FLAG_EVENT_TRICKLE", LV_OBJ_FLAG_EVENT_TRICKLE);
+#if (LV_USE_FLEX)
+  set_int_field(L, "OBJ_FLAG_FLEX_IN_NEW_TRACK", LV_OBJ_FLAG_FLEX_IN_NEW_TRACK);
+#endif
+  set_int_field(L, "OBJ_FLAG_FLOATING", LV_OBJ_FLAG_FLOATING);
+  set_int_field(L, "OBJ_FLAG_GESTURE_BUBBLE", LV_OBJ_FLAG_GESTURE_BUBBLE);
+  set_int_field(L, "OBJ_FLAG_HIDDEN", LV_OBJ_FLAG_HIDDEN);
+  set_int_field(L, "OBJ_FLAG_IGNORE_LAYOUT", LV_OBJ_FLAG_IGNORE_LAYOUT);
+  set_int_field(L, "OBJ_FLAG_LAYOUT_1", LV_OBJ_FLAG_LAYOUT_1);
+  set_int_field(L, "OBJ_FLAG_LAYOUT_2", LV_OBJ_FLAG_LAYOUT_2);
+  set_int_field(L, "OBJ_FLAG_OVERFLOW_VISIBLE", LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+  set_int_field(L, "OBJ_FLAG_PRESS_LOCK", LV_OBJ_FLAG_PRESS_LOCK);
+  set_int_field(L, "OBJ_FLAG_SCROLLABLE", LV_OBJ_FLAG_SCROLLABLE);
+  set_int_field(L, "OBJ_FLAG_SCROLL_CHAIN", LV_OBJ_FLAG_SCROLL_CHAIN);
+  set_int_field(L, "OBJ_FLAG_SCROLL_CHAIN_HOR", LV_OBJ_FLAG_SCROLL_CHAIN_HOR);
+  set_int_field(L, "OBJ_FLAG_SCROLL_CHAIN_VER", LV_OBJ_FLAG_SCROLL_CHAIN_VER);
+  set_int_field(L, "OBJ_FLAG_SCROLL_ELASTIC", LV_OBJ_FLAG_SCROLL_ELASTIC);
+  set_int_field(L, "OBJ_FLAG_SCROLL_MOMENTUM", LV_OBJ_FLAG_SCROLL_MOMENTUM);
+  set_int_field(L, "OBJ_FLAG_SCROLL_ONE", LV_OBJ_FLAG_SCROLL_ONE);
+  set_int_field(L, "OBJ_FLAG_SCROLL_ON_FOCUS", LV_OBJ_FLAG_SCROLL_ON_FOCUS);
+  set_int_field(L, "OBJ_FLAG_SCROLL_WITH_ARROW", LV_OBJ_FLAG_SCROLL_WITH_ARROW);
+  set_int_field(L, "OBJ_FLAG_SEND_DRAW_TASK_EVENTS", LV_OBJ_FLAG_SEND_DRAW_TASK_EVENTS);
+  set_int_field(L, "OBJ_FLAG_SNAPPABLE", LV_OBJ_FLAG_SNAPPABLE);
+  set_int_field(L, "OBJ_FLAG_STATE_TRICKLE", LV_OBJ_FLAG_STATE_TRICKLE);
+  set_int_field(L, "OBJ_FLAG_USER_1", LV_OBJ_FLAG_USER_1);
+  set_int_field(L, "OBJ_FLAG_USER_2", LV_OBJ_FLAG_USER_2);
+  set_int_field(L, "OBJ_FLAG_USER_3", LV_OBJ_FLAG_USER_3);
+  set_int_field(L, "OBJ_FLAG_USER_4", LV_OBJ_FLAG_USER_4);
+  set_int_field(L, "OBJ_FLAG_WIDGET_1", LV_OBJ_FLAG_WIDGET_1);
+  set_int_field(L, "OBJ_FLAG_WIDGET_2", LV_OBJ_FLAG_WIDGET_2);
+  set_int_field(L, "OBJ_POINT_TRANSFORM_FLAG_INVERSE", LV_OBJ_POINT_TRANSFORM_FLAG_INVERSE);
+  set_int_field(L, "OBJ_POINT_TRANSFORM_FLAG_INVERSE_RECURSIVE", LV_OBJ_POINT_TRANSFORM_FLAG_INVERSE_RECURSIVE);
+  set_int_field(L, "OBJ_POINT_TRANSFORM_FLAG_NONE", LV_OBJ_POINT_TRANSFORM_FLAG_NONE);
+  set_int_field(L, "OBJ_POINT_TRANSFORM_FLAG_RECURSIVE", LV_OBJ_POINT_TRANSFORM_FLAG_RECURSIVE);
+  set_int_field(L, "OBJ_TREE_WALK_END", LV_OBJ_TREE_WALK_END);
+  set_int_field(L, "OBJ_TREE_WALK_NEXT", LV_OBJ_TREE_WALK_NEXT);
+  set_int_field(L, "OBJ_TREE_WALK_SKIP_CHILDREN", LV_OBJ_TREE_WALK_SKIP_CHILDREN);
+  set_int_field(L, "OPA_0", LV_OPA_0);
+  set_int_field(L, "OPA_10", LV_OPA_10);
+  set_int_field(L, "OPA_100", LV_OPA_100);
+  set_int_field(L, "OPA_20", LV_OPA_20);
+  set_int_field(L, "OPA_30", LV_OPA_30);
+  set_int_field(L, "OPA_40", LV_OPA_40);
+  set_int_field(L, "OPA_50", LV_OPA_50);
+  set_int_field(L, "OPA_60", LV_OPA_60);
+  set_int_field(L, "OPA_70", LV_OPA_70);
+  set_int_field(L, "OPA_80", LV_OPA_80);
+  set_int_field(L, "OPA_90", LV_OPA_90);
+  set_int_field(L, "OPA_COVER", LV_OPA_COVER);
+  set_int_field(L, "OPA_TRANSP", LV_OPA_TRANSP);
+  set_int_field(L, "PALETTE_AMBER", LV_PALETTE_AMBER);
+  set_int_field(L, "PALETTE_BLUE", LV_PALETTE_BLUE);
+  set_int_field(L, "PALETTE_BLUE_GREY", LV_PALETTE_BLUE_GREY);
+  set_int_field(L, "PALETTE_BROWN", LV_PALETTE_BROWN);
+  set_int_field(L, "PALETTE_CYAN", LV_PALETTE_CYAN);
+  set_int_field(L, "PALETTE_DEEP_ORANGE", LV_PALETTE_DEEP_ORANGE);
+  set_int_field(L, "PALETTE_DEEP_PURPLE", LV_PALETTE_DEEP_PURPLE);
+  set_int_field(L, "PALETTE_GREEN", LV_PALETTE_GREEN);
+  set_int_field(L, "PALETTE_GREY", LV_PALETTE_GREY);
+  set_int_field(L, "PALETTE_INDIGO", LV_PALETTE_INDIGO);
+  set_int_field(L, "PALETTE_LAST", LV_PALETTE_LAST);
+  set_int_field(L, "PALETTE_LIGHT_BLUE", LV_PALETTE_LIGHT_BLUE);
+  set_int_field(L, "PALETTE_LIGHT_GREEN", LV_PALETTE_LIGHT_GREEN);
+  set_int_field(L, "PALETTE_LIME", LV_PALETTE_LIME);
+  set_int_field(L, "PALETTE_NONE", LV_PALETTE_NONE);
+  set_int_field(L, "PALETTE_ORANGE", LV_PALETTE_ORANGE);
+  set_int_field(L, "PALETTE_PINK", LV_PALETTE_PINK);
+  set_int_field(L, "PALETTE_PURPLE", LV_PALETTE_PURPLE);
+  set_int_field(L, "PALETTE_RED", LV_PALETTE_RED);
+  set_int_field(L, "PALETTE_TEAL", LV_PALETTE_TEAL);
+  set_int_field(L, "PALETTE_YELLOW", LV_PALETTE_YELLOW);
+  set_int_field(L, "PART_ANY", LV_PART_ANY);
+  set_int_field(L, "PART_CURSOR", LV_PART_CURSOR);
+  set_int_field(L, "PART_CUSTOM_FIRST", LV_PART_CUSTOM_FIRST);
+  set_int_field(L, "PART_INDICATOR", LV_PART_INDICATOR);
+  set_int_field(L, "PART_ITEMS", LV_PART_ITEMS);
+  set_int_field(L, "PART_KNOB", LV_PART_KNOB);
+  set_int_field(L, "PART_MAIN", LV_PART_MAIN);
+  set_int_field(L, "PART_SCROLLBAR", LV_PART_SCROLLBAR);
+  set_int_field(L, "PART_SELECTED", LV_PART_SELECTED);
+#if (LV_USE_ANIMIMG != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ANIMIMAGE_END", LV_PROPERTY_ANIMIMAGE_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ANIMIMAGE_START", LV_PROPERTY_ANIMIMAGE_START);
+#endif
+#if (LV_USE_ARC != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ARC_END", LV_PROPERTY_ARC_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ARC_START", LV_PROPERTY_ARC_START);
+#endif
+#if (LV_USE_BAR != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_BAR_END", LV_PROPERTY_BAR_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_BAR_START", LV_PROPERTY_BAR_START);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_BUTTONMATRIX_END", LV_PROPERTY_BUTTONMATRIX_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_BUTTONMATRIX_START", LV_PROPERTY_BUTTONMATRIX_START);
+#endif
+#if (LV_USE_CHART != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_CHART_END", LV_PROPERTY_CHART_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_CHART_START", LV_PROPERTY_CHART_START);
+#endif
+#if (LV_USE_CHECKBOX != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_CHECKBOX_END", LV_PROPERTY_CHECKBOX_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_CHECKBOX_START", LV_PROPERTY_CHECKBOX_START);
+#endif
+#if (LV_USE_DROPDOWN != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_DROPDOWN_END", LV_PROPERTY_DROPDOWN_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_DROPDOWN_START", LV_PROPERTY_DROPDOWN_START);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ID_ANY", LV_PROPERTY_ID_ANY);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ID_BUILTIN_LAST", LV_PROPERTY_ID_BUILTIN_LAST);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ID_INVALID", LV_PROPERTY_ID_INVALID);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ID_START", LV_PROPERTY_ID_START);
+#endif
+#if (LV_USE_IMAGE != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_IMAGE_END", LV_PROPERTY_IMAGE_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_IMAGE_START", LV_PROPERTY_IMAGE_START);
+#endif
+#if (LV_USE_KEYBOARD) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_KEYBOARD_END", LV_PROPERTY_KEYBOARD_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_KEYBOARD_START", LV_PROPERTY_KEYBOARD_START);
+#endif
+#if (LV_USE_LABEL != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_LABEL_END", LV_PROPERTY_LABEL_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_LABEL_START", LV_PROPERTY_LABEL_START);
+#endif
+#if (LV_USE_LED) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_LED_END", LV_PROPERTY_LED_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_LED_START", LV_PROPERTY_LED_START);
+#endif
+#if (LV_USE_LINE != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_LINE_END", LV_PROPERTY_LINE_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_LINE_START", LV_PROPERTY_LINE_START);
+#endif
+#if (LV_USE_MENU) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_MENU_END", LV_PROPERTY_MENU_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_MENU_START", LV_PROPERTY_MENU_START);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_OBJ_END", LV_PROPERTY_OBJ_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_OBJ_START", LV_PROPERTY_OBJ_START);
+#endif
+#if (LV_USE_ROLLER != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ROLLER_END", LV_PROPERTY_ROLLER_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_ROLLER_START", LV_PROPERTY_ROLLER_START);
+#endif
+#if (LV_USE_SCALE != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SCALE_END", LV_PROPERTY_SCALE_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SCALE_START", LV_PROPERTY_SCALE_START);
+#endif
+#if (LV_USE_SLIDER != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SLIDER_END", LV_PROPERTY_SLIDER_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SLIDER_START", LV_PROPERTY_SLIDER_START);
+#endif
+#if (LV_USE_SPAN != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SPAN_END", LV_PROPERTY_SPAN_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SPAN_START", LV_PROPERTY_SPAN_START);
+#endif
+#if (LV_USE_SPINBOX) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SPINBOX_END", LV_PROPERTY_SPINBOX_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SPINBOX_START", LV_PROPERTY_SPINBOX_START);
+#endif
+#if (LV_USE_SPINNER) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SPINNER_END", LV_PROPERTY_SPINNER_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SPINNER_START", LV_PROPERTY_SPINNER_START);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_STYLE_START", LV_PROPERTY_STYLE_START);
+#endif
+#if (LV_USE_SWITCH != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SWITCH_END", LV_PROPERTY_SWITCH_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_SWITCH_START", LV_PROPERTY_SWITCH_START);
+#endif
+#if (LV_USE_TABLE != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TABLE_END", LV_PROPERTY_TABLE_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TABLE_START", LV_PROPERTY_TABLE_START);
+#endif
+#if (LV_USE_TABVIEW) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TABVIEW_END", LV_PROPERTY_TABVIEW_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TABVIEW_START", LV_PROPERTY_TABVIEW_START);
+#endif
+#if (LV_USE_TEXTAREA != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TEXTAREA_END", LV_PROPERTY_TEXTAREA_END);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TEXTAREA_START", LV_PROPERTY_TEXTAREA_START);
+#endif
+#if (LV_USE_BUTTONMATRIX != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_BOOL", LV_PROPERTY_TYPE_BOOL);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_COLOR", LV_PROPERTY_TYPE_COLOR);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_FONT", LV_PROPERTY_TYPE_FONT);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_IMGSRC", LV_PROPERTY_TYPE_IMGSRC);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_INT", LV_PROPERTY_TYPE_INT);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_INVALID", LV_PROPERTY_TYPE_INVALID);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_OBJ", LV_PROPERTY_TYPE_OBJ);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_POINT", LV_PROPERTY_TYPE_POINT);
+#endif
+#if (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_POINTER", LV_PROPERTY_TYPE_POINTER);
+#endif
+#if (LV_USE_ARC != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_PRECISE", LV_PROPERTY_TYPE_PRECISE);
+#endif
+#if (LV_USE_LABEL != 0) && (LV_USE_OBJ_PROPERTY)
+  set_int_field(L, "PROPERTY_TYPE_TEXT", LV_PROPERTY_TYPE_TEXT);
+#endif
+  set_int_field(L, "RB_COLOR_BLACK", LV_RB_COLOR_BLACK);
+  set_int_field(L, "RB_COLOR_RED", LV_RB_COLOR_RED);
+#if (!defined(__ASSEMBLY__))
+  set_int_field(L, "RESULT_INVALID", LV_RESULT_INVALID);
+#endif
+#if (!defined(__ASSEMBLY__))
+  set_int_field(L, "RESULT_OK", LV_RESULT_OK);
+#endif
+#if (LV_USE_ROLLER != 0)
+  set_int_field(L, "ROLLER_MODE_INFINITE", LV_ROLLER_MODE_INFINITE);
+#endif
+#if (LV_USE_ROLLER != 0)
+  set_int_field(L, "ROLLER_MODE_NORMAL", LV_ROLLER_MODE_NORMAL);
+#endif
+#if (LV_USE_SCALE != 0)
+  set_int_field(L, "SCALE_MODE_HORIZONTAL_BOTTOM", LV_SCALE_MODE_HORIZONTAL_BOTTOM);
+#endif
+#if (LV_USE_SCALE != 0)
+  set_int_field(L, "SCALE_MODE_HORIZONTAL_TOP", LV_SCALE_MODE_HORIZONTAL_TOP);
+#endif
+#if (LV_USE_SCALE != 0)
+  set_int_field(L, "SCALE_MODE_LAST", LV_SCALE_MODE_LAST);
+#endif
+#if (LV_USE_SCALE != 0)
+  set_int_field(L, "SCALE_MODE_ROUND_INNER", LV_SCALE_MODE_ROUND_INNER);
+#endif
+#if (LV_USE_SCALE != 0)
+  set_int_field(L, "SCALE_MODE_ROUND_OUTER", LV_SCALE_MODE_ROUND_OUTER);
+#endif
+#if (LV_USE_SCALE != 0)
+  set_int_field(L, "SCALE_MODE_VERTICAL_LEFT", LV_SCALE_MODE_VERTICAL_LEFT);
+#endif
+#if (LV_USE_SCALE != 0)
+  set_int_field(L, "SCALE_MODE_VERTICAL_RIGHT", LV_SCALE_MODE_VERTICAL_RIGHT);
+#endif
+  set_int_field(L, "SCREEN_LOAD_ANIM_FADE_IN", LV_SCREEN_LOAD_ANIM_FADE_IN);
+  set_int_field(L, "SCREEN_LOAD_ANIM_FADE_ON", LV_SCREEN_LOAD_ANIM_FADE_ON);
+  set_int_field(L, "SCREEN_LOAD_ANIM_FADE_OUT", LV_SCREEN_LOAD_ANIM_FADE_OUT);
+  set_int_field(L, "SCREEN_LOAD_ANIM_MOVE_BOTTOM", LV_SCREEN_LOAD_ANIM_MOVE_BOTTOM);
+  set_int_field(L, "SCREEN_LOAD_ANIM_MOVE_LEFT", LV_SCREEN_LOAD_ANIM_MOVE_LEFT);
+  set_int_field(L, "SCREEN_LOAD_ANIM_MOVE_RIGHT", LV_SCREEN_LOAD_ANIM_MOVE_RIGHT);
+  set_int_field(L, "SCREEN_LOAD_ANIM_MOVE_TOP", LV_SCREEN_LOAD_ANIM_MOVE_TOP);
+  set_int_field(L, "SCREEN_LOAD_ANIM_NONE", LV_SCREEN_LOAD_ANIM_NONE);
+  set_int_field(L, "SCREEN_LOAD_ANIM_OUT_BOTTOM", LV_SCREEN_LOAD_ANIM_OUT_BOTTOM);
+  set_int_field(L, "SCREEN_LOAD_ANIM_OUT_LEFT", LV_SCREEN_LOAD_ANIM_OUT_LEFT);
+  set_int_field(L, "SCREEN_LOAD_ANIM_OUT_RIGHT", LV_SCREEN_LOAD_ANIM_OUT_RIGHT);
+  set_int_field(L, "SCREEN_LOAD_ANIM_OUT_TOP", LV_SCREEN_LOAD_ANIM_OUT_TOP);
+  set_int_field(L, "SCREEN_LOAD_ANIM_OVER_BOTTOM", LV_SCREEN_LOAD_ANIM_OVER_BOTTOM);
+  set_int_field(L, "SCREEN_LOAD_ANIM_OVER_LEFT", LV_SCREEN_LOAD_ANIM_OVER_LEFT);
+  set_int_field(L, "SCREEN_LOAD_ANIM_OVER_RIGHT", LV_SCREEN_LOAD_ANIM_OVER_RIGHT);
+  set_int_field(L, "SCREEN_LOAD_ANIM_OVER_TOP", LV_SCREEN_LOAD_ANIM_OVER_TOP);
+  set_int_field(L, "SCROLLBAR_MODE_ACTIVE", LV_SCROLLBAR_MODE_ACTIVE);
+  set_int_field(L, "SCROLLBAR_MODE_AUTO", LV_SCROLLBAR_MODE_AUTO);
+  set_int_field(L, "SCROLLBAR_MODE_OFF", LV_SCROLLBAR_MODE_OFF);
+  set_int_field(L, "SCROLLBAR_MODE_ON", LV_SCROLLBAR_MODE_ON);
+  set_int_field(L, "SCROLL_SNAP_CENTER", LV_SCROLL_SNAP_CENTER);
+  set_int_field(L, "SCROLL_SNAP_END", LV_SCROLL_SNAP_END);
+  set_int_field(L, "SCROLL_SNAP_NONE", LV_SCROLL_SNAP_NONE);
+  set_int_field(L, "SCROLL_SNAP_START", LV_SCROLL_SNAP_START);
+#if (LV_USE_SLIDER != 0)
+  set_int_field(L, "SLIDER_MODE_NORMAL", LV_SLIDER_MODE_NORMAL);
+#endif
+#if (LV_USE_SLIDER != 0)
+  set_int_field(L, "SLIDER_MODE_RANGE", LV_SLIDER_MODE_RANGE);
+#endif
+#if (LV_USE_SLIDER != 0)
+  set_int_field(L, "SLIDER_MODE_SYMMETRICAL", LV_SLIDER_MODE_SYMMETRICAL);
+#endif
+#if (LV_USE_SLIDER != 0)
+  set_int_field(L, "SLIDER_ORIENTATION_AUTO", LV_SLIDER_ORIENTATION_AUTO);
+#endif
+#if (LV_USE_SLIDER != 0)
+  set_int_field(L, "SLIDER_ORIENTATION_HORIZONTAL", LV_SLIDER_ORIENTATION_HORIZONTAL);
+#endif
+#if (LV_USE_SLIDER != 0)
+  set_int_field(L, "SLIDER_ORIENTATION_VERTICAL", LV_SLIDER_ORIENTATION_VERTICAL);
+#endif
+#if (LV_USE_SPAN != 0)
+  set_int_field(L, "SPAN_MODE_BREAK", LV_SPAN_MODE_BREAK);
+#endif
+#if (LV_USE_SPAN != 0)
+  set_int_field(L, "SPAN_MODE_EXPAND", LV_SPAN_MODE_EXPAND);
+#endif
+#if (LV_USE_SPAN != 0)
+  set_int_field(L, "SPAN_MODE_FIXED", LV_SPAN_MODE_FIXED);
+#endif
+#if (LV_USE_SPAN != 0)
+  set_int_field(L, "SPAN_MODE_LAST", LV_SPAN_MODE_LAST);
+#endif
+#if (LV_USE_SPAN != 0)
+  set_int_field(L, "SPAN_OVERFLOW_CLIP", LV_SPAN_OVERFLOW_CLIP);
+#endif
+#if (LV_USE_SPAN != 0)
+  set_int_field(L, "SPAN_OVERFLOW_ELLIPSIS", LV_SPAN_OVERFLOW_ELLIPSIS);
+#endif
+#if (LV_USE_SPAN != 0)
+  set_int_field(L, "SPAN_OVERFLOW_LAST", LV_SPAN_OVERFLOW_LAST);
+#endif
+  set_int_field(L, "STATE_ALT", LV_STATE_ALT);
+  set_int_field(L, "STATE_ANY", LV_STATE_ANY);
+  set_int_field(L, "STATE_CHECKED", LV_STATE_CHECKED);
+  set_int_field(L, "STATE_DEFAULT", LV_STATE_DEFAULT);
+  set_int_field(L, "STATE_DISABLED", LV_STATE_DISABLED);
+  set_int_field(L, "STATE_EDITED", LV_STATE_EDITED);
+  set_int_field(L, "STATE_FOCUSED", LV_STATE_FOCUSED);
+  set_int_field(L, "STATE_FOCUS_KEY", LV_STATE_FOCUS_KEY);
+  set_int_field(L, "STATE_HOVERED", LV_STATE_HOVERED);
+  set_int_field(L, "STATE_PRESSED", LV_STATE_PRESSED);
+  set_int_field(L, "STATE_SCROLLED", LV_STATE_SCROLLED);
+  set_int_field(L, "STATE_USER_1", LV_STATE_USER_1);
+  set_int_field(L, "STATE_USER_2", LV_STATE_USER_2);
+  set_int_field(L, "STATE_USER_3", LV_STATE_USER_3);
+  set_int_field(L, "STATE_USER_4", LV_STATE_USER_4);
+  set_int_field(L, "STR_SYMBOL_AUDIO", LV_STR_SYMBOL_AUDIO);
+  set_int_field(L, "STR_SYMBOL_BACKSPACE", LV_STR_SYMBOL_BACKSPACE);
+  set_int_field(L, "STR_SYMBOL_BARS", LV_STR_SYMBOL_BARS);
+  set_int_field(L, "STR_SYMBOL_BATTERY_1", LV_STR_SYMBOL_BATTERY_1);
+  set_int_field(L, "STR_SYMBOL_BATTERY_2", LV_STR_SYMBOL_BATTERY_2);
+  set_int_field(L, "STR_SYMBOL_BATTERY_3", LV_STR_SYMBOL_BATTERY_3);
+  set_int_field(L, "STR_SYMBOL_BATTERY_EMPTY", LV_STR_SYMBOL_BATTERY_EMPTY);
+  set_int_field(L, "STR_SYMBOL_BATTERY_FULL", LV_STR_SYMBOL_BATTERY_FULL);
+  set_int_field(L, "STR_SYMBOL_BELL", LV_STR_SYMBOL_BELL);
+  set_int_field(L, "STR_SYMBOL_BLUETOOTH", LV_STR_SYMBOL_BLUETOOTH);
+  set_int_field(L, "STR_SYMBOL_BULLET", LV_STR_SYMBOL_BULLET);
+  set_int_field(L, "STR_SYMBOL_CALL", LV_STR_SYMBOL_CALL);
+  set_int_field(L, "STR_SYMBOL_CHARGE", LV_STR_SYMBOL_CHARGE);
+  set_int_field(L, "STR_SYMBOL_CLOSE", LV_STR_SYMBOL_CLOSE);
+  set_int_field(L, "STR_SYMBOL_COPY", LV_STR_SYMBOL_COPY);
+  set_int_field(L, "STR_SYMBOL_CUT", LV_STR_SYMBOL_CUT);
+  set_int_field(L, "STR_SYMBOL_DIRECTORY", LV_STR_SYMBOL_DIRECTORY);
+  set_int_field(L, "STR_SYMBOL_DOWN", LV_STR_SYMBOL_DOWN);
+  set_int_field(L, "STR_SYMBOL_DOWNLOAD", LV_STR_SYMBOL_DOWNLOAD);
+  set_int_field(L, "STR_SYMBOL_DRIVE", LV_STR_SYMBOL_DRIVE);
+  set_int_field(L, "STR_SYMBOL_DUMMY", LV_STR_SYMBOL_DUMMY);
+  set_int_field(L, "STR_SYMBOL_EDIT", LV_STR_SYMBOL_EDIT);
+  set_int_field(L, "STR_SYMBOL_EJECT", LV_STR_SYMBOL_EJECT);
+  set_int_field(L, "STR_SYMBOL_ENVELOPE", LV_STR_SYMBOL_ENVELOPE);
+  set_int_field(L, "STR_SYMBOL_EYE_CLOSE", LV_STR_SYMBOL_EYE_CLOSE);
+  set_int_field(L, "STR_SYMBOL_EYE_OPEN", LV_STR_SYMBOL_EYE_OPEN);
+  set_int_field(L, "STR_SYMBOL_FILE", LV_STR_SYMBOL_FILE);
+  set_int_field(L, "STR_SYMBOL_GPS", LV_STR_SYMBOL_GPS);
+  set_int_field(L, "STR_SYMBOL_HOME", LV_STR_SYMBOL_HOME);
+  set_int_field(L, "STR_SYMBOL_IMAGE", LV_STR_SYMBOL_IMAGE);
+  set_int_field(L, "STR_SYMBOL_KEYBOARD", LV_STR_SYMBOL_KEYBOARD);
+  set_int_field(L, "STR_SYMBOL_LEFT", LV_STR_SYMBOL_LEFT);
+  set_int_field(L, "STR_SYMBOL_LIST", LV_STR_SYMBOL_LIST);
+  set_int_field(L, "STR_SYMBOL_LOOP", LV_STR_SYMBOL_LOOP);
+  set_int_field(L, "STR_SYMBOL_MINUS", LV_STR_SYMBOL_MINUS);
+  set_int_field(L, "STR_SYMBOL_MUTE", LV_STR_SYMBOL_MUTE);
+  set_int_field(L, "STR_SYMBOL_NEW_LINE", LV_STR_SYMBOL_NEW_LINE);
+  set_int_field(L, "STR_SYMBOL_NEXT", LV_STR_SYMBOL_NEXT);
+  set_int_field(L, "STR_SYMBOL_OK", LV_STR_SYMBOL_OK);
+  set_int_field(L, "STR_SYMBOL_PASTE", LV_STR_SYMBOL_PASTE);
+  set_int_field(L, "STR_SYMBOL_PAUSE", LV_STR_SYMBOL_PAUSE);
+  set_int_field(L, "STR_SYMBOL_PLAY", LV_STR_SYMBOL_PLAY);
+  set_int_field(L, "STR_SYMBOL_PLUS", LV_STR_SYMBOL_PLUS);
+  set_int_field(L, "STR_SYMBOL_POWER", LV_STR_SYMBOL_POWER);
+  set_int_field(L, "STR_SYMBOL_PREV", LV_STR_SYMBOL_PREV);
+  set_int_field(L, "STR_SYMBOL_REFRESH", LV_STR_SYMBOL_REFRESH);
+  set_int_field(L, "STR_SYMBOL_RIGHT", LV_STR_SYMBOL_RIGHT);
+  set_int_field(L, "STR_SYMBOL_SAVE", LV_STR_SYMBOL_SAVE);
+  set_int_field(L, "STR_SYMBOL_SD_CARD", LV_STR_SYMBOL_SD_CARD);
+  set_int_field(L, "STR_SYMBOL_SETTINGS", LV_STR_SYMBOL_SETTINGS);
+  set_int_field(L, "STR_SYMBOL_SHUFFLE", LV_STR_SYMBOL_SHUFFLE);
+  set_int_field(L, "STR_SYMBOL_STOP", LV_STR_SYMBOL_STOP);
+  set_int_field(L, "STR_SYMBOL_TINT", LV_STR_SYMBOL_TINT);
+  set_int_field(L, "STR_SYMBOL_TRASH", LV_STR_SYMBOL_TRASH);
+  set_int_field(L, "STR_SYMBOL_UP", LV_STR_SYMBOL_UP);
+  set_int_field(L, "STR_SYMBOL_UPLOAD", LV_STR_SYMBOL_UPLOAD);
+  set_int_field(L, "STR_SYMBOL_USB", LV_STR_SYMBOL_USB);
+  set_int_field(L, "STR_SYMBOL_VIDEO", LV_STR_SYMBOL_VIDEO);
+  set_int_field(L, "STR_SYMBOL_VOLUME_MAX", LV_STR_SYMBOL_VOLUME_MAX);
+  set_int_field(L, "STR_SYMBOL_VOLUME_MID", LV_STR_SYMBOL_VOLUME_MID);
+  set_int_field(L, "STR_SYMBOL_WARNING", LV_STR_SYMBOL_WARNING);
+  set_int_field(L, "STR_SYMBOL_WIFI", LV_STR_SYMBOL_WIFI);
+  set_int_field(L, "STYLE_ALIGN", LV_STYLE_ALIGN);
+  set_int_field(L, "STYLE_ANIM", LV_STYLE_ANIM);
+  set_int_field(L, "STYLE_ANIM_DURATION", LV_STYLE_ANIM_DURATION);
+  set_int_field(L, "STYLE_ARC_COLOR", LV_STYLE_ARC_COLOR);
+  set_int_field(L, "STYLE_ARC_IMAGE_SRC", LV_STYLE_ARC_IMAGE_SRC);
+  set_int_field(L, "STYLE_ARC_OPA", LV_STYLE_ARC_OPA);
+  set_int_field(L, "STYLE_ARC_ROUNDED", LV_STYLE_ARC_ROUNDED);
+  set_int_field(L, "STYLE_ARC_WIDTH", LV_STYLE_ARC_WIDTH);
+  set_int_field(L, "STYLE_BASE_DIR", LV_STYLE_BASE_DIR);
+  set_int_field(L, "STYLE_BG_COLOR", LV_STYLE_BG_COLOR);
+  set_int_field(L, "STYLE_BG_GRAD", LV_STYLE_BG_GRAD);
+  set_int_field(L, "STYLE_BG_GRAD_COLOR", LV_STYLE_BG_GRAD_COLOR);
+  set_int_field(L, "STYLE_BG_GRAD_DIR", LV_STYLE_BG_GRAD_DIR);
+  set_int_field(L, "STYLE_BG_GRAD_OPA", LV_STYLE_BG_GRAD_OPA);
+  set_int_field(L, "STYLE_BG_GRAD_STOP", LV_STYLE_BG_GRAD_STOP);
+  set_int_field(L, "STYLE_BG_IMAGE_OPA", LV_STYLE_BG_IMAGE_OPA);
+  set_int_field(L, "STYLE_BG_IMAGE_RECOLOR", LV_STYLE_BG_IMAGE_RECOLOR);
+  set_int_field(L, "STYLE_BG_IMAGE_RECOLOR_OPA", LV_STYLE_BG_IMAGE_RECOLOR_OPA);
+  set_int_field(L, "STYLE_BG_IMAGE_SRC", LV_STYLE_BG_IMAGE_SRC);
+  set_int_field(L, "STYLE_BG_IMAGE_TILED", LV_STYLE_BG_IMAGE_TILED);
+  set_int_field(L, "STYLE_BG_MAIN_OPA", LV_STYLE_BG_MAIN_OPA);
+  set_int_field(L, "STYLE_BG_MAIN_STOP", LV_STYLE_BG_MAIN_STOP);
+  set_int_field(L, "STYLE_BG_OPA", LV_STYLE_BG_OPA);
+  set_int_field(L, "STYLE_BITMAP_MASK_SRC", LV_STYLE_BITMAP_MASK_SRC);
+  set_int_field(L, "STYLE_BLEND_MODE", LV_STYLE_BLEND_MODE);
+  set_int_field(L, "STYLE_BLUR_BACKDROP", LV_STYLE_BLUR_BACKDROP);
+  set_int_field(L, "STYLE_BLUR_QUALITY", LV_STYLE_BLUR_QUALITY);
+  set_int_field(L, "STYLE_BLUR_RADIUS", LV_STYLE_BLUR_RADIUS);
+  set_int_field(L, "STYLE_BORDER_COLOR", LV_STYLE_BORDER_COLOR);
+  set_int_field(L, "STYLE_BORDER_OPA", LV_STYLE_BORDER_OPA);
+  set_int_field(L, "STYLE_BORDER_POST", LV_STYLE_BORDER_POST);
+  set_int_field(L, "STYLE_BORDER_SIDE", LV_STYLE_BORDER_SIDE);
+  set_int_field(L, "STYLE_BORDER_WIDTH", LV_STYLE_BORDER_WIDTH);
+  set_int_field(L, "STYLE_CLIP_CORNER", LV_STYLE_CLIP_CORNER);
+  set_int_field(L, "STYLE_COLOR_FILTER_DSC", LV_STYLE_COLOR_FILTER_DSC);
+  set_int_field(L, "STYLE_COLOR_FILTER_OPA", LV_STYLE_COLOR_FILTER_OPA);
+  set_int_field(L, "STYLE_DROP_SHADOW_COLOR", LV_STYLE_DROP_SHADOW_COLOR);
+  set_int_field(L, "STYLE_DROP_SHADOW_OFFSET_X", LV_STYLE_DROP_SHADOW_OFFSET_X);
+  set_int_field(L, "STYLE_DROP_SHADOW_OFFSET_Y", LV_STYLE_DROP_SHADOW_OFFSET_Y);
+  set_int_field(L, "STYLE_DROP_SHADOW_OPA", LV_STYLE_DROP_SHADOW_OPA);
+  set_int_field(L, "STYLE_DROP_SHADOW_QUALITY", LV_STYLE_DROP_SHADOW_QUALITY);
+  set_int_field(L, "STYLE_DROP_SHADOW_RADIUS", LV_STYLE_DROP_SHADOW_RADIUS);
+  set_int_field(L, "STYLE_FLEX_CROSS_PLACE", LV_STYLE_FLEX_CROSS_PLACE);
+  set_int_field(L, "STYLE_FLEX_FLOW", LV_STYLE_FLEX_FLOW);
+  set_int_field(L, "STYLE_FLEX_GROW", LV_STYLE_FLEX_GROW);
+  set_int_field(L, "STYLE_FLEX_MAIN_PLACE", LV_STYLE_FLEX_MAIN_PLACE);
+  set_int_field(L, "STYLE_FLEX_TRACK_PLACE", LV_STYLE_FLEX_TRACK_PLACE);
+  set_int_field(L, "STYLE_GRID_CELL_COLUMN_POS", LV_STYLE_GRID_CELL_COLUMN_POS);
+  set_int_field(L, "STYLE_GRID_CELL_COLUMN_SPAN", LV_STYLE_GRID_CELL_COLUMN_SPAN);
+  set_int_field(L, "STYLE_GRID_CELL_ROW_POS", LV_STYLE_GRID_CELL_ROW_POS);
+  set_int_field(L, "STYLE_GRID_CELL_ROW_SPAN", LV_STYLE_GRID_CELL_ROW_SPAN);
+  set_int_field(L, "STYLE_GRID_CELL_X_ALIGN", LV_STYLE_GRID_CELL_X_ALIGN);
+  set_int_field(L, "STYLE_GRID_CELL_Y_ALIGN", LV_STYLE_GRID_CELL_Y_ALIGN);
+  set_int_field(L, "STYLE_GRID_COLUMN_ALIGN", LV_STYLE_GRID_COLUMN_ALIGN);
+  set_int_field(L, "STYLE_GRID_COLUMN_DSC_ARRAY", LV_STYLE_GRID_COLUMN_DSC_ARRAY);
+  set_int_field(L, "STYLE_GRID_ROW_ALIGN", LV_STYLE_GRID_ROW_ALIGN);
+  set_int_field(L, "STYLE_GRID_ROW_DSC_ARRAY", LV_STYLE_GRID_ROW_DSC_ARRAY);
+  set_int_field(L, "STYLE_HEIGHT", LV_STYLE_HEIGHT);
+  set_int_field(L, "STYLE_IMAGE_COLORKEY", LV_STYLE_IMAGE_COLORKEY);
+  set_int_field(L, "STYLE_IMAGE_OPA", LV_STYLE_IMAGE_OPA);
+  set_int_field(L, "STYLE_IMAGE_RECOLOR", LV_STYLE_IMAGE_RECOLOR);
+  set_int_field(L, "STYLE_IMAGE_RECOLOR_OPA", LV_STYLE_IMAGE_RECOLOR_OPA);
+  set_int_field(L, "STYLE_LAST_BUILT_IN_PROP", LV_STYLE_LAST_BUILT_IN_PROP);
+  set_int_field(L, "STYLE_LAYOUT", LV_STYLE_LAYOUT);
+  set_int_field(L, "STYLE_LENGTH", LV_STYLE_LENGTH);
+  set_int_field(L, "STYLE_LINE_COLOR", LV_STYLE_LINE_COLOR);
+  set_int_field(L, "STYLE_LINE_DASH_GAP", LV_STYLE_LINE_DASH_GAP);
+  set_int_field(L, "STYLE_LINE_DASH_WIDTH", LV_STYLE_LINE_DASH_WIDTH);
+  set_int_field(L, "STYLE_LINE_OPA", LV_STYLE_LINE_OPA);
+  set_int_field(L, "STYLE_LINE_ROUNDED", LV_STYLE_LINE_ROUNDED);
+  set_int_field(L, "STYLE_LINE_WIDTH", LV_STYLE_LINE_WIDTH);
+  set_int_field(L, "STYLE_MARGIN_BOTTOM", LV_STYLE_MARGIN_BOTTOM);
+  set_int_field(L, "STYLE_MARGIN_LEFT", LV_STYLE_MARGIN_LEFT);
+  set_int_field(L, "STYLE_MARGIN_RIGHT", LV_STYLE_MARGIN_RIGHT);
+  set_int_field(L, "STYLE_MARGIN_TOP", LV_STYLE_MARGIN_TOP);
+  set_int_field(L, "STYLE_MAX_HEIGHT", LV_STYLE_MAX_HEIGHT);
+  set_int_field(L, "STYLE_MAX_WIDTH", LV_STYLE_MAX_WIDTH);
+  set_int_field(L, "STYLE_MIN_HEIGHT", LV_STYLE_MIN_HEIGHT);
+  set_int_field(L, "STYLE_MIN_WIDTH", LV_STYLE_MIN_WIDTH);
+  set_int_field(L, "STYLE_NUM_BUILT_IN_PROPS", LV_STYLE_NUM_BUILT_IN_PROPS);
+  set_int_field(L, "STYLE_OPA", LV_STYLE_OPA);
+  set_int_field(L, "STYLE_OPA_LAYERED", LV_STYLE_OPA_LAYERED);
+  set_int_field(L, "STYLE_OUTLINE_COLOR", LV_STYLE_OUTLINE_COLOR);
+  set_int_field(L, "STYLE_OUTLINE_OPA", LV_STYLE_OUTLINE_OPA);
+  set_int_field(L, "STYLE_OUTLINE_PAD", LV_STYLE_OUTLINE_PAD);
+  set_int_field(L, "STYLE_OUTLINE_WIDTH", LV_STYLE_OUTLINE_WIDTH);
+  set_int_field(L, "STYLE_PAD_BOTTOM", LV_STYLE_PAD_BOTTOM);
+  set_int_field(L, "STYLE_PAD_COLUMN", LV_STYLE_PAD_COLUMN);
+  set_int_field(L, "STYLE_PAD_LEFT", LV_STYLE_PAD_LEFT);
+  set_int_field(L, "STYLE_PAD_RADIAL", LV_STYLE_PAD_RADIAL);
+  set_int_field(L, "STYLE_PAD_RIGHT", LV_STYLE_PAD_RIGHT);
+  set_int_field(L, "STYLE_PAD_ROW", LV_STYLE_PAD_ROW);
+  set_int_field(L, "STYLE_PAD_TOP", LV_STYLE_PAD_TOP);
+  set_int_field(L, "STYLE_PROP_ANY", LV_STYLE_PROP_ANY);
+  set_int_field(L, "STYLE_PROP_CONST", LV_STYLE_PROP_CONST);
+  set_int_field(L, "STYLE_PROP_INV", LV_STYLE_PROP_INV);
+  set_int_field(L, "STYLE_RADIAL_OFFSET", LV_STYLE_RADIAL_OFFSET);
+  set_int_field(L, "STYLE_RADIUS", LV_STYLE_RADIUS);
+  set_int_field(L, "STYLE_RECOLOR", LV_STYLE_RECOLOR);
+  set_int_field(L, "STYLE_RECOLOR_OPA", LV_STYLE_RECOLOR_OPA);
+  set_int_field(L, "STYLE_RES_FOUND", LV_STYLE_RES_FOUND);
+  set_int_field(L, "STYLE_RES_NOT_FOUND", LV_STYLE_RES_NOT_FOUND);
+  set_int_field(L, "STYLE_ROTARY_SENSITIVITY", LV_STYLE_ROTARY_SENSITIVITY);
+  set_int_field(L, "STYLE_SHADOW_COLOR", LV_STYLE_SHADOW_COLOR);
+  set_int_field(L, "STYLE_SHADOW_OFFSET_X", LV_STYLE_SHADOW_OFFSET_X);
+  set_int_field(L, "STYLE_SHADOW_OFFSET_Y", LV_STYLE_SHADOW_OFFSET_Y);
+  set_int_field(L, "STYLE_SHADOW_OPA", LV_STYLE_SHADOW_OPA);
+  set_int_field(L, "STYLE_SHADOW_SPREAD", LV_STYLE_SHADOW_SPREAD);
+  set_int_field(L, "STYLE_SHADOW_WIDTH", LV_STYLE_SHADOW_WIDTH);
+  set_int_field(L, "STYLE_STATE_CMP_DIFF_DRAW_PAD", LV_STYLE_STATE_CMP_DIFF_DRAW_PAD);
+  set_int_field(L, "STYLE_STATE_CMP_DIFF_LAYOUT", LV_STYLE_STATE_CMP_DIFF_LAYOUT);
+  set_int_field(L, "STYLE_STATE_CMP_DIFF_REDRAW", LV_STYLE_STATE_CMP_DIFF_REDRAW);
+  set_int_field(L, "STYLE_STATE_CMP_SAME", LV_STYLE_STATE_CMP_SAME);
+  set_int_field(L, "STYLE_TEXT_ALIGN", LV_STYLE_TEXT_ALIGN);
+  set_int_field(L, "STYLE_TEXT_COLOR", LV_STYLE_TEXT_COLOR);
+  set_int_field(L, "STYLE_TEXT_DECOR", LV_STYLE_TEXT_DECOR);
+  set_int_field(L, "STYLE_TEXT_FONT", LV_STYLE_TEXT_FONT);
+  set_int_field(L, "STYLE_TEXT_LETTER_SPACE", LV_STYLE_TEXT_LETTER_SPACE);
+  set_int_field(L, "STYLE_TEXT_LINE_SPACE", LV_STYLE_TEXT_LINE_SPACE);
+  set_int_field(L, "STYLE_TEXT_OPA", LV_STYLE_TEXT_OPA);
+  set_int_field(L, "STYLE_TEXT_OUTLINE_STROKE_COLOR", LV_STYLE_TEXT_OUTLINE_STROKE_COLOR);
+  set_int_field(L, "STYLE_TEXT_OUTLINE_STROKE_OPA", LV_STYLE_TEXT_OUTLINE_STROKE_OPA);
+  set_int_field(L, "STYLE_TEXT_OUTLINE_STROKE_WIDTH", LV_STYLE_TEXT_OUTLINE_STROKE_WIDTH);
+  set_int_field(L, "STYLE_TRANSFORM_HEIGHT", LV_STYLE_TRANSFORM_HEIGHT);
+  set_int_field(L, "STYLE_TRANSFORM_PIVOT_X", LV_STYLE_TRANSFORM_PIVOT_X);
+  set_int_field(L, "STYLE_TRANSFORM_PIVOT_Y", LV_STYLE_TRANSFORM_PIVOT_Y);
+  set_int_field(L, "STYLE_TRANSFORM_ROTATION", LV_STYLE_TRANSFORM_ROTATION);
+  set_int_field(L, "STYLE_TRANSFORM_SCALE_X", LV_STYLE_TRANSFORM_SCALE_X);
+  set_int_field(L, "STYLE_TRANSFORM_SCALE_Y", LV_STYLE_TRANSFORM_SCALE_Y);
+  set_int_field(L, "STYLE_TRANSFORM_SKEW_X", LV_STYLE_TRANSFORM_SKEW_X);
+  set_int_field(L, "STYLE_TRANSFORM_SKEW_Y", LV_STYLE_TRANSFORM_SKEW_Y);
+  set_int_field(L, "STYLE_TRANSFORM_WIDTH", LV_STYLE_TRANSFORM_WIDTH);
+  set_int_field(L, "STYLE_TRANSITION", LV_STYLE_TRANSITION);
+  set_int_field(L, "STYLE_TRANSLATE_RADIAL", LV_STYLE_TRANSLATE_RADIAL);
+  set_int_field(L, "STYLE_TRANSLATE_X", LV_STYLE_TRANSLATE_X);
+  set_int_field(L, "STYLE_TRANSLATE_Y", LV_STYLE_TRANSLATE_Y);
+  set_int_field(L, "STYLE_WIDTH", LV_STYLE_WIDTH);
+  set_int_field(L, "STYLE_X", LV_STYLE_X);
+  set_int_field(L, "STYLE_Y", LV_STYLE_Y);
+#if (LV_USE_OBSERVER)
+  set_int_field(L, "SUBJECT_TYPE_COLOR", LV_SUBJECT_TYPE_COLOR);
+#endif
+#if (LV_USE_OBSERVER)
+  set_int_field(L, "SUBJECT_TYPE_FLOAT", LV_SUBJECT_TYPE_FLOAT);
+#endif
+#if (LV_USE_OBSERVER)
+  set_int_field(L, "SUBJECT_TYPE_GROUP", LV_SUBJECT_TYPE_GROUP);
+#endif
+#if (LV_USE_OBSERVER)
+  set_int_field(L, "SUBJECT_TYPE_INT", LV_SUBJECT_TYPE_INT);
+#endif
+#if (LV_USE_OBSERVER)
+  set_int_field(L, "SUBJECT_TYPE_INVALID", LV_SUBJECT_TYPE_INVALID);
+#endif
+#if (LV_USE_OBSERVER)
+  set_int_field(L, "SUBJECT_TYPE_NONE", LV_SUBJECT_TYPE_NONE);
+#endif
+#if (LV_USE_OBSERVER)
+  set_int_field(L, "SUBJECT_TYPE_POINTER", LV_SUBJECT_TYPE_POINTER);
+#endif
+#if (LV_USE_OBSERVER)
+  set_int_field(L, "SUBJECT_TYPE_STRING", LV_SUBJECT_TYPE_STRING);
+#endif
+#if (LV_USE_SWITCH != 0)
+  set_int_field(L, "SWITCH_ORIENTATION_AUTO", LV_SWITCH_ORIENTATION_AUTO);
+#endif
+#if (LV_USE_SWITCH != 0)
+  set_int_field(L, "SWITCH_ORIENTATION_HORIZONTAL", LV_SWITCH_ORIENTATION_HORIZONTAL);
+#endif
+#if (LV_USE_SWITCH != 0)
+  set_int_field(L, "SWITCH_ORIENTATION_VERTICAL", LV_SWITCH_ORIENTATION_VERTICAL);
+#endif
+#if (LV_USE_TABLE != 0)
+  set_int_field(L, "TABLE_CELL_CTRL_CUSTOM_1", LV_TABLE_CELL_CTRL_CUSTOM_1);
+#endif
+#if (LV_USE_TABLE != 0)
+  set_int_field(L, "TABLE_CELL_CTRL_CUSTOM_2", LV_TABLE_CELL_CTRL_CUSTOM_2);
+#endif
+#if (LV_USE_TABLE != 0)
+  set_int_field(L, "TABLE_CELL_CTRL_CUSTOM_3", LV_TABLE_CELL_CTRL_CUSTOM_3);
+#endif
+#if (LV_USE_TABLE != 0)
+  set_int_field(L, "TABLE_CELL_CTRL_CUSTOM_4", LV_TABLE_CELL_CTRL_CUSTOM_4);
+#endif
+#if (LV_USE_TABLE != 0)
+  set_int_field(L, "TABLE_CELL_CTRL_MERGE_RIGHT", LV_TABLE_CELL_CTRL_MERGE_RIGHT);
+#endif
+#if (LV_USE_TABLE != 0)
+  set_int_field(L, "TABLE_CELL_CTRL_NONE", LV_TABLE_CELL_CTRL_NONE);
+#endif
+#if (LV_USE_TABLE != 0)
+  set_int_field(L, "TABLE_CELL_CTRL_TEXT_CROP", LV_TABLE_CELL_CTRL_TEXT_CROP);
+#endif
+  set_int_field(L, "TEXT_ALIGN_AUTO", LV_TEXT_ALIGN_AUTO);
+  set_int_field(L, "TEXT_ALIGN_CENTER", LV_TEXT_ALIGN_CENTER);
+  set_int_field(L, "TEXT_ALIGN_LEFT", LV_TEXT_ALIGN_LEFT);
+  set_int_field(L, "TEXT_ALIGN_RIGHT", LV_TEXT_ALIGN_RIGHT);
+  set_int_field(L, "TEXT_DECOR_NONE", LV_TEXT_DECOR_NONE);
+  set_int_field(L, "TEXT_DECOR_STRIKETHROUGH", LV_TEXT_DECOR_STRIKETHROUGH);
+  set_int_field(L, "TEXT_DECOR_UNDERLINE", LV_TEXT_DECOR_UNDERLINE);
+  set_int_field(L, "TEXT_FLAG_BREAK_ALL", LV_TEXT_FLAG_BREAK_ALL);
+  set_int_field(L, "TEXT_FLAG_EXPAND", LV_TEXT_FLAG_EXPAND);
+  set_int_field(L, "TEXT_FLAG_FIT", LV_TEXT_FLAG_FIT);
+  set_int_field(L, "TEXT_FLAG_NONE", LV_TEXT_FLAG_NONE);
+  set_int_field(L, "TEXT_FLAG_RECOLOR", LV_TEXT_FLAG_RECOLOR);
+  set_int_field(L, "TREE_WALK_POST_ORDER", LV_TREE_WALK_POST_ORDER);
+  set_int_field(L, "TREE_WALK_PRE_ORDER", LV_TREE_WALK_PRE_ORDER);
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_ADDITIVE", LV_VECTOR_BLEND_ADDITIVE);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_DST_IN", LV_VECTOR_BLEND_DST_IN);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_DST_OVER", LV_VECTOR_BLEND_DST_OVER);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_MULTIPLY", LV_VECTOR_BLEND_MULTIPLY);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_NONE", LV_VECTOR_BLEND_NONE);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_SCREEN", LV_VECTOR_BLEND_SCREEN);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_SRC_IN", LV_VECTOR_BLEND_SRC_IN);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_SRC_OVER", LV_VECTOR_BLEND_SRC_OVER);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_BLEND_SUBTRACTIVE", LV_VECTOR_BLEND_SUBTRACTIVE);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_DRAW_STYLE_GRADIENT", LV_VECTOR_DRAW_STYLE_GRADIENT);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_DRAW_STYLE_PATTERN", LV_VECTOR_DRAW_STYLE_PATTERN);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_DRAW_STYLE_SOLID", LV_VECTOR_DRAW_STYLE_SOLID);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_FILL_EVENODD", LV_VECTOR_FILL_EVENODD);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_FILL_NONZERO", LV_VECTOR_FILL_NONZERO);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_FILL_UNITS_OBJECT_BOUNDING_BOX", LV_VECTOR_FILL_UNITS_OBJECT_BOUNDING_BOX);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_FILL_UNITS_USER_SPACE_ON_USE", LV_VECTOR_FILL_UNITS_USER_SPACE_ON_USE);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_GRADIENT_SPREAD_PAD", LV_VECTOR_GRADIENT_SPREAD_PAD);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_GRADIENT_SPREAD_REFLECT", LV_VECTOR_GRADIENT_SPREAD_REFLECT);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_GRADIENT_SPREAD_REPEAT", LV_VECTOR_GRADIENT_SPREAD_REPEAT);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_GRADIENT_STYLE_LINEAR", LV_VECTOR_GRADIENT_STYLE_LINEAR);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_GRADIENT_STYLE_RADIAL", LV_VECTOR_GRADIENT_STYLE_RADIAL);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_PATH_OP_CLOSE", LV_VECTOR_PATH_OP_CLOSE);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_PATH_OP_CUBIC_TO", LV_VECTOR_PATH_OP_CUBIC_TO);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_PATH_OP_LINE_TO", LV_VECTOR_PATH_OP_LINE_TO);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_PATH_OP_MOVE_TO", LV_VECTOR_PATH_OP_MOVE_TO);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_PATH_OP_QUAD_TO", LV_VECTOR_PATH_OP_QUAD_TO);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_PATH_QUALITY_HIGH", LV_VECTOR_PATH_QUALITY_HIGH);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_PATH_QUALITY_LOW", LV_VECTOR_PATH_QUALITY_LOW);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_PATH_QUALITY_MEDIUM", LV_VECTOR_PATH_QUALITY_MEDIUM);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_STROKE_CAP_BUTT", LV_VECTOR_STROKE_CAP_BUTT);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_STROKE_CAP_ROUND", LV_VECTOR_STROKE_CAP_ROUND);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_STROKE_CAP_SQUARE", LV_VECTOR_STROKE_CAP_SQUARE);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_STROKE_JOIN_BEVEL", LV_VECTOR_STROKE_JOIN_BEVEL);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_STROKE_JOIN_MITER", LV_VECTOR_STROKE_JOIN_MITER);
+#endif
+#if (LV_USE_VECTOR_GRAPHIC)
+  set_int_field(L, "VECTOR_STROKE_JOIN_ROUND", LV_VECTOR_STROKE_JOIN_ROUND);
+#endif
 }
 
 #endif  // LUA_LVGL_IMPL

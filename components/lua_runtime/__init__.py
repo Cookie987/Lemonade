@@ -60,6 +60,12 @@ async def to_code(config):
 
     cg.add(var.set_async_core(config[CONF_ASYNC_CORE]))
 
+    try:
+        uid_global = await cg.get_variable("uid")
+        cg.add(var.set_uid_global(uid_global))
+    except Exception:
+        pass
+
     rtttl_configs = CORE.config.get(CONF_RTTTL, []) if CORE.config else []
     if not isinstance(rtttl_configs, list):
         rtttl_configs = [rtttl_configs]

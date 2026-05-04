@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 
 #include "esphome/core/automation.h"
@@ -32,9 +33,21 @@ class LuaRuntime : public Component {
   void set_ota_active(bool active);
   void register_rtttl_player(const std::string &name, rtttl::Rtttl *player);
   bool is_ota_active() const;
+  template<typename T> void set_uid_global(T *uid) {
+    this->uid_reader_ = [uid]() -> std::string {
+      if (uid == nullptr) return "";
+      return uid->value();
+    };
+  }
+  std::string get_uid() const {
+    if (this->uid_reader_) return this->uid_reader_();
+    return this->cached_uid_;
+  }
 
  protected:
   int async_core_{0};
+  std::string cached_uid_{"0000"};
+  std::function<std::string()> uid_reader_{};
 };
 
 template<typename... Ts> class LuaRunFileAction : public Action<Ts...> {

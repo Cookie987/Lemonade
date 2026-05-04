@@ -368,6 +368,8 @@ static int l_batch_end(lua_State *L) {
   return 0;
 }
 
+static void set_int_field(lua_State *L, const char *name, int value);
+
 #define LUA_LVGL_IMPL
 #include "lua_lvgl_gen.h"
 #undef LUA_LVGL_IMPL
@@ -1108,6 +1110,16 @@ static int l_ui_close_notification(lua_State *L) {
   return 0;
 }
 
+static int l_ui_font14(lua_State *L) {
+  const lv_font_t *font = LV_FONT_DEFAULT;
+  if (font == nullptr) {
+    lua_pushnil(L);
+  } else {
+    lua_pushlightuserdata(L, (void *) font);
+  }
+  return 1;
+}
+
 void show_lua_error_on_app_page(const std::string &script_path, const std::string &message) {
   std::string app_dir = dir_from_path(script_path);
   lv_obj_t *page = get_app_page(app_dir);
@@ -1712,6 +1724,8 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "show_notification");
   lua_pushcfunction(L, l_ui_close_notification);
   lua_setfield(L, -2, "close_notification");
+  lua_pushcfunction(L, l_ui_font14);
+  lua_setfield(L, -2, "font14");
   lua_setglobal(L, "ui");
 }
 
