@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "id": "com.lemonade.chatstats",
+  "platform": ["s3_t"],
+  "name": "聊天统计",
+  "description": "查看聊天亲密度、好友火花和社交徽章。",
+  "author": "LemonadeOS Team",
+  "icon": "assets/icon.png"
+}
