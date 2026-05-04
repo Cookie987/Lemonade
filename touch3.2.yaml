@@ -1,0 +1,69 @@
+# ESP32S3 触摸
+
+esphome:
+  project:
+    name: "cookie987.lemonade"
+    version: "1.7.1"
+  name_add_mac_suffix: false
+
+substitutions:
+  # 基本信息
+  lemonade_board: "um_pros3"
+  lemonade_device_name: "lemonade-tc32"
+  lemonade_device_friendly_name: "Lemonade"
+  lemonade_device_model: "智能时钟_T_3.2"
+  lemonade_version: "1.7.1 Canary"
+  lemonade_ota_password: !secret ota_password
+  lemonade_app_store_index_url: "***REMOVED***lemonade/s3-touch/store/index.json"
+  lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
+  lemonade_ibeacon_major: "987"
+  lemonade_ibeacon_minor: "114"
+  lemonade_ibeacon_measured_power: "-59"
+  lemonade_ota_md5_url: ***REMOVED***lemonade/s3-touch/canary/lemonade.md5
+  lemonade_ota_url: ***REMOVED***lemonade/s3-touch/canary/firmware.ota.bin
+  lemonade_update_info_url: ***REMOVED***lemonade/s3-touch/canary/release.json
+***REMOVED***  log_level: DEBUG
+
+external_components:
+  - source: components
+
+api:
+  reboot_timeout: 0s
+
+esp32_ble_beacon: !remove
+
+packages:
+  # 核心组件
+  - !include packages/s3_touch_3.2/lemonade.yaml
+  - !include packages/s3_touch/lvgl.yaml
+  - !include packages/s3_touch_3.2/hardware.yaml
+  - !include packages/s3_touch/script.yaml
+  - !include packages/s3_touch/interval.yaml
+  - !include packages/resources.yaml
+  - !include packages/s3_touch/networks.yaml
+  - !include packages/s3_touch/features/mqtt_handler.yaml
+  # - !include packages/storage.yaml
+  # 设置
+  - !include packages/s3_touch/features/setting/setting.yaml
+  - !include packages/s3_touch/features/security/security.yaml
+  - !include packages/s3_touch/features/app_store/app_store.yaml
+  # 秒表
+  - !include packages/s3_touch/features/timer/timer.yaml
+  # 天气与日历
+  - !include packages/s3_touch/features/weather/weather.yaml
+  # 聊天
+  - !include packages/s3_touch/features/message/message.yaml
+
+# wireguard:
+#   address: 10.1.0.100
+#   private_key: !secret wg_privkey
+***REMOVED***#   peer_public_key: !secret wg_peer_public_key
+#   # Optional netmask (this is the default, no outgoing traffic
+#   # will pass through the tunnel if omitted)
+#   netmask: 255.255.255.0
+#   peer_port: 51820
+#   peer_allowed_ips:
+#     - 10.1.0.0/24
+#     - 192.168.1.0/24
+#   peer_persistent_keepalive: 25s
+#   reboot_timeout: 0s

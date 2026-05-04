@@ -1,0 +1,278 @@
+display:
+  - platform: mipi_spi
+    id: watchface
+    data_rate: 80MHz
+    model: ST7789V
+    cs_pin: GPIO6
+    reset_pin: GPIO7
+    dc_pin: GPIO15
+    show_test_card: false
+    color_order: rgb
+    invert_colors: true
+    auto_clear_enabled: false
+    update_interval: never
+    pixel_mode: 16bit
+    use_dma: true
+    transform:
+      swap_xy: true
+      mirror_x: false
+      mirror_y: true
+    dimensions:
+      width: 320
+      height: 240
+
+touchscreen:
+  - id: touch_panel
+    display: watchface
+    platform: ft63x6
+    interrupt_pin: GPIO13
+    reset_pin: GPIO10
+    transform:
+      swap_xy: true
+      mirror_x: true
+      mirror_y: false
+    on_touch:
+      then:
+        - script.execute: security_register_activity
+        - if:
+            condition:
+              lambda: 'return !id(is_sleeping);'
+            then:
+              - switch.turn_on: switch_powermanage_lock_apb
+
+i2c:
+  sda: GPIO11
+  scl: GPIO9
+  scan: false
+  id: bus_a
+  frequency: 20kHz
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO17
+
+switch:
+  - platform: gpio
+    pin: GPIO40
+    id: acc
+    restore_mode: ALWAYS_ON
+
+    # - platform: lvgl
+    #   id: bluetooth_switch
+    #   widget: switch_bluetooth
+    #   restore_mode: ALWAYS_ON
+
+light:
+  - platform: esp32_rmt_led_strip
+    pin: GPIO16
+    id: led
+    num_leds: 1
+    rgb_order: GRB
+    chipset: ws2812
+
+output:
+  - platform: ledc
+    pin: GPIO8
+    id: backlight_pin
+    frequency: 3840
+    channel: 0
+  - platform: ledc
+    pin: GPIO42
+    id: rttl_pin
+    channel: 2
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO39
+    id: home
+    filters:
+      - settle: 20ms
+    on_multi_click:
+      - timing:
+          - ON for at least 0.8s
+        then:
+          - script.execute: power_menu_open
+      - timing:
+          - ON for at most 0.8s
+          - OFF for at least 0.1s
+        then:
+          - script.execute: sleep_button
+
+  - platform: gpio
+    pin: GPIO0
+    id: boot
+    filters:
+      - settle: 20ms
+    on_press:
+      then:
+        - script.execute: wakeup_button
+        - if:
+            condition:
+              lambda: 'return id(security_is_locked);'
+            then:
+              - script.execute: security_render_lock_screen
+              - lvgl.page.show:
+                  id: page_lock_screen
+                  animation: FADE_IN
+                  time: 200ms
+            else:
+              - lvgl.page.show:
+                  id: page_main
+                  animation: FADE_IN
+                  time: 200ms
+
+  - platform: template
+    id: charge
+    lambda: |-
+      if (id(usb_input_voltage).state >= 4.2f) {
+        return true;
+      } else {
+        return false;
+      }
+    filters:
+      - settle: 70ms
+    on_press:
+      then:
+        - logger.log: Charger connected
+        - script.execute: update_date
+        - if:
+            condition:
+              - lvgl.page.is_showing: page_temperature_high
+            then:
+              - lvgl.canvas.fill:
+                  id: high_temp_canvas
+                  color: !lambda return lv_color_hex(0xF64D4D);
+              - lambda: |
+                  lv_label_set_text(id(lbl_temp_high), "#ffffff 请立即断开充电器。#");
+    on_release:
+      then:
+        - logger.log: Charger disconnected
+        - script.execute: update_date
+        - if:
+            condition:
+              - lvgl.page.is_showing: page_temperature_high
+            then:
+              - lvgl.canvas.fill:
+                  id: high_temp_canvas
+                  color: !lambda return lv_color_hex(0x000000);
+              - lambda: |
+                  lv_label_set_text(id(lbl_temp_high), "请等待 SMC 冷却后再使用。");
+
+  - platform: gpio
+    id: dock_detect
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - settle: 50ms
+    on_press:
+      then:
+        - logger.log: Dock connected
+        - lambda: |
+            id(show_notification)->execute("底座已连接", "底座已断开", 2000);
+    on_release:
+      then:
+        - lambda: |
+            id(show_notification)->execute("底座已断开", "底座已连接", 2000);
+
+  - platform: sd_mmc_card
+    card_detected:
+      id: sd_card_detected
+      on_press:
+        then:
+          - script.execute: sd_card_inserted
+      on_release:
+        then:
+          - script.execute: sd_card_removed
+
+sensor:
+  - platform: adc
+    pin: GPIO1
+    id: usb_input_voltage
+    update_interval: 5s
+    attenuation: auto
+    filters:
+      - multiply: 5
+    on_value:
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - if:
+                condition:
+                  lvgl.page.is_showing: system_setting_power_page
+                then:
+                  - lvgl.indicator.update:
+                      id: usb_voltage_indicator
+                      value: !lambda 'return id(usb_input_voltage).state * 10;'
+                  - lvgl.label.update:
+                      id: usb_voltage_text
+                      text:
+                        format: "%.2fV"
+                        args: ['x']
+
+  - platform: adc
+    pin: GPIO2
+    id: battery_voltage
+    update_interval: 5s
+    attenuation: auto
+    filters:
+      - multiply: 5
+    on_value:
+      - script.execute: update_battery_soc
+      - if:
+          condition:
+            lambda: 'return !id(is_sleeping);'
+          then:
+            - script.execute: update_date
+            - if:
+                condition:
+                  lvgl.page.is_showing: system_setting_power_page
+                then:
+                  - lvgl.indicator.update:
+                      id: battery_voltage_indicator
+                      value: !lambda 'return id(battery_voltage).state * 10;'
+                  - lvgl.label.update:
+                      id: battery_voltage_text
+                      text:
+                        format: "%.2fV"
+                        args: ['x']
+
+  # - platform: ntc
+  #   sensor: ntc_bat_resistance
+  #   id: battery_temperature
+  #   calibration:
+  #     b_constant: 3450
+  #     reference_temperature: 25°C
+  #     reference_resistance: 10kOhm
+
+  # - platform: resistance
+  #   id: ntc_bat_resistance
+  #   sensor: bat_ntc_adc
+  #   configuration: UPSTREAM
+  #   resistor: 5.1kOhm
+  #   name: Resistance Sensor
+
+  # - platform: adc
+  #   id: bat_ntc_adc
+  #   update_interval: 5s
+  #   pin: GPIO41
+
+  - platform: sd_mmc_card
+    type: used_space
+    id: sd_used_space
+
+  - platform: sd_mmc_card
+    type: free_space
+    id: sd_free_space
+
+sd_mmc_card:
+  id: sd
+  mode_1bit: false
+  clk_pin: GPIO21
+  cmd_pin: GPIO47
+  data0_pin: GPIO14
+  data1_pin: GPIO3
+  data2_pin: GPIO38
+  data3_pin: GPIO48
