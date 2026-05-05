@@ -143,4 +143,3 @@ Compress-Archive -Path .\com.lemonade.hello\* -DestinationPath .\com.lemonade.he
 ```
 
 如果 ZIP 包含 `com.lemonade.hello/` 这一层目录也可以，安装器会自动识别并剥离公共根目录。
-
