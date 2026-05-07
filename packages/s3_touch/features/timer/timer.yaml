@@ -11,11 +11,11 @@ esphome:
 globals:
   - id: stopwatch_start_time
     type: unsigned long
-    restore_value: yes
+    restore_value: false
     initial_value: '0'
   - id: stopwatch_paused_time
     type: unsigned long
-    restore_value: yes
+    restore_value: false
     initial_value: '0'
   - id: stopwatch_timer
     type: lv_timer_t *
@@ -23,27 +23,27 @@ globals:
     initial_value: 'nullptr'
   - id: is_timer_running
     type: bool
-    # restore_value: yes
+    # restore_value: false
     initial_value: 'false'
   - id: is_countdown_running
     type: bool
-    restore_value: yes
+    restore_value: false
     initial_value: 'false'
   - id: countdown_end_time
     type: unsigned long
-    restore_value: yes
+    restore_value: false
     initial_value: '0'
   - id: countdown_hours
     type: int
-    restore_value: yes
+    restore_value: false
     initial_value: '0'
   - id: countdown_minutes
     type: int
-    restore_value: yes
+    restore_value: false
     initial_value: '0'
   - id: countdown_seconds
     type: int
-    restore_value: yes
+    restore_value: false
     initial_value: '0'
   - id: countdown_timer
     type: lv_timer_t *
