@@ -1,0 +1,3 @@
+audio_dac:
+  - platform: es8311
+  
