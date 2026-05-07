@@ -639,8 +639,8 @@ lvgl:
                               text: "引用"
                         on_click:
                           then:
-                            - script.execute: message_action_quote
                             - lvgl.widget.hide: obj_message_action_overlay
+                            - script.execute: message_action_quote
                     - button:
                         id: btn_message_action_mention
                         width: 200
@@ -654,8 +654,8 @@ lvgl:
                               text: "@"
                         on_click:
                           then:
-                            - script.execute: message_action_mention
                             - lvgl.widget.hide: obj_message_action_overlay
+                            - script.execute: message_action_mention
                     - button:
                         id: btn_message_action_cancel
                         width: 200
