@@ -12,7 +12,7 @@ lvgl:
       widgets:
         - tabview:
             id: tabview_timer
-            anim_duration: 0.5s
+            anim_duration: 0s
             x: 0
             y: 18
             width: 320
@@ -48,6 +48,8 @@ lvgl:
                           - lambda: |
                               if (!id(is_timer_running)) {
                                 // 开始计时 - 设置起始时间为当前时间减去暂停时间
+                                lv_timer_pause(id(stopwatch_timer));
+                                lv_anim_del_all();
                                 id(stopwatch_start_time) = millis() - id(stopwatch_paused_time);
                                 id(is_timer_running) = true;
                                 lv_timer_resume(id(stopwatch_timer));
