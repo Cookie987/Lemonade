@@ -54,10 +54,19 @@ lvgl:
                                 lv_label_set_text(id(lbl_btn_stopwatch), "暂停");
                               } else {
                                 // 暂停计时 - 记录已运行的时间
-                                id(stopwatch_paused_time) = millis() - id(stopwatch_start_time);
+                                unsigned long elapsed = millis() - id(stopwatch_start_time);
+                                id(stopwatch_paused_time) = elapsed;
                                 id(is_timer_running) = false;
                                 lv_timer_pause(id(stopwatch_timer));
                                 lv_label_set_text(id(lbl_btn_stopwatch), "继续");
+                                // 暂停时立即显示精确到0.01秒的值
+                                int hours = (elapsed / 1000) / 3600;
+                                int minutes = ((elapsed / 1000) / 60) % 60;
+                                int seconds = (elapsed / 1000) % 60;
+                                int centiseconds = (elapsed % 1000) / 10;
+                                static char buf[16];
+                                snprintf(buf, sizeof(buf), "%02d:%02d:%02d.%02d", hours, minutes, seconds, centiseconds);
+                                lv_label_set_text(id(lbl_stopwatch), buf);
                               }
 
                   - button:
