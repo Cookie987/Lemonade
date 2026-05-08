@@ -109,7 +109,7 @@ script:
               snprintf(buf, sizeof(buf), "%02d:%02d:%02d.%02d", hours, minutes, seconds, centiseconds);
               lv_label_set_text_static(id(lbl_stopwatch), buf);
             }
-          }, 100, nullptr);
+          }, 20, nullptr);
           lv_timer_pause(id(stopwatch_timer));
 
   - id: !extend sleep_button
