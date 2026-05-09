@@ -819,6 +819,11 @@ lvgl:
                         text: "加载中..."
                         text_font: chinese_font14
                         text_color: 0x666666
+                  on_triple_click:
+                    - lambda: |
+                        ESP_LOGE("Settings", "Triple clicked uptime, manually triggered crash.");
+                        ESP_LOGE("Goodbye, world...");
+                        *(int*)0 = 0;
               - label:
                   align: TOP_MID
                   y: 560
