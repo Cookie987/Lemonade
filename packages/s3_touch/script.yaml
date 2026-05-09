@@ -709,6 +709,29 @@ script:
             1); // QoS 1
           ESP_LOGD("CookieIoT", "Requested WiFi list...");
 
+  - id: show_previous_crash_report
+    parameters:
+      force: bool
+    mode: single
+    then:
+      - if:
+          condition:
+            lambda: 'return force || id(previous_crash_detected) || !id(previous_crash_log).empty();'
+          then:
+            - lvgl.resume:
+                lvgl_id: lvgl_1
+            - lambda: |
+                std::string log = id(previous_crash_log);
+                if (log.empty()) {
+                  log = "检测到上次启动崩溃，但没有捕获到详细调用栈。\n请连接串口以查看完整日志。";
+                }
+                lv_label_set_text(id(lbl_previous_error_log), log.c_str());
+                lv_obj_scroll_to_y(id(obj_previous_error_log), 0, LV_ANIM_OFF);
+            - lvgl.page.show:
+                id: system_setting_previous_error_page
+                animation: MOVE_LEFT
+                time: 200ms
+
   # 创建或修改通知
   # para1: 新的通知内容
   # para2: （若非空）用于匹配并替换已有通知的后缀

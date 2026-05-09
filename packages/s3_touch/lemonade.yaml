@@ -82,6 +82,10 @@ esphome:
             else:
               - lambda: id(watchface)->set_invert_colors(false);
         - lvgl.widget.hide: boot_screen
+        - delay: 500ms
+        - script.execute:
+            id: show_previous_crash_report
+            force: false
         - lambda: |
             const esp_partition_t *running = esp_ota_get_running_partition();
             esp_ota_img_states_t ota_state;
@@ -196,6 +200,14 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: previous_crash_detected
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: previous_crash_log
+    type: std::string
+    restore_value: no
+    initial_value: '""'
 
 # Enable logging
 logger:
@@ -204,6 +216,27 @@ logger:
   on_message:
     level: ERROR
     then:
+      - lambda: |-
+          const std::string log_tag = tag;
+          const std::string log_message = message;
+          if (log_tag == "esp32.crash" || log_message.find("CRASH DETECTED ON PREVIOUS BOOT") != std::string::npos) {
+            id(previous_crash_detected) = true;
+            if (id(previous_crash_log).size() < 4000) {
+              std::string line = log_message;
+              if (line.size() > 380) {
+                line.resize(380);
+                line += "...";
+              }
+              if (!id(previous_crash_log).empty()) {
+                id(previous_crash_log) += "\n";
+              }
+              id(previous_crash_log) += line;
+              if (id(previous_crash_log).size() > 4000) {
+                id(previous_crash_log).resize(4000);
+                id(previous_crash_log) += "\n...";
+              }
+            }
+          }
       - mqtt.publish:
           topic: !lambda |-
             return "logs/" + id(text_sensor_mac_address).state;

@@ -936,6 +936,39 @@ lvgl:
                         text_font: chinese_font14
                         text_color: 0x666666
 
+    - id: system_setting_previous_error_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "上次错误"
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
+      widgets:
+        - obj:
+            id: obj_previous_error_log
+            x: 0
+            y: 18
+            width: 320
+            height: 222
+            bg_color: !lambda return lv_color_hex(0xffffff);
+            border_width: 0
+            radius: 0
+            pad_all: 10
+            scroll_dir: "VER"
+            scrollbar_mode: "AUTO"
+            widgets:
+              - label:
+                  id: lbl_previous_error_log
+                  x: 0
+                  y: 0
+                  width: 300
+                  text: "没有记录到上次崩溃。"
+                  text_font: chinese_font14
+                  text_color: 0x1f1f1f
+                  long_mode: WRAP
+
     - id: system_setting_update_page
       skip: true
       on_load:
