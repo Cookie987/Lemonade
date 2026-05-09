@@ -598,6 +598,11 @@ lvgl:
               lv_obj_t *obj = static_cast<lv_obj_t *>(lv_event_get_target(e));
               lv_event_code_t code = lv_event_get_code(e);
 
+              if (code == LV_EVENT_DELETE) {
+                Helper::stop_wiggle(obj);
+                return;
+              }
+
               if (code == LV_EVENT_LONG_PRESSED) {
                 if (st->edit_mode) {
                   return;
@@ -800,6 +805,7 @@ lvgl:
                     icon_pages[i] = nullptr;
                   }
                   if (icons[i].obj != nullptr) {
+                    Helper::stop_wiggle(icons[i].obj);
                     lv_obj_del_async(icons[i].obj);
                   }
                   icons[i] = {nullptr, nullptr, nullptr, nullptr, 0, 0};
