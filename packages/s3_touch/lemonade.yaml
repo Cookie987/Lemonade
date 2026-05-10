@@ -20,6 +20,7 @@ esphome:
     - <mbedtls/base64.h>
     - <fstream>
     - <dirent.h>
+    - <regex>
     - <vector>
     - <algorithm>
 
@@ -82,10 +83,14 @@ esphome:
             else:
               - lambda: id(watchface)->set_invert_colors(false);
         - lvgl.widget.hide: boot_screen
-        - delay: 500ms
-        - script.execute:
-            id: show_previous_crash_report
-            force: false
+        - lambda: |
+            #ifdef USE_ESP32_CRASH_HANDLER
+            id(previous_crash_detected) = esphome::esp32::crash_handler_has_data();
+            if (id(previous_crash_detected)) {
+              id(previous_crash_log).clear();
+              esphome::esp32::crash_handler_log();
+            }
+            #endif
         - lambda: |
             const esp_partition_t *running = esp_ota_get_running_partition();
             esp_ota_img_states_t ota_state;
@@ -218,11 +223,10 @@ logger:
     then:
       - lambda: |-
           const std::string log_tag = tag;
-          const std::string log_message = message;
-          if (log_tag == "esp32.crash" || log_message.find("CRASH DETECTED ON PREVIOUS BOOT") != std::string::npos) {
+          if (log_tag == "esp32.crash") {
             id(previous_crash_detected) = true;
             if (id(previous_crash_log).size() < 4000) {
-              std::string line = log_message;
+              std::string line = message;
               if (line.size() > 380) {
                 line.resize(380);
                 line += "...";

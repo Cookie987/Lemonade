@@ -721,16 +721,28 @@ script:
             - lvgl.resume:
                 lvgl_id: lvgl_1
             - lambda: |
-                std::string log = id(previous_crash_log);
+                std::string log;
+                static bool first_time = true;
+                if (!first_time) return;
+                first_time = false;
+                #ifdef USE_ESP32_CRASH_HANDLER
+                if (esphome::esp32::crash_handler_has_data()) {
+                  log += "检测到先前运行时崩溃。\n
+                          请联系 Lemonade OS 开发者并提供此日志以协助诊断问题。\n
+                          要清除此消息，请关闭设备后再启动设备（重启无法清除）。\n";
+                }
+                #endif
                 if (log.empty()) {
-                  log = "检测到上次启动崩溃，但没有捕获到详细调用栈。\n请连接串口以查看完整日志。";
+                  log = "检测到上次运行时崩溃，但未记录下崩溃日志。\n请联系 Lemonade OS 开发者以获取更多信息。";
+                }
+                if (!id(previous_crash_log).empty()) {
+                  log += "\n\n";
+                  log += id(previous_crash_log);
+                  log = std::regex_replace(log, std::regex(R"(\[\d+(;\d+)*m|\[E\]|esp32\.crash:)"), "");
                 }
                 lv_label_set_text(id(lbl_previous_error_log), log.c_str());
                 lv_obj_scroll_to_y(id(obj_previous_error_log), 0, LV_ANIM_OFF);
-            - lvgl.page.show:
-                id: system_setting_previous_error_page
-                animation: MOVE_LEFT
-                time: 200ms
+                lv_scr_load_anim(system_setting_previous_error_page->obj, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
 
   # 创建或修改通知
   # para1: 新的通知内容

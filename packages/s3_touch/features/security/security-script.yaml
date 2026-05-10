@@ -366,6 +366,9 @@ script:
           }
           id(security_resume_page) = resume_page;
           lv_scr_load_anim(resume_page, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
+      - script.execute:
+          id: show_previous_crash_report
+          force: false
 
   - id: security_after_wakeup
     mode: restart

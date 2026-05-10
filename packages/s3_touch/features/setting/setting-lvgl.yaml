@@ -822,7 +822,7 @@ lvgl:
                   on_triple_click:
                     - lambda: |
                         ESP_LOGE("Settings", "Triple clicked uptime, manually triggered crash.");
-                        ESP_LOGE("Goodbye, world...");
+                        ESP_LOGE("Cookie_987", "Goodbye, world...");
                         *(int*)0 = 0;
               - label:
                   align: TOP_MID
