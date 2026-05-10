@@ -727,9 +727,9 @@ script:
                 first_time = false;
                 #ifdef USE_ESP32_CRASH_HANDLER
                 if (esphome::esp32::crash_handler_has_data()) {
-                  log += "检测到先前运行时崩溃。\n
-                          请联系 Lemonade OS 开发者并提供此日志以协助诊断问题。\n
-                          要清除此消息，请关闭设备后再启动设备（重启无法清除）。\n";
+                  log += "检测到系统非正常退出。\n"
+                          "请联系 Lemonade OS 开发者并提供此日志以协助诊断问题。\n"
+                          "此信息存储于硬件暂存区，需彻底断电（关闭设备再打开设备）后方可清除。\n";
                 }
                 #endif
                 if (log.empty()) {
