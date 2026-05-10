@@ -159,7 +159,7 @@ power_management:
   power_down_peripherals: true
   esphome_locks: true
   profiling: false
-  trace: false
+  trace: true
 
 debug:
   update_interval: 5s

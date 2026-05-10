@@ -2,7 +2,7 @@
   "version": "1.2.1",
   "manifest_version": 1,
   "id": "com.lemonade.dictionary",
-  "platform": ["s3_t"],
+  "platform": ["s3_t", "s3_t_3_2"],
   "name": "英语词典",
   "description": "一款基于在线接口的英语词典，支持查询音标、释义、短语、例句和近义词。",
   "author": "LemonadeOS Team",

@@ -2,7 +2,7 @@
   "version": "1.4.0",
   "manifest_version": 1,
   "id": "com.lemonade.2048",
-  "platform": ["s3_t"],
+  "platform": ["s3_t", "s3_t_3_2"],
   "name": "2048",
   "description": "一款益智小游戏。通过移动数字块，将数字块合并，得到2048，取得胜利。",
   "author": "LemonadeOS Team",

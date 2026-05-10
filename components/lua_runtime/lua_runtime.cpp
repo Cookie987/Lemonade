@@ -903,9 +903,39 @@ void LuaRuntime::set_ota_active(bool active) {
 #endif
 }
 
+void LuaRuntime::set_device_info(const std::string &name, const std::string &model, const std::string &version,
+                                 const std::string &platform) {
+#ifndef LUA_RUNTIME_STUB
+  lua_runtime::set_device_info(name, model, version, platform);
+#else
+  (void) name;
+  (void) model;
+  (void) version;
+  (void) platform;
+#endif
+}
+
 void LuaRuntime::register_rtttl_player(const std::string &name, rtttl::Rtttl *player) {
 #ifndef LUA_RUNTIME_STUB
   lua_runtime::register_rtttl_player(name, player);
+#else
+  (void) name;
+  (void) player;
+#endif
+}
+
+void LuaRuntime::register_sd_mmc_card(const std::string &name, sd_mmc_card::SdMmc *card) {
+#ifndef LUA_RUNTIME_STUB
+  lua_runtime::register_sd_mmc_card(name, card);
+#else
+  (void) name;
+  (void) card;
+#endif
+}
+
+void LuaRuntime::register_media_player(const std::string &name, media_player::MediaPlayer *player) {
+#ifndef LUA_RUNTIME_STUB
+  lua_runtime::register_media_player(name, player);
 #else
   (void) name;
   (void) player;

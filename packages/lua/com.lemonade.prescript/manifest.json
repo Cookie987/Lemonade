@@ -2,7 +2,7 @@
   "version": "1.1.1",
   "manifest_version": 1,
   "id": "com.lemonade.prescript",
-  "platform": ["s3_t"],
+  "platform": ["s3_t", "s3_t_3_2"],
   "name": "Prescript",
   "description": "由都市意志生成的、对月亮计划中“传令员”指令的模拟重现。简而言之，随机生成一个动作指令。",
   "author": "LemonadeOS Team",

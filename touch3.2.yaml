@@ -20,6 +20,7 @@ substitutions:
   lemonade_ibeacon_minor: "114"
   lemonade_ibeacon_measured_power: "-59"
   lemonade_update_info_url: ***REMOVED***uploads/firmware/smartclock_t32/canary/release.json
+  lemonade_app_platform: "s3_t_3_2"
 ***REMOVED***  log_level: DEBUG
 
 external_components:
@@ -35,6 +36,7 @@ packages:
   - !include packages/s3_touch/lemonade.yaml
   - !include packages/s3_touch/lvgl.yaml
   - !include packages/s3_touch_3.2/hardware.yaml
+  - !include packages/s3_touch_3.2/audio_hardware.yaml
   - !include packages/s3_touch/script.yaml
   - !include packages/s3_touch/interval.yaml
   - !include packages/resources.yaml

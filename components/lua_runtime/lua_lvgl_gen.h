@@ -1419,11 +1419,12 @@ static int l_label_create(lua_State *L) {
 
 static int l_label_set_text(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_text = luaL_checkstring(L, 2);
+  const char * a1_text_raw = luaL_checkstring(L, 2);
+  std::string a1_text = a1_text_raw != nullptr ? a1_text_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_label_set_text(a0_obj, a1_text); });
+  lvgl_call_void([=]() { lv_label_set_text(a0_obj, a1_text.c_str()); });
   return 0;
 }
 

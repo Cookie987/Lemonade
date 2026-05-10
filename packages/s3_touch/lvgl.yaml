@@ -513,11 +513,13 @@ lvgl:
                     continue;
                   }
 
+                  std::string current_platform = "${lemonade_app_platform}";
                   bool platform_ok = false;
                   if (doc["platform"].is<JsonArray>()) {
                     for (JsonVariant v : doc["platform"].as<JsonArray>()) {
                       const char *p = v.as<const char *>();
-                      if (p != nullptr && Helper::str_eq(p, "s3_t")) {
+                      if (p == nullptr) continue;
+                      if (Helper::str_eq(p, "s3_t") || current_platform == p) {
                         platform_ok = true;
                         break;
                       }
@@ -851,11 +853,13 @@ lvgl:
                       continue;
                     }
 
+                    std::string current_platform = "${lemonade_app_platform}";
                     bool platform_ok = false;
                     if (doc["platform"].is<JsonArray>()) {
                       for (JsonVariant v : doc["platform"].as<JsonArray>()) {
                         const char *p = v.as<const char *>();
-                        if (p != nullptr && Helper::str_eq(p, "s3_t")) {
+                        if (p == nullptr) continue;
+                        if (Helper::str_eq(p, "s3_t") || current_platform == p) {
                           platform_ok = true;
                           break;
                         }
