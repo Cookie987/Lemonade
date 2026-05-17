@@ -211,14 +211,26 @@ local function load_tracks()
     return true
 end
 
+local function get_player_state()
+    if media_player and media_player.get_state then
+        local ok, value = safe_call(media_player.get_state, PLAYER)
+        if ok and value then return value end
+    end
+    return "UNKNOWN"
+end
+
+local function get_last_url()
+    if media_player and media_player.last_url then
+        local ok, value = safe_call(media_player.last_url, PLAYER)
+        if ok then return value end
+    end
+    return nil
+end
+
 local function update_playing_labels()
     if not title_label then return end
     local track = tracks[current_index]
-    local state = "UNKNOWN"
-    if media_player and media_player.get_state then
-        local ok, value = safe_call(media_player.get_state, PLAYER)
-        if ok and value then state = value end
-    end
+    local state = get_player_state()
     if media_player and media_player.get_volume then
         local ok, value = safe_call(media_player.get_volume, PLAYER)
         local numeric = tonumber(value)
@@ -356,7 +368,17 @@ show_player = function()
         play_index(current_index - 1)
     end)
     make_btn(controls, "暂停", 78, 44, function()
-        if media_player.pause then media_player.pause(PLAYER) end
+        local state = get_player_state()
+        if state == "PAUSED" then
+            if media_player.resume then
+                media_player.resume(PLAYER)
+            elseif media_player.play then
+                local last = get_last_url()
+                if last then media_player.play(PLAYER, last) end
+            end
+        elseif state == "PLAYING" or state == "ANNOUNCING" then
+            if media_player.pause then media_player.pause(PLAYER) end
+        end
         update_playing_labels()
     end)
     make_btn(controls, "下一首", 78, 44, function()
@@ -402,14 +424,8 @@ else
     if ok then
         local state = nil
         local last = nil
-        if media_player and media_player.get_state then
-            local state_ok, state_value = safe_call(media_player.get_state, PLAYER)
-            if state_ok then state = state_value end
-        end
-        if media_player and media_player.last_url then
-            local last_ok, last_value = safe_call(media_player.last_url, PLAYER)
-            if last_ok then last = last_value end
-        end
+        state = get_player_state()
+        last = get_last_url()
         if last and is_active_player_state(state) then
             show_player()
         else

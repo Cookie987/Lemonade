@@ -130,6 +130,8 @@ esp32:
     sdkconfig_options:
       CONFIG_PM_ENABLE: y
       CONFIG_PM_DFS_INIT_AUTO: y
+      CONFIG_PM_SLP_DISABLE_GPIO: n
+      CONFIG_SPIRAM_MEMTEST: n
       CONFIG_FATFS_LFN_STACK: y
       CONFIG_SPIRAM_USE_MALLOC: y
       CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: y
@@ -377,6 +379,7 @@ switch:
     turn_off_action:
       then:
         - logger.log: "Turn Off Lock"
+        - lambda: esp_pm_dump_locks(stdout);
         - power_management.release_lock:
 
   - platform: template
@@ -398,6 +401,7 @@ switch:
             lambda: 'return id(switch_powermanage_lock_apb).state;'
           then:
             - logger.log: "Turning off APB Lock"
+            - lambda: esp_pm_dump_locks(stdout);
             - power_management.release_lock: APB
 
   - platform: lvgl

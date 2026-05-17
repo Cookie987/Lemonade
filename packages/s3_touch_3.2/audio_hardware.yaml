@@ -11,7 +11,7 @@ speaker:
   - platform: i2s_audio
     id: speaker32
     dac_type: external
-    i2s_dout_pin: GPIO46
+    i2s_dout_pin: GPIO45
 
 media_player:
   - platform: speaker
