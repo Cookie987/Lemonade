@@ -7,12 +7,11 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
+#include <cstring>
+
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
 #include "esp_crt_bundle.h"
 #endif
-
-#include <cstdio>
-#include <cstring>
 
 namespace esphome {
 namespace audio {
@@ -58,61 +57,6 @@ enum HttpStatus {
 
 AudioReader::~AudioReader() { this->cleanup_connection_(); }
 
-static bool is_local_file_uri(const std::string &uri) {
-  return uri.rfind("/sdcard/", 0) == 0 || uri == "/sdcard" || uri.rfind("file:///sdcard/", 0) == 0 ||
-         uri == "file:///sdcard";
-}
-
-static std::string local_file_path_from_uri(const std::string &uri) {
-  static const char *prefix = "file://";
-  if (uri.rfind(prefix, 0) == 0) {
-    return uri.substr(strlen(prefix));
-  }
-  return uri;
-}
-
-static size_t id3v2_total_size(const uint8_t header[10]) {
-  if (memcmp(header, "ID3", 3) != 0) {
-    return 0;
-  }
-  if ((header[6] & 0x80) || (header[7] & 0x80) || (header[8] & 0x80) || (header[9] & 0x80)) {
-    return 0;
-  }
-  size_t size = ((size_t) header[6] << 21) | ((size_t) header[7] << 14) | ((size_t) header[8] << 7) |
-                (size_t) header[9];
-  size += 10;
-  if (header[5] & 0x10) {
-    size += 10;
-  }
-  return size;
-}
-
-static void skip_id3v2_tag_if_needed(FILE *file, const std::string &path, AudioFileType file_type) {
-  if (file == nullptr || file_type != AudioFileType::MP3) {
-    return;
-  }
-
-  uint8_t header[10];
-  size_t read_len = fread(header, 1, sizeof(header), file);
-  if (read_len != sizeof(header)) {
-    fseek(file, 0, SEEK_SET);
-    return;
-  }
-
-  size_t skip = id3v2_total_size(header);
-  if (skip == 0) {
-    fseek(file, 0, SEEK_SET);
-    return;
-  }
-
-  if (fseek(file, (long) skip, SEEK_SET) == 0) {
-    ESP_LOGD(TAG, "Skipped ID3v2 tag (%u bytes): %s", (unsigned) skip, path.c_str());
-  } else {
-    ESP_LOGW(TAG, "Failed to skip ID3v2 tag: %s", path.c_str());
-    fseek(file, 0, SEEK_SET);
-  }
-}
-
 esp_err_t AudioReader::add_sink(const std::weak_ptr<RingBuffer> &output_ring_buffer) {
   if (current_audio_file_ != nullptr) {
     // A transfer buffer isn't ncessary for a local file
@@ -131,7 +75,6 @@ esp_err_t AudioReader::add_sink(const std::weak_ptr<RingBuffer> &output_ring_buf
 esp_err_t AudioReader::start(AudioFile *audio_file, AudioFileType &file_type) {
   file_type = AudioFileType::NONE;
 
-  this->cleanup_connection_();
   this->current_audio_file_ = audio_file;
 
   this->file_current_ = audio_file->data;
@@ -149,26 +92,25 @@ esp_err_t AudioReader::start(const std::string &uri, AudioFileType &file_type) {
     return ESP_ERR_INVALID_ARG;
   }
 
-  if (is_local_file_uri(uri)) {
-    std::string path = local_file_path_from_uri(uri);
-    this->local_file_ = fopen(path.c_str(), "rb");
-    if (this->local_file_ == nullptr) {
-      ESP_LOGE(TAG, "Failed to open local audio file: %s", path.c_str());
-      return ESP_FAIL;
-    }
-
-    file_type = detect_audio_file_type(nullptr, path.c_str());
+  const char *path = uri.c_str();
+  static const char *const FILE_SCHEME = "file://";
+  if (uri.rfind(FILE_SCHEME, 0) == 0) {
+    path += strlen(FILE_SCHEME);
+  }
+  if (path[0] == '/') {
+    file_type = detect_audio_file_type(nullptr, path);
     if (file_type == AudioFileType::NONE) {
-      ESP_LOGE(TAG, "Unsupported local audio file type: %s", path.c_str());
-      this->cleanup_connection_();
       return ESP_ERR_NOT_SUPPORTED;
     }
-    skip_id3v2_tag_if_needed(this->local_file_, path, file_type);
-
-    this->last_data_read_ms_ = millis();
+    this->filesystem_file_ = fopen(path, "rb");
+    if (this->filesystem_file_ == nullptr) {
+      ESP_LOGE(TAG, "Failed to open local file: %s", path);
+      return ESP_FAIL;
+    }
     this->output_transfer_buffer_ = AudioSinkTransferBuffer::create(this->buffer_size_);
     if (this->output_transfer_buffer_ == nullptr) {
-      this->cleanup_connection_();
+      fclose(this->filesystem_file_);
+      this->filesystem_file_ = nullptr;
       return ESP_ERR_NO_MEM;
     }
     return ESP_OK;
@@ -291,8 +233,8 @@ esp_err_t AudioReader::start(const std::string &uri, AudioFileType &file_type) {
 AudioReaderState AudioReader::read() {
   if (this->client_ != nullptr) {
     return this->http_read_();
-  } else if (this->local_file_ != nullptr) {
-    return this->local_file_read_();
+  } else if (this->filesystem_file_ != nullptr) {
+    return this->filesystem_read_();
   } else if (this->current_audio_file_ != nullptr) {
     return this->file_read_();
   }
@@ -329,27 +271,27 @@ AudioReaderState AudioReader::file_read_() {
   return AudioReaderState::FINISHED;
 }
 
-AudioReaderState AudioReader::local_file_read_() {
+AudioReaderState AudioReader::filesystem_read_() {
   this->output_transfer_buffer_->transfer_data_to_sink(pdMS_TO_TICKS(READ_WRITE_TIMEOUT_MS), false);
 
-  if (this->output_transfer_buffer_->free() > 0) {
-    size_t read_len = fread(this->output_transfer_buffer_->get_buffer_end(), 1, this->output_transfer_buffer_->free(),
-                            this->local_file_);
-    if (read_len > 0) {
-      this->output_transfer_buffer_->increase_buffer_length(read_len);
-      this->last_data_read_ms_ = millis();
-      return AudioReaderState::READING;
-    }
-
-    if (ferror(this->local_file_) != 0) {
-      ESP_LOGE(TAG, "Failed to read local audio file");
-      this->cleanup_connection_();
-      return AudioReaderState::FAILED;
-    }
+  if (this->output_transfer_buffer_->free() == 0) {
+    return AudioReaderState::READING;
   }
 
-  if (feof(this->local_file_) != 0 && this->output_transfer_buffer_->available() == 0) {
-    this->cleanup_connection_();
+  size_t received_len = fread(this->output_transfer_buffer_->get_buffer_end(), 1, this->output_transfer_buffer_->free(),
+                              this->filesystem_file_);
+  if (received_len > 0) {
+    this->output_transfer_buffer_->increase_buffer_length(received_len);
+    return AudioReaderState::READING;
+  }
+
+  if (ferror(this->filesystem_file_) != 0) {
+    return AudioReaderState::FAILED;
+  }
+
+  if (this->output_transfer_buffer_->available() == 0) {
+    fclose(this->filesystem_file_);
+    this->filesystem_file_ = nullptr;
     return AudioReaderState::FINISHED;
   }
 
@@ -400,13 +342,10 @@ void AudioReader::cleanup_connection_() {
     esp_http_client_cleanup(this->client_);
     this->client_ = nullptr;
   }
-  if (this->local_file_ != nullptr) {
-    fclose(this->local_file_);
-    this->local_file_ = nullptr;
+  if (this->filesystem_file_ != nullptr) {
+    fclose(this->filesystem_file_);
+    this->filesystem_file_ = nullptr;
   }
-  this->current_audio_file_ = nullptr;
-  this->file_current_ = nullptr;
-  this->output_transfer_buffer_.reset();
 }
 
 }  // namespace audio

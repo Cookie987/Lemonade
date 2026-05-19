@@ -9,8 +9,8 @@
 
 #include "esp_err.h"
 
-#include <esp_http_client.h>
 #include <cstdio>
+#include <esp_http_client.h>
 
 namespace esphome {
 namespace audio {
@@ -60,8 +60,8 @@ class AudioReader {
   static esp_err_t http_event_handler(esp_http_client_event_t *evt);
 
   AudioReaderState file_read_();
+  AudioReaderState filesystem_read_();
   AudioReaderState http_read_();
-  AudioReaderState local_file_read_();
 
   std::shared_ptr<RingBuffer> file_ring_buffer_;
   std::unique_ptr<AudioSinkTransferBuffer> output_transfer_buffer_;
@@ -71,7 +71,7 @@ class AudioReader {
   uint32_t last_data_read_ms_;
 
   esp_http_client_handle_t client_{nullptr};
-  FILE *local_file_{nullptr};
+  FILE *filesystem_file_{nullptr};
 
   AudioFile *current_audio_file_{nullptr};
   AudioFileType audio_file_type_{AudioFileType::NONE};

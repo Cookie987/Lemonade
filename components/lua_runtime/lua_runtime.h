@@ -12,9 +12,6 @@ namespace esphome {
 namespace rtttl {
 class Rtttl;
 }  // namespace rtttl
-namespace sd_mmc_card {
-class SdMmc;
-}  // namespace sd_mmc_card
 namespace media_player {
 class MediaPlayer;
 }  // namespace media_player
@@ -40,7 +37,6 @@ class LuaRuntime : public Component {
   void set_device_info(const std::string &name, const std::string &model, const std::string &version,
                        const std::string &platform);
   void register_rtttl_player(const std::string &name, rtttl::Rtttl *player);
-  void register_sd_mmc_card(const std::string &name, sd_mmc_card::SdMmc *card);
   void register_media_player(const std::string &name, media_player::MediaPlayer *player);
   bool is_ota_active() const;
   template<typename T> void set_uid_global(T *uid) {

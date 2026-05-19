@@ -36,7 +36,6 @@ packages:
   - !include packages/s3_touch/lemonade.yaml
   - !include packages/s3_touch/lvgl.yaml
   - !include packages/s3_touch_3.2/hardware.yaml
-  - !include packages/s3_touch_3.2/lemonade_patch.yaml
   - !include packages/s3_touch_3.2/audio_hardware.yaml
   - !include packages/s3_touch/script.yaml
   - !include packages/s3_touch/interval.yaml
