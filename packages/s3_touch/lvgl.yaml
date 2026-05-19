@@ -517,7 +517,7 @@ lvgl:
                   if (doc["platform"].is<JsonArray>()) {
                     for (JsonVariant v : doc["platform"].as<JsonArray>()) {
                       const char *p = v.as<const char *>();
-                      if (p != nullptr && Helper::str_eq(p, "s3_t")) {
+                      if (p != nullptr && Helper::str_eq(p, "${lemonade_app_platform}")) {
                         platform_ok = true;
                         break;
                       }
@@ -855,7 +855,7 @@ lvgl:
                     if (doc["platform"].is<JsonArray>()) {
                       for (JsonVariant v : doc["platform"].as<JsonArray>()) {
                         const char *p = v.as<const char *>();
-                        if (p != nullptr && Helper::str_eq(p, "s3_t")) {
+                        if (p != nullptr && Helper::str_eq(p, "${lemonade_app_platform}")) {
                           platform_ok = true;
                           break;
                         }

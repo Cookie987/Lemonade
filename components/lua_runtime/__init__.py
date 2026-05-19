@@ -2,7 +2,7 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome import automation
 from esphome.components import esp32
-from esphome.const import CONF_ID, CONF_PATH, CONF_SUBSTITUTIONS
+from esphome.const import CONF_ID, CONF_PATH, CONF_SUBSTITUTIONS, CONF_MEDIA_PLAYER
 from esphome.core import CORE
 from pathlib import Path
 
@@ -72,6 +72,13 @@ async def to_code(config):
     for rtttl_config in rtttl_configs:
         rtttl = await cg.get_variable(rtttl_config[CONF_ID])
         cg.add(var.register_rtttl_player(str(rtttl_config[CONF_ID]), rtttl))
+
+    media_player_configs = CORE.config.get(CONF_MEDIA_PLAYER, []) if CORE.config else []
+    if not isinstance(media_player_configs, list):
+        media_player_configs = [media_player_configs]
+    for media_player_config in media_player_configs:
+        media_player = await cg.get_variable(media_player_config[CONF_ID])
+        cg.add(var.register_media_player(str(media_player_config[CONF_ID]), media_player))
 
     # Export lemonade_version (from substitutions) as a C define if present
     lemonade_ver = None

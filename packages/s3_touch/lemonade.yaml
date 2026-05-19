@@ -332,6 +332,10 @@ ota:
               args: ["x"]
         - switch.turn_off: switch_powermanage_lock
 
+network:
+  enable_ipv6: false
+  enable_high_performance: false
+
 wifi:
   reboot_timeout: 0s
   enable_btm: true

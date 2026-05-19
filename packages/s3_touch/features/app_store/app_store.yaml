@@ -3,7 +3,7 @@ app_store:
   http_request_id: http_request_component
   lua_runtime_id: lua
   index_url: ${lemonade_app_store_index_url}
-  platform: s3_t
+  platform: ${lemonade_app_platform}
 
 image:
   rgb565:

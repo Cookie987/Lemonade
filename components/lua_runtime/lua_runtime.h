@@ -12,6 +12,9 @@ namespace esphome {
 namespace rtttl {
 class Rtttl;
 }  // namespace rtttl
+namespace media_player {
+class MediaPlayer;
+}  // namespace media_player
 }  // namespace esphome
 
 namespace esphome {
@@ -32,6 +35,7 @@ class LuaRuntime : public Component {
   void set_async_core(int async_core) { this->async_core_ = async_core; }
   void set_ota_active(bool active);
   void register_rtttl_player(const std::string &name, rtttl::Rtttl *player);
+  void register_media_player(const std::string &name, media_player::MediaPlayer *player);
   bool is_ota_active() const;
   template<typename T> void set_uid_global(T *uid) {
     this->uid_reader_ = [uid]() -> std::string {

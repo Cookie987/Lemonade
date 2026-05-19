@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "id": "com.lemonade.music",
+  "platform": ["s3_t_3_2"],
+  "name": "音乐",
+  "description": "播放 SD 卡 Music 目录中的本地音乐。",
+  "author": "LemonadeOS Team",
+  "icon": "assets/icon.png"
+}

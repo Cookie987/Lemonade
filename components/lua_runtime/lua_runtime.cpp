@@ -10,6 +10,7 @@
 #include "lua_app.h"
 #include "lua_fskv.h"
 #include "lua_esphome.h"
+#include "lua_fs.h"
 #include "lua_lvgl.h"
 
 #include "freertos/FreeRTOS.h"
@@ -857,6 +858,7 @@ static void register_base_api(lua_State *L, const std::string &script_path, LuaR
   register_lemonade_api(L, runtime);
   register_app_api(L, script_path);
   register_esphome_api(L);
+  register_fs_api(L);
   register_lvgl_api(L, script_path);
   register_fskv_api(L, script_path);
   luaL_requiref(L, "json", luaopen_json, 1);
@@ -906,6 +908,15 @@ void LuaRuntime::set_ota_active(bool active) {
 void LuaRuntime::register_rtttl_player(const std::string &name, rtttl::Rtttl *player) {
 #ifndef LUA_RUNTIME_STUB
   lua_runtime::register_rtttl_player(name, player);
+#else
+  (void) name;
+  (void) player;
+#endif
+}
+
+void LuaRuntime::register_media_player(const std::string &name, media_player::MediaPlayer *player) {
+#ifndef LUA_RUNTIME_STUB
+  lua_runtime::register_media_player(name, player);
 #else
   (void) name;
   (void) player;
