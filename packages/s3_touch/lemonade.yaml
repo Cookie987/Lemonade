@@ -114,6 +114,7 @@ esp32:
   cpu_frequency: 240MHz
   flash_size: 16MB
   partitions: partitions_16M.csv
+  # toolchain: esp-idf
   framework:
     type: esp-idf
     components:

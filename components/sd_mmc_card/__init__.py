@@ -71,7 +71,6 @@ CONFIG_SCHEMA = cv.All(
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    cg.add_define("USE_SD_MMC_CARD")
 
     cg.add(var.set_mode_1bit(config[CONF_MODE_1BIT]))
 

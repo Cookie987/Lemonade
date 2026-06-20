@@ -6,9 +6,6 @@ struct lua_State;
 namespace esphome {
 namespace lua_runtime {
 
-void set_device_info(const std::string &, const std::string &, const std::string &, const std::string &) {}
-void register_sd_mmc_card(const std::string &, esphome::sd_mmc_card::SdMmc *) {}
-void register_media_player(const std::string &, esphome::media_player::MediaPlayer *) {}
 void register_esphome_api(lua_State *) {}
 void register_media_player(const std::string &, esphome::media_player::MediaPlayer *) {}
 
@@ -25,9 +22,6 @@ void register_media_player(const std::string &, esphome::media_player::MediaPlay
 #include "esphome/components/media_player/media_player.h"
 #endif
 #include "esphome/components/rtttl/rtttl.h"
-#ifdef USE_SD_MMC_CARD
-#include "esphome/components/sd_mmc_card/sd_mmc_card.h"
-#endif
 #include "esphome/components/switch/switch.h"
 #include "esphome/core/application.h"
 
@@ -255,10 +249,11 @@ static void register_media_player_api(lua_State *L) {
 }
 
 void register_esphome_api(lua_State *L) {
-  register_device_api(L);
   register_switch_api(L);
   register_rtttl_api(L);
+#ifdef USE_MEDIA_PLAYER
   register_media_player_api(L);
+#endif
 }
 
 }  // namespace lua_runtime

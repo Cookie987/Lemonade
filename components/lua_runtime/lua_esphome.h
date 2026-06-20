@@ -16,8 +16,6 @@ class MediaPlayer;
 namespace esphome {
 namespace lua_runtime {
 
-void set_device_info(const std::string &name, const std::string &model, const std::string &version,
-                     const std::string &platform);
 void register_rtttl_player(const std::string &name, esphome::rtttl::Rtttl *player);
 void register_media_player(const std::string &name, esphome::media_player::MediaPlayer *player);
 void register_esphome_api(lua_State *L);

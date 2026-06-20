@@ -34,8 +34,6 @@ class LuaRuntime : public Component {
   void abort_all();
   void set_async_core(int async_core) { this->async_core_ = async_core; }
   void set_ota_active(bool active);
-  void set_device_info(const std::string &name, const std::string &model, const std::string &version,
-                       const std::string &platform);
   void register_rtttl_player(const std::string &name, rtttl::Rtttl *player);
   void register_media_player(const std::string &name, media_player::MediaPlayer *player);
   bool is_ota_active() const;

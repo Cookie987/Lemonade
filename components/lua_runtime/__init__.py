@@ -12,8 +12,6 @@ CONF_ENABLE_STUB = "enable_stub"
 CONF_FORCE_32BIT = "force_32bit"
 CONF_ASYNC_CORE = "async_core"
 CONF_RTTTL = "rtttl"
-CONF_SD_MMC_CARD = "sd_mmc_card"
-CONF_MEDIA_PLAYER = "media_player"
 
 lua_runtime_ns = cg.esphome_ns.namespace("lua_runtime")
 LuaRuntime = lua_runtime_ns.class_("LuaRuntime", cg.Component)
@@ -92,30 +90,6 @@ async def to_code(config):
 
     if lemonade_ver:
         cg.add_define("LEMONADE_VERSION", f"\"{lemonade_ver}\"")
-
-    subs = CORE.config.get(CONF_SUBSTITUTIONS, {}) if CORE.config else {}
-    cg.add(
-        var.set_device_info(
-            subs.get("lemonade_device_name", ""),
-            subs.get("lemonade_device_model", ""),
-            subs.get("lemonade_version", ""),
-            subs.get("lemonade_app_platform", ""),
-        )
-    )
-
-    sd_mmc_configs = CORE.config.get(CONF_SD_MMC_CARD, []) if CORE.config else []
-    if not isinstance(sd_mmc_configs, list):
-        sd_mmc_configs = [sd_mmc_configs]
-    for sd_mmc_config in sd_mmc_configs:
-        sd_mmc = await cg.get_variable(sd_mmc_config[CONF_ID])
-        cg.add(var.register_sd_mmc_card(str(sd_mmc_config[CONF_ID]), sd_mmc))
-
-    media_player_configs = CORE.config.get(CONF_MEDIA_PLAYER, []) if CORE.config else []
-    if not isinstance(media_player_configs, list):
-        media_player_configs = [media_player_configs]
-    for media_player_config in media_player_configs:
-        media_player = await cg.get_variable(media_player_config[CONF_ID])
-        cg.add(var.register_media_player(str(media_player_config[CONF_ID]), media_player))
 
     component_dir = Path(__file__).resolve().parent
     cg.add_build_flag(f"-I{component_dir}")
