@@ -2,7 +2,7 @@ lvgl:
   id: lvgl_1
   log_level: WARN
   double_buffer: false
-  use_dma: true
+  use_dma: false
   use_psram: true
   touchscreens:
     touchscreen_id: touch_panel

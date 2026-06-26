@@ -1,6 +1,7 @@
 packages:
   - !include setting-lvgl.yaml
   - !include setting-script.yaml
+  - !include setting-bottle.yaml
 
 image:
   rgb565:

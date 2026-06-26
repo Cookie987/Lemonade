@@ -2,14 +2,9 @@ esphome:
   name: "${lemonade_device_name}"
   friendly_name: ${lemonade_device_friendly_name}
   platformio_options:
-    extra_scripts:
-      - pre:pre_build.py
-      - pre:cxx_flags.py
-      - post:post_build.py
-      - pre:../../../scripts/remove_stale_internal_temperature.py
     upload_speed: 1152000
     lib_deps:
-      - https://github.com/bitbank2/JPEGDEC#1.8.4
+      - JPEGDEC@https://github.com/bitbank2/JPEGDEC#1.8.4
       - pngle@1.1.0
   includes:
     - packages/s3_touch/background_runtime_image.h
@@ -23,6 +18,7 @@ esphome:
     - <regex>
     - <vector>
     - <algorithm>
+    - <NimBLEDevice.h>
 
   on_boot:
     - priority: 800
@@ -114,6 +110,7 @@ esp32:
   cpu_frequency: 240MHz
   flash_size: 16MB
   partitions: partitions_16M.csv
+  toolchain: esp-idf
   framework:
     type: esp-idf
     components:
@@ -121,6 +118,7 @@ esp32:
         source: https://github.com/joltwallet/esp_littlefs.git
       - espressif/zlib~1.3
       - espressif/esp-dsp~1.7.1
+      - h2zero/esp-nimble-cpp~2.5.0
     advanced:
       execute_from_psram: false
       disable_vfs_support_termios: false
@@ -136,6 +134,9 @@ esp32:
       CONFIG_MBEDTLS_HARDWARE_MPI: y
       CONFIG_MBEDTLS_DYNAMIC_BUFFER: y
       CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_BT_ENABLED: y
+      CONFIG_BT_NIMBLE_ENABLED: y
+      CONFIG_BT_NIMBLE_MEM_ALLOC_MODE_EXTERNAL: y
 
 psram:
   mode: octal

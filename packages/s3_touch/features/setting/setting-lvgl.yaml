@@ -167,6 +167,15 @@ lvgl:
                         id: system_setting_iot_page
                         animation: MOVE_LEFT
                         time: 200ms
+              - text: "\uF492 瓶中之海"
+                id: btn_bottle_ocean_setting
+                list_button: {}
+                on_click:
+                  then:
+                    - lvgl.page.show:
+                        id: system_setting_bottle_ocean_page
+                        animation: MOVE_LEFT
+                        time: 200ms
               - text: "系统"
                 list_text: {}
 
@@ -940,7 +949,188 @@ lvgl:
                         text: "加载中..."
                         text_font: chinese_font14
                         text_color: 0x666666
+    - id: system_setting_bottle_ocean_page
+      skip: true
+      on_load:
+        - lvgl.widget.show: btn_back_setting
+        - lvgl.label.update:
+            id: lbl_topbar_title
+            text: "瓶中之海"
+        # 页面加载时，同步所有滑块的状态
+        - lvgl.slider.update:
+            id: bottle_ocean_hue_slider
+            value: !lambda 'return id(bottle_ocean_hue);'
+            knob:
+              bg_color: !lambda 'return lv_color_hsv_to_rgb(id(bottle_ocean_hue), 100, 100);'
+        - lvgl.slider.update:
+            id: bottle_ocean_brightness_slider
+            value: !lambda 'return id(bottle_ocean_brightness);'
+        - lvgl.slider.update:
+            id: bottle_ocean_flipratio_slider
+            value: !lambda 'return (int)(id(bottle_ocean_flipratio) * 100);'
+        - lvgl.slider.update:
+            id: bottle_ocean_pressure_slider
+            value: !lambda 'return (int)id(bottle_ocean_pressure);'
+        - lvgl.slider.update:
+            id: bottle_ocean_push_slider
+            value: !lambda 'return (int)id(bottle_ocean_push);'
+        - lvgl.slider.update:
+            id: bottle_ocean_tide_level_slider
+            value: !lambda 'return (int)(id(bottle_ocean_tide_level) * 100);'
+      on_unload:
+        - lvgl.widget.hide: btn_back_setting
 
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            align: CENTER
+            border_width: 0
+            width: 320
+            height: 185
+            widgets:
+              # --- 1. 色调 ---
+              - label:
+                  text: "色调"
+                  text_font: chinese_font14
+                  x: 9
+                  y: 33
+              - slider:
+                  id: bottle_ocean_hue_slider
+                  min_value: 0
+                  max_value: 360
+                  width: 190
+                  x: 83
+                  y: 38
+                  on_release:
+                    - lambda: global_preferences->sync();
+                  on_change:
+                    then:
+                      - lambda: id(bottle_ocean_hue) = x;
+                      # 使用 ESPHome 原生的 LVGL 更新动作
+                      - lvgl.slider.update:
+                          id: bottle_ocean_hue_slider
+                          knob:
+                            bg_color: !lambda 'return lv_color_hsv_to_rgb(x, 100, 100);'
+
+              # --- 2. 亮度 ---
+              - label:
+                  text: "亮度"
+                  text_font: chinese_font14
+                  x: 9
+                  y: 83
+              - slider:
+                  id: bottle_ocean_brightness_slider
+                  min_value: 63
+                  max_value: 255  # 修正量程以匹配 uint8_t
+                  width: 190
+                  x: 83
+                  y: 88
+                  on_release:
+                    - lambda: global_preferences->sync();
+                  on_change:
+                    then:
+                      - lambda: |-
+                          // 将 0-255 的线性值归一化为 0.0-1.0
+                          float input = x / 255.0f;
+
+                          // 使用标准的 Gamma 2.8 曲线进行非线性映射
+                          float corrected = std::pow(input, 2.8f);
+
+                          // 重新映射回 0-255 整数并赋值给全局变量
+                          id(bottle_ocean_brightness) = static_cast<uint8_t>(corrected * 255.0f);
+
+              # --- 3. 活跃度 (FlipRatio) ---
+              - label:
+                  text: "活跃"
+                  text_font: chinese_font14
+                  x: 9
+                  y: 133
+              - slider:
+                  id: bottle_ocean_flipratio_slider
+                  min_value: 0
+                  max_value: 100  # 对应 0.0 ~ 1.0
+                  width: 190
+                  x: 83
+                  y: 138
+                  on_release:
+                    - lambda: global_preferences->sync();
+                  on_change:
+                    then:
+                      - lambda: id(bottle_ocean_flipratio) = x / 100.0f;
+
+              # --- 4. 压力 (Pressure) ---
+              - label:
+                  text: "压力"
+                  text_font: chinese_font14
+                  x: 9
+                  y: 183
+              - slider:
+                  id: bottle_ocean_pressure_slider
+                  min_value: 1
+                  max_value: 50
+                  width: 190
+                  x: 83
+                  y: 188
+                  on_release:
+                    - lambda: global_preferences->sync();
+                  on_change:
+                    then:
+                      - lambda: id(bottle_ocean_pressure) = (float)x;
+
+              # --- 5. 推力 (Push) ---
+              - label:
+                  text: "推力"
+                  text_font: chinese_font14
+                  x: 9
+                  y: 233
+              - slider:
+                  id: bottle_ocean_push_slider
+                  min_value: 0
+                  max_value: 20
+                  width: 190
+                  x: 83
+                  y: 238
+                  on_release:
+                    - lambda: global_preferences->sync();
+                  on_change:
+                    then:
+                      - lambda: id(bottle_ocean_push) = (float)x;
+
+              # --- 6. 液面 (Tide Level) ---
+              - label:
+                  text: "液面"
+                  text_font: chinese_font14
+                  x: 9
+                  y: 283
+              - slider:
+                  id: bottle_ocean_tide_level_slider
+                  min_value: 0
+                  max_value: 100  # 对应 0.0 ~ 1.0
+                  width: 190
+                  x: 83
+                  y: 288
+                  on_release:
+                    - lambda: global_preferences->sync();
+                  on_change:
+                    then:
+                      - lambda: id(bottle_ocean_tide_level) = x / 100.0f;
+
+              # --- 提交按钮 ---
+              - button:
+                  id: btn_set_bottle_ocean_color
+                  align: BOTTOM_MID
+                  y: 185  # 将按钮锚定在屏幕底部，防止与上方堆叠的滑块重叠
+                  width: 260
+                  height: 32
+                  widgets:
+                    - label:
+                        align: CENTER
+                        text_font: chinese_font14
+                        text: "应用设置"
+                  on_click:
+                    then:
+                      - script.execute: broadcast_bottle_data
     - id: system_setting_previous_error_page
       skip: true
       on_load:

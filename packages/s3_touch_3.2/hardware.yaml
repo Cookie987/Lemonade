@@ -20,6 +20,8 @@ display:
     dimensions:
       width: 320
       height: 240
+      pad_width: 0
+      pad_height: 0
 
 touchscreen:
   - id: touch_panel
@@ -62,13 +64,13 @@ switch:
     #   widget: switch_bluetooth
     #   restore_mode: ALWAYS_ON
 
-light:
-  - platform: esp32_rmt_led_strip
-    pin: GPIO16
-    id: led
-    num_leds: 1
-    rgb_order: GRB
-    chipset: ws2812
+# light:
+#   - platform: esp32_rmt_led_strip
+#     pin: GPIO16
+#     id: led
+#     num_leds: 1
+#     rgb_order: GRB
+#     chipset: ws2812
 
 output:
   - platform: ledc
