@@ -96,8 +96,8 @@ script:
           advData.setName("C");
           advData.setManufacturerData(manufacturer_data);
 
-          pAdvertising->setMinInterval(32);
-          pAdvertising->setMaxInterval(122);
+          pAdvertising->setMinInterval(100);
+          pAdvertising->setMaxInterval(1000);
 
           // 载入数据并启动发射
           pAdvertising->setAdvertisementData(advData);
@@ -108,7 +108,7 @@ script:
           }
 
       # 4. 持续高频广播 3 秒钟
-      - delay: 3s
+      - delay: 1s
 
       # 5. 3秒时间到，恢复静默
       - lambda: |-
