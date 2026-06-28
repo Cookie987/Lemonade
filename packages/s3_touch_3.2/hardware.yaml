@@ -20,6 +20,8 @@ display:
     dimensions:
       width: 320
       height: 240
+      pad_width: 0
+      pad_height: 0
 
 touchscreen:
   - id: touch_panel
@@ -48,10 +50,8 @@ i2c:
   frequency: 20kHz
 
 spi:
-  - id: spi_bus0
-    clk_pin: GPIO18
-    mosi_pin: GPIO17
-    interface: spi3
+  clk_pin: GPIO18
+  mosi_pin: GPIO17
 
 switch:
   - platform: gpio
@@ -64,14 +64,13 @@ switch:
     #   widget: switch_bluetooth
     #   restore_mode: ALWAYS_ON
 
-light:
-  - platform: esp32_rmt_led_strip
-    pin: GPIO16
-    id: led
-    num_leds: 1
-    rgb_order: GRB
-    chipset: ws2812
-    restore_mode: ALWAYS_OFF
+# light:
+#   - platform: esp32_rmt_led_strip
+#     pin: GPIO16
+#     id: led
+#     num_leds: 1
+#     rgb_order: GRB
+#     chipset: ws2812
 
 output:
   - platform: ledc
@@ -160,6 +159,24 @@ binary_sensor:
                   color: !lambda return lv_color_hex(0x000000);
               - lambda: |
                   lv_label_set_text(id(lbl_temp_high), "请等待 SMC 冷却后再使用。");
+
+  - platform: gpio
+    id: dock_detect
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+    filters:
+      - settle: 50ms
+    on_press:
+      then:
+        - logger.log: Dock connected
+        - lambda: |
+            id(show_notification)->execute("底座已连接", "底座已断开", 2000);
+    on_release:
+      then:
+        - lambda: |
+            id(show_notification)->execute("底座已断开", "底座已连接", 2000);
 
   - platform: sd_mmc_card
     card_detected:

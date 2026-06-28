@@ -1,0 +1,118 @@
+globals:
+  - id: bottle_ocean_hue
+    type: uint16_t
+    restore_value: yes
+  - id: bottle_ocean_brightness
+    type: uint8_t
+    initial_value: '255'
+    restore_value: yes
+  - id: bottle_ocean_flipratio
+    type: float
+    initial_value: '0.9f'
+    restore_value: yes
+  - id: bottle_ocean_pressure
+    type: float
+    initial_value: '10.0f'
+    restore_value: yes
+  - id: bottle_ocean_push
+    type: float
+    initial_value: '0.5f'
+    restore_value: yes
+  - id: bottle_ocean_tide_level
+    type: float
+    initial_value: '0.5f'
+    restore_value: yes
+  - id: bottle_ocean_online
+    type: bool
+    initial_value: 'false'
+  - id: connected_bottle_mac
+    type: uint8_t[6]  # 记录当前连接的 6 字节 MAC 地址
+  - id: bottle_ocean_last_recv_time
+    type: uint32_t
+    initial_value: '0'
+
+script:
+  - id: broadcast_bottle_data
+    mode: restart  # 狂点时重置 3 秒倒计时
+    then:
+      - lambda: |-
+          // 1. 数据包结构体定义
+          typedef struct __attribute__((packed)) {
+              uint8_t magic;
+              uint8_t r; uint8_t g; uint8_t b;
+              float flipratio;
+              float pressure;
+              float push;
+              uint8_t brightness;
+              float tide_level;
+          } Packet;
+
+          Packet pkt;
+          pkt.magic = 0x5A;
+
+          // HSV 转 RGB 逻辑
+          uint16_t h = id(bottle_ocean_hue) % 360;
+          float s = 1.0f; float v = 1.0f;
+          float c = v * s;
+          float x = c * (1.0f - std::abs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
+          float m = v - c;
+          float r_f = 0, g_f = 0, b_f = 0;
+          if (h >= 0 && h < 60)         { r_f = c; g_f = x; b_f = 0; }
+          else if (h >= 60 && h < 120)  { r_f = x; g_f = c; b_f = 0; }
+          else if (h >= 120 && h < 180) { r_f = 0; g_f = c; b_f = x; }
+          else if (h >= 180 && h < 240) { r_f = 0; g_f = x; b_f = c; }
+          else if (h >= 240 && h < 300) { r_f = x; g_f = 0; b_f = c; }
+          else                          { r_f = c; g_f = 0; b_f = x; }
+
+          pkt.r = static_cast<uint8_t>((r_f + m) * 255.0f);
+          pkt.g = static_cast<uint8_t>((g_f + m) * 255.0f);
+          pkt.b = static_cast<uint8_t>((b_f + m) * 255.0f);
+
+          pkt.flipratio = id(bottle_ocean_flipratio);
+          pkt.pressure = id(bottle_ocean_pressure);
+          pkt.push = id(bottle_ocean_push);
+          pkt.brightness = id(bottle_ocean_brightness);
+          pkt.tide_level = id(bottle_ocean_tide_level);
+
+          // 2. 检查并初始化 NimBLE 堆栈（防止重复初始化崩溃）
+          if (!NimBLEDevice::isInitialized()) {
+              NimBLEDevice::init("SMC");
+          }
+
+          // 3. 配置并启动广播
+          NimBLEAdvertising* pAdvertising = NimBLEDevice::getAdvertising();
+
+          // 如果已经在广播，先停掉以更新数据内容
+          pAdvertising->stop();
+
+          // 组装厂商数据 (2 字节公司代码 FFFF + 数据包)
+          std::string strData((char*)&pkt, sizeof(Packet));
+          std::string manufacturer_data = "\xFF\xFF" + strData;
+
+          // 封装 NimBLE 广告数据
+          NimBLEAdvertisementData advData;
+          // 设置广播 Flag: 普遍发现模式 + 不支持 BR/EDR (纯 BLE)
+          advData.setFlags(0x06);
+          advData.setName("C");
+          advData.setManufacturerData(manufacturer_data);
+
+          pAdvertising->setMinInterval(100);
+          pAdvertising->setMaxInterval(1000);
+
+          // 载入数据并启动发射
+          pAdvertising->setAdvertisementData(advData);
+          if (pAdvertising->start()) {
+              ESP_LOGI("NimBLE_TX", "NimBLE 启动广播...");
+          } else {
+              ESP_LOGE("NimBLE_TX", "NimBLE 广播启动失败！");
+          }
+
+      # 4. 持续高频广播 3 秒钟
+      - delay: 1s
+
+      # 5. 3秒时间到，恢复静默
+      - lambda: |-
+          if (NimBLEDevice::isInitialized()) {
+              NimBLEDevice::getAdvertising()->stop();
+              ESP_LOGI("NimBLE_TX", "广播时间到，NimBLE 已停止发射。");
+          }

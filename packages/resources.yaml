@@ -32,6 +32,7 @@ font:
           "\uF005",  # star
           "\uF1CD",  # life-ring
           "\uF2F1",  # rotate
+          "\uF492",  # vial
         ]   # arrow-left, arrow-right, rotate-left
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [

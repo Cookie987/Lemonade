@@ -12,7 +12,7 @@ display:
     auto_clear_enabled: false
     update_interval: never
     pixel_mode: 16bit
-    use_dma: true
+    use_dma: false
     transform:
       swap_xy: true
       mirror_x: false
@@ -20,6 +20,8 @@ display:
     dimensions:
       width: 320
       height: 240
+      pad_width: 0
+      pad_height: 0
 
 touchscreen:
   - id: touch_panel

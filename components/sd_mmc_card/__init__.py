@@ -12,6 +12,7 @@ from esphome.const import (
 )
 from esphome.core import CORE
 from esphome.components.esp32 import get_esp32_variant
+from esphome.components.esp32 import require_fatfs
 from esphome.components.esp32.const import (
     VARIANT_ESP32,
     VARIANT_ESP32S3,
@@ -81,7 +82,7 @@ async def to_code(config):
     if CORE.is_esp32:
         # Re-enable ESP-IDF's LCD driver (excluded by default to save compile time)
         from esphome.components.esp32 import include_builtin_idf_component
-        
+        require_fatfs()
         include_builtin_idf_component("fatfs")
         include_builtin_idf_component("wear_levelling")
         include_builtin_idf_component("spiffs")

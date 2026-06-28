@@ -1049,25 +1049,25 @@ LUALIB_API const char *luaL_gsub (lua_State *L, const char *s,
 
 
 void *luaL_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
-  UNUSED(ud); 
-  UNUSED(osize);
-  if (nsize == 0) {
-    /* 在 ESP32 中，heap_caps_free 可以安全处理 NULL */
-    heap_caps_free(ptr);
-    return NULL;
-  }
-  else {
-    /* 强制在 16MB PSRAM 中分配，并确保 8-bit 可访问 */
+    UNUSED(ud); 
+    UNUSED(osize);
+    
+    if (nsize == 0) {
+        heap_caps_free(ptr);
+        return NULL;
+    }
+    
+    // 强制隔离在 PSRAM。由于加入了 8BIT 权能，确保了平台兼容性
     void *new_ptr = heap_caps_realloc(ptr, nsize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     
-    /* 防御性处理：如果 PSRAM 分配失败，尝试回退到内部 SRAM (可选) */
+    // 如果几MB的 PSRAM 都会失败，直接宣告失败（让 Lua 触发 GC 或抛出运行时错误）
+    // 坚决不回退到 SRAM，防止隐式内存泄漏以及 SRAM 瞬间被 Lua 撑爆导致系统狗叫（WDT）
     if (new_ptr == NULL) {
-      ESP_LOGE(TAG, "PSRAM allocation failed, trying internal SRAM...");
-      new_ptr = heap_caps_realloc(ptr, nsize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        ESP_LOGE("LUA_ALLOC", "PSRAM OOM! Failed to allocate %u bytes", nsize);
+        return NULL; 
     }
     
     return new_ptr;
-  }
 }
 
 

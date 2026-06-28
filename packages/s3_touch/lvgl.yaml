@@ -2,7 +2,7 @@ lvgl:
   id: lvgl_1
   log_level: WARN
   double_buffer: false
-  use_dma: true
+  use_dma: false
   use_psram: true
   touchscreens:
     touchscreen_id: touch_panel
@@ -17,8 +17,9 @@ lvgl:
     widgets:
       - label:
           id: lbl_topbar_title
+          y: -1
           align: TOP_MID
-          height: 14
+          height: 15
           text: "系统设置"
           recolor: true
           text_font: chinese_font14
