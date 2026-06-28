@@ -2,7 +2,7 @@ display:
   - platform: mipi_spi
     id: watchface
     data_rate: 80MHz
-    model: ST7789V-320x240
+    model: ST7789V
     cs_pin: GPIO6
     reset_pin: GPIO7
     dc_pin: GPIO15
