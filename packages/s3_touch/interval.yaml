@@ -16,6 +16,20 @@ interval:
 
   - interval: 5s
     then:
+      - lambda: |-
+          // 打印当前剩余的堆内存信息
+          ESP_LOGI("DEBUG", "========================================");
+
+          // 1. 打印内部 SRAM（最关键：系统、蓝牙、任务栈消耗这里）
+          ESP_LOGI("DEBUG", "Internal SRAM Free : %d bytes", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+          ESP_LOGI("DEBUG", "Internal SRAM Min  : %d bytes", heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL));
+          ESP_LOGI("DEBUG", "Internal SRAM MaxBlk: %d bytes", heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+
+          // 2. 打印外部 PSRAM（LVGL、ArduinoJson、大缓冲区消耗这里）
+          ESP_LOGI("DEBUG", "External PSRAM Free: %d bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+          ESP_LOGI("DEBUG", "External PSRAM Min : %d bytes", heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM));
+
+          ESP_LOGI("DEBUG", "========================================");
       - script.execute: statusbar_update
 
   # keepalive
