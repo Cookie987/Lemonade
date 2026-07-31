@@ -352,6 +352,11 @@ wifi:
   power_save_mode: HIGH
   on_connect:
     then:
+      - lambda: |
+          ESP_LOGI("MQTT_Cred", "MQTT connected, applying credentials...");
+          id(mqtt_was_connected) = true;
+      - script.execute: mqtt_register_credentials
+      - delay: 3s
       - mqtt.enable:
   cooldown_off_attempts: 3
   use_psram: true
@@ -359,6 +364,10 @@ wifi:
   on_disconnect:
     then:
       - mqtt.disable:
+      - lambda: |
+          ESP_LOGW("MQTT_Cred", "MQTT disconnected");
+          id(mqtt_was_connected) = false;
+      - script.execute: mqtt_register_credentials
       # - if:
       #     condition:
       #       lambda: 'return id(wifi_switch).state;'
@@ -457,6 +466,7 @@ mqtt:
   reboot_timeout: 0s
   username: !secret mqtt_username
   password: !secret mqtt_password
+  enable_on_boot: false
   idf_send_async: true
   discovery: false
   discover_ip: false
@@ -498,6 +508,7 @@ mqtt:
       - lambda: |
           id(show_notification)->execute("MQTT 连接成功", "MQTT", 5000);
       - script.execute: keepalive
+      - script.execute: mqtt_register_and_reconnect
 
 time:
   - id: ntp_time
@@ -581,7 +592,7 @@ sensor:
             condition:
               sensor.in_range:
                 id: internal_temp
-                above: 48.0
+                above: ${battery_warning_temp}
             then:
               - script.execute: security_capture_resume_page
               - lvgl.page.show: page_temperature_high
@@ -591,7 +602,7 @@ sensor:
                     - lvgl.page.is_showing: page_temperature_high
                     - sensor.in_range:
                         id: internal_temp
-                        below: 42.0
+                        below: ${battery_low_temp}
                   then:
                     - script.execute: security_resume_saved_page
 

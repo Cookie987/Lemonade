@@ -1,1 +1,0 @@
-esphome @ git+https://github.com/cookie987/esphome.git@release

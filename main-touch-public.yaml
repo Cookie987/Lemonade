@@ -21,7 +21,8 @@ substitutions:
   lemonade_ibeacon_measured_power: "-59"
   lemonade_update_info_url: ***REMOVED***uploads/firmware/smartclock_t/stable/release.json
   lemonade_app_platform: "s3_t"
-***REMOVED***  log_level: WARN
+***REMOVED***  c987_mqtt_register_url: "***REMOVED***"
+  log_level: WARN
 
 esp32_ble_beacon: !remove
 
@@ -38,6 +39,7 @@ packages:
   - !include packages/resources.yaml
   - !include packages/s3_touch/networks.yaml
   - !include packages/s3_touch/features/mqtt_handler.yaml
+  - !include packages/s3_touch/features/mqtt_credentials.yaml
   # - !include packages/storage.yaml
   # 设置
   - !include packages/s3_touch/features/setting/setting.yaml
