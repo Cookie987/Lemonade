@@ -39,7 +39,7 @@ jobs:
           git checkout -b build-temp-branch
 
       - name: 编译 ESPHome 固件
-        run: esphome compile main-touch-public.yaml
+        run: esphome compile touch_public.yaml
 
       - name: 提取、重命名并计算校验和
         id: process_firmware

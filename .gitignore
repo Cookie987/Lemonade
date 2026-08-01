@@ -1,4 +1,5 @@
 secrets.yaml
+server/
 .esphome/
 .vscode/
 .venv/

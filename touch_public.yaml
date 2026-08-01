@@ -4,33 +4,31 @@ esphome:
   project:
     name: "cookie987.lemonade"
     version: "1.9.1"
-  name_add_mac_suffix: false
+  name_add_mac_suffix: true
 
 substitutions:
   # 基本信息
   lemonade_board: "um_pros3"
-  lemonade_device_name: "lemonade-tc"
+  lemonade_device_name: "lemonade-t"
   lemonade_device_friendly_name: "Lemonade"
   lemonade_device_model: "智能时钟_T"
-  lemonade_version: "1.9.1 Canary"
+  lemonade_version: "1.9.1 Public"
   lemonade_ota_password: !secret ota_password
-  lemonade_app_store_index_url: "***REMOVED***apps/index.json"
   lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
+  lemonade_app_store_index_url: !secret app_store_index_url
   lemonade_ibeacon_major: "987"
   lemonade_ibeacon_minor: "114"
   lemonade_ibeacon_measured_power: "-59"
-  lemonade_update_info_url: ***REMOVED***uploads/firmware/smartclock_t/canary/release.json
+  lemonade_update_info_url: !secret update_info_url_t_stable
   lemonade_app_platform: "s3_t"
-***REMOVED***  c987_mqtt_register_url: "***REMOVED***"
-  log_level: DEBUG
+  c987_mqtt_server: !secret mqtt_server
+  c987_mqtt_register_url: !secret mqtt_register_url
+  log_level: WARN
+
+esp32_ble_beacon: !remove
 
 external_components:
   - source: components
-
-api:
-  reboot_timeout: 0s
-
-esp32_ble_beacon: !remove
 
 packages:
   # 核心组件
@@ -50,21 +48,9 @@ packages:
   - !include packages/s3_touch/features/app_store/app_store.yaml
   # 秒表
   - !include packages/s3_touch/features/timer/timer.yaml
+  # 游戏
+  # - !include packages/games/game_core.yaml
   # 天气与日历
   - !include packages/s3_touch/features/weather/weather.yaml
   # 聊天
   - !include packages/s3_touch/features/message/message.yaml
-
-# wireguard:
-#   address: 10.1.0.100
-#   private_key: !secret wg_privkey
-***REMOVED***#   peer_public_key: !secret wg_peer_public_key
-#   # Optional netmask (this is the default, no outgoing traffic
-#   # will pass through the tunnel if omitted)
-#   netmask: 255.255.255.0
-#   peer_port: 51820
-#   peer_allowed_ips:
-#     - 10.1.0.0/24
-#     - 192.168.1.0/24
-#   peer_persistent_keepalive: 25s
-#   reboot_timeout: 0s

@@ -1,17 +1,19 @@
 # Lemonade OS License
-Copyright (c) 2025 Cookie_987
+
+Copyright (c) 2025 Cookie_987  
 Copyright (c) 2025 RedCookieStudios
 
-Lemonade OS is built on top of [ESPHome](https://github.com/esphome/esphome), which is licensed under the MIT and GNU General Public License v3.0.
+Lemonade OS is built on top of a modified version of ESPHome.
+The modified ESPHome source code is licensed under the GNU General Public License v3.0 (GPLv3).
+See the [ESPHome fork repository](https://github.com/Cookie987/esphome) for more information.
 
-This project also references external ESPHome components that are not included in this repository and are automatically downloaded at build time:
+Third-party components may be included in this project. These components remain the property of their respective authors and may be distributed under different license terms.
 
-- [esphome-custom-components](https://github.com/tlanfer/esphome-custom-components)
-- [games-esphome](https://github.com/stuartparmenter/games-esphome)
+The C++ source code of Lemonade OS, including C++ code embedded in YAML lambda blocks, `.cpp`, `.c`, and `.h` files, is licensed under GPLv3.
 
-These components remain the property of their respective authors and may be subject to different license terms.
+The YAML configuration files are licensed under the MIT License.
 
-GPLv3 license is attached to this document.
+Both GPLv3 and MIT licenses are attached to this document.
 
 ## GPLv3 License
 
@@ -689,3 +691,26 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <http://www.gnu.org/philosophy/why-not-lgpl.html>.
+
+## MIT License
+
+Copyright (c) 2025 Cookie_987
+Copyright (c) 2025 RedCookieStudios
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
