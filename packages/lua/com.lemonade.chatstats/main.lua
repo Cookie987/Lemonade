@@ -10,7 +10,8 @@ lv.obj_clean(page)
 lv.obj_set_style_bg_color(page, 0xF6F8FB, 0)
 lv.obj_clear_flag(page, lv.FLAG_SCROLLABLE)
 
-***REMOVED***local COLOR_PRIMARY = 0x2563EB
+local API_BASE = "https://iot.cookie987.top"
+local COLOR_PRIMARY = 0x2563EB
 local COLOR_PRIMARY_DARK = 0x1D4ED8
 local COLOR_TEXT = 0x111827
 local COLOR_MUTED = 0x6B7280
