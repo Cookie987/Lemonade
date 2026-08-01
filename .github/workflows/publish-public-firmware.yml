@@ -20,7 +20,7 @@ jobs:
       - name: 设置 Python 环境
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.14'
           cache: 'pip'
 
       - name: 安装 ESPHome
