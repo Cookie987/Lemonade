@@ -16,6 +16,10 @@
 #endif
 #include "esphome/core/string_ref.h"
 
+#include <fstream>
+
+#include <ArduinoJson.h>
+
 #include <atomic>
 #include <limits>
 #include <span>
@@ -495,6 +499,9 @@ class WiFiComponent final : public Component {
   void append_wifi_sta(const char *ssid, const char *password);
   void append_wifi_sta(StringRef ssid, StringRef password) { this->append_wifi_sta(ssid.c_str(), password.c_str()); }
 
+  /// Reload saved WiFi STAs from LittleFS /data/wifilist.json
+  void reload_saved_wifi_stas();
+
   // ========== INTERNAL METHODS ==========
   // (In most use cases you won't need these)
   /// Setup WiFi interface.
@@ -794,7 +801,13 @@ class WiFiComponent final : public Component {
   bool sanitize_saved_wifi_array_(SavedWifiSettingsArray &array);
   int8_t find_saved_wifi_index_(const SavedWifiSettingsArray &array, const char *ssid) const;
   void rebuild_sta_from_saved_wifi_array_(const SavedWifiSettingsArray &array, const char *preferred_ssid = nullptr);
-  void sync_legacy_saved_wifi_pref_(const SavedWifiSettingsArray &array);
+
+  /// Load saved WiFi credentials from LittleFS /data/wifilist.json
+  bool load_creds_from_littlefs_();
+  /// Save current saved WiFi credentials to LittleFS /data/wifilist.json
+  bool save_creds_to_littlefs_();
+  /// Migrate saved WiFi credentials from NVS to LittleFS (backward compatibility)
+  void migrate_nvs_to_littlefs_();
 
   // Post-connect roaming methods
   void check_roaming_(uint32_t now);
@@ -871,11 +884,8 @@ class WiFiComponent final : public Component {
 #ifdef USE_WIFI_POWER_SAVE_LISTENERS
   StaticVector<WiFiPowerSaveListener *, ESPHOME_WIFI_POWER_SAVE_LISTENERS> power_save_listeners_;
 #endif
-  ESPPreferenceObject pref_;
-  ESPPreferenceObject saved_stas_pref_;
-#ifdef USE_WIFI_FAST_CONNECT
-  ESPPreferenceObject fast_connect_pref_;
-#endif
+  static constexpr const char *WIFI_CREDS_FILE = "/data/wifilist.json";
+  static constexpr const char *WIFI_FAST_CONNECT_FILE = "/data/wifi_fast_connect.json";
 #ifdef USE_WIFI_CONNECT_TRIGGER
   Trigger<> connect_trigger_;
 #endif
@@ -980,7 +990,6 @@ class WiFiComponent final : public Component {
   bool ap_setup_{false};
   bool ap_started_{false};
   bool passive_scan_{false};
-  bool has_saved_wifi_settings_{false};
 #ifdef USE_WIFI_11KV_SUPPORT
   bool btm_{false};
   bool rrm_{false};

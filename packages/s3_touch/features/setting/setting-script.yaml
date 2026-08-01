@@ -428,65 +428,10 @@ script:
             return;
           }
 
-          std::ifstream file("/data/wifilist.json");
-          if (!file.is_open()) {
-            ESP_LOGW("CookieIoT", "Config file not found.");
-            lv_label_set_text(lbl_wifi_get_info, "未找到 WiFi 配置文件");
-            return;
-          }
+          // wifi 组件直接从 /data/wifilist.json 读取凭据
+          wifi->reload_saved_wifi_stas();
 
-          std::string config_json((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-          file.close();
-          if (config_json.empty()) {
-            ESP_LOGW("CookieIoT", "WiFi config file is empty");
-            lv_label_set_text(lbl_wifi_get_info, "WiFi 配置为空");
-            return;
-          }
-
-          JsonDocument doc;
-          DeserializationError error = deserializeJson(doc, config_json);
-          if (error) {
-            ESP_LOGW("CookieIoT", "Failed to parse JSON: %s", error.c_str());
-            lv_label_set_text(lbl_wifi_get_info, "WiFi 配置解析失败");
-            return;
-          }
-
-          int status_code = doc["statusCode"] | 500;
-          if (status_code != 200) {
-            std::string err = doc["error"] | "未知错误";
-            lv_label_set_text(lbl_wifi_get_info, (std::string("获取WiFi信息失败：") + err).c_str());
-            return;
-          }
-
-          if (!doc["wifis"].is<JsonArray>()) {
-            lv_label_set_text(lbl_wifi_get_info, "WiFi 配置格式错误");
-            return;
-          }
-
-          JsonArray wifis = doc["wifis"].as<JsonArray>();
-          wifi->clear_saved_wifi_stas();
-
-          int applied = 0;
-          int skipped = 0;
-          for (JsonObject item : wifis) {
-            std::string wifi_ssid = item["ssid"] | "";
-            std::string wifi_password = item["password"] | "";
-            if (wifi_ssid.empty()) {
-              skipped++;
-              continue;
-            }
-            wifi->append_wifi_sta(wifi_ssid, wifi_password);
-            ESP_LOGI("CookieIoT", "Saved WiFi STA: %s", wifi_ssid.c_str());
-            applied++;
-          }
-
-          global_preferences->sync();
-          std::string message = std::string("保存了") + std::to_string(applied) + std::string("个WiFi。");
-          if (skipped > 0) {
-            message += std::string(" 跳过") + std::to_string(skipped) + std::string("个无效条目。");
-          }
-          message += " 请关闭并重新打开WiFi";
-          lv_label_set_text(lbl_wifi_get_info, message.c_str());
+          lv_label_set_text(lbl_wifi_get_info, "WiFi 已刷新");
       - script.execute: refresh_wifi_list
 
   - id: refresh_wifi_list

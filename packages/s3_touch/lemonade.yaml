@@ -19,21 +19,41 @@ esphome:
     - <vector>
     - <algorithm>
     - <NimBLEDevice.h>
-
   on_boot:
-    - priority: 800
+    - priority: 850
       then:
-        - script.execute: littlefs_init
-        - script.execute: sdcard_init
         - lambda: id(acc).turn_on();
+        - script.execute: littlefs_init
+    - priority: 600
+      then:
+        - lvgl.resume:
+            lvgl_id: lvgl_1
+        - lambda: |
+            lv_label_set_text(id(loading_label), "componment/sensor");
+        - lambda: lv_timer_handler();
+        - lambda: id(backlight_pin).set_level(100.0);
+        - logger.log: "Showed splash screen"
     - priority: 400
       then:
+        - lambda: |
+            lv_label_set_text(id(loading_label), "componment/display");
+        - lambda: lv_timer_handler();
+    - priority: 350
+      then:
+        - lambda: |
+            lv_label_set_text(id(loading_label), "componment/bluetooth");
+        - lambda: lv_timer_handler();
+    - priority: 250
+      then:
+        - lambda: |
+            lv_label_set_text(id(loading_label), "componment/network");
+        - lambda: lv_timer_handler();
+    - priority: -100
+      then:
+        - lambda: |
+            lv_label_set_text(id(loading_label), "lemonade/iot");
+        - lambda: lv_timer_handler();
         - script.execute: prase_iot_info
-        - if:
-            condition:
-              lambda: 'return id(dropdown_image).get_selected_text() == "Cookie IoT";'
-            then:
-              - script.execute: set_background_img
         - lambda: |
             // 创建默认的/data/wifilist.json
             struct stat st;
@@ -58,14 +78,21 @@ esphome:
             file << payload;
             file.close();
             ESP_LOGI("CookieIoT", "Created /data/wifilist.json");
-    - priority: 300
-      then:
+        - lambda: |
+            lv_label_set_text(id(loading_label), "componment/wifi");
+        - lambda: lv_timer_handler();
+        - script.execute: prase_wifi_list
+        - lambda: |
+            lv_label_set_text(id(loading_label), "componment/mqtt");
+        - lambda: lv_timer_handler();
+        - script.execute: mqtt_response_handler
+        - lambda: |
+            lv_label_set_text(id(loading_label), "componment/sdcard");
+        - lambda: lv_timer_handler();
+        - script.execute: sdcard_init
         - lambda: |
             float b = id(backlight).current_values.get_brightness();
             lv_slider_set_value(id(backlight_slider), b * 100.0, LV_ANIM_ON);
-        - light.turn_on:
-            id: backlight
-            transition_length: 1s
         - if:
             condition:
               lambda: 'return id(buzzer_switch).state && id(buzzer_startup_switch).state;'
@@ -78,7 +105,9 @@ esphome:
               - lambda: id(watchface)->set_invert_colors(true);
             else:
               - lambda: id(watchface)->set_invert_colors(false);
-        - lvgl.widget.hide: boot_screen
+        - lambda: |
+            lv_label_set_text(id(loading_label), "lemonade/crash_handler");
+        - lambda: lv_timer_handler();
         - lambda: |
             #ifdef USE_ESP32_CRASH_HANDLER
             id(previous_crash_detected) = esphome::esp32::crash_handler_has_data();
@@ -95,15 +124,27 @@ esphome:
                 id(show_notification)->execute("系统更新成功", "", 0);
               }
             }
-        - script.execute: security_lock_now
-    - priority: 250
-      then:
-        - script.execute: prase_wifi_list
+        - lambda: |
+            lv_label_set_text(id(loading_label), "lemonade/background");
+        - lambda: lv_timer_handler();
+        - if:
+            condition:
+              lambda: 'return id(dropdown_image).get_selected_text() == "Cookie IoT";'
+            then:
+              - script.execute: set_background_img
+        - lambda: |
+            lv_label_set_text(id(loading_label), "lemonade/lua_runtime");
+        - lambda: lv_timer_handler();
         - lambda: |
             id(lua).run_file_async("/sdcard/init.lua");
-    - priority: 100
-      then:
-        - script.execute: mqtt_response_handler
+        - script.execute: init_main_screen
+        - script.execute: security_lock_now
+        - script.execute: wakeup_script
+        - lambda: |
+            lv_label_set_text(id(loading_label), "Done!");
+        - lambda: lv_timer_handler();
+        - delay: 100ms
+        - lvgl.widget.hide: boot_screen
 
 esp32:
   board: ${lemonade_board}

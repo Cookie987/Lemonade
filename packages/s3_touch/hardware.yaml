@@ -1,5 +1,6 @@
 display:
   - platform: mipi_spi
+    setup_priority: 700
     id: watchface
     data_rate: 80MHz
     model: ST7789V
@@ -68,6 +69,7 @@ switch:
 
 output:
   - platform: ledc
+    setup_priority: 998
     pin: GPIO8
     id: backlight_pin
     frequency: 3840
