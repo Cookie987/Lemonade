@@ -148,6 +148,8 @@ esphome:
         - delay: 150ms
         - lvgl.widget.hide: boot_screen
 
+lemonade_bootloader:
+
 esp32:
   board: ${lemonade_board}
   cpu_frequency: 240MHz

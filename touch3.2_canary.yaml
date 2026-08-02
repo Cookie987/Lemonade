@@ -30,6 +30,10 @@ substitutions:
 external_components:
   - source: components
 
+ota:
+  - platform: esphome
+    allow_partition_access: true
+
 api:
   reboot_timeout: 0s
 
