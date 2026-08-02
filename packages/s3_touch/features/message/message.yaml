@@ -5,14 +5,24 @@ packages:
 
 esphome:
   on_boot:
-    - priority: 250
+    - priority: 399
       then:
+        - lambda: |
+            lv_obj_t * kb = keyboard_message_input->obj;
+            lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
+            lv_obj_t * list = id(obj_message_candidate_list);
+            lv_keyboard_set_candidate_list(kb, list);
+            lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, 0);
+            lv_obj_clear_flag(list, LV_OBJ_FLAG_CLICKABLE);
+    - priority: -10
+      then:
+        - lambda: |
+            lv_label_set_text(id(loading_label), "lemonade/app/chat");
+        - lambda: lv_timer_handler();
         - script.execute: chat_storage_init
         - script.execute: contacts_init_file
         - script.execute: contacts_refresh_list
         - script.execute: chat_public_load
-    - priority: 100
-      then:
         - script.execute: message_public_listen
         - script.execute: message_mqtt_handler
 

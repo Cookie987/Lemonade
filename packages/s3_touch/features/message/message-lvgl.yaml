@@ -1,13 +1,4 @@
 lvgl:
-  on_boot:
-    lambda: |
-      lv_obj_t * kb = keyboard_message_input->obj;
-      lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_TEXT_LOWER);
-      lv_obj_t * list = id(obj_message_candidate_list);
-      lv_keyboard_set_candidate_list(kb, list);
-      lv_obj_set_style_bg_opa(list, LV_OPA_TRANSP, 0);
-      lv_obj_clear_flag(list, LV_OBJ_FLAG_CLICKABLE);
-
   msgboxes:
     - id: msgbox_delete_contact
       close_button: false

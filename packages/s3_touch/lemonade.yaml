@@ -38,6 +38,13 @@ esphome:
         - lambda: |
             lv_label_set_text(id(loading_label), "componment/display");
         - lambda: lv_timer_handler();
+        - if:
+            condition:
+              lambda: 'return id(invert_color_switch).state;'
+            then:
+              - lambda: id(watchface)->set_invert_colors(true);
+            else:
+              - lambda: id(watchface)->set_invert_colors(false);
     - priority: 350
       then:
         - lambda: |
@@ -48,7 +55,7 @@ esphome:
         - lambda: |
             lv_label_set_text(id(loading_label), "componment/network");
         - lambda: lv_timer_handler();
-    - priority: -100
+    - priority: 0
       then:
         - lambda: |
             lv_label_set_text(id(loading_label), "lemonade/iot");
@@ -98,13 +105,6 @@ esphome:
               lambda: 'return id(buzzer_switch).state && id(buzzer_startup_switch).state;'
             then:
               - rtttl.play: "DJIStartup:d=16,o=6,b=60:c,d,g"
-        - if:
-            condition:
-              lambda: 'return id(invert_color_switch).state;'
-            then:
-              - lambda: id(watchface)->set_invert_colors(true);
-            else:
-              - lambda: id(watchface)->set_invert_colors(false);
         - lambda: |
             lv_label_set_text(id(loading_label), "lemonade/crash_handler");
         - lambda: lv_timer_handler();
@@ -135,15 +135,17 @@ esphome:
         - lambda: |
             lv_label_set_text(id(loading_label), "lemonade/lua_runtime");
         - lambda: lv_timer_handler();
-        - lambda: |
-            id(lua).run_file_async("/sdcard/init.lua");
         - script.execute: init_main_screen
         - script.execute: security_lock_now
         - script.execute: wakeup_script
+    - priority: -100
+      then:
+        - lambda: |
+            id(lua).run_file_async("/sdcard/init.lua");
         - lambda: |
             lv_label_set_text(id(loading_label), "Done!");
         - lambda: lv_timer_handler();
-        - delay: 100ms
+        - delay: 150ms
         - lvgl.widget.hide: boot_screen
 
 esp32:

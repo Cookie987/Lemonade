@@ -3,8 +3,11 @@ packages:
 
 esphome:
   on_boot:
-    - priority: 600
+    - priority: -20
       then:
+        - lambda: |
+            lv_label_set_text(id(loading_label), "lemonade/app/timer");
+        - lambda: lv_timer_handler();
         - script.execute: countdown_init
         - script.execute: stopwatch_init
 
