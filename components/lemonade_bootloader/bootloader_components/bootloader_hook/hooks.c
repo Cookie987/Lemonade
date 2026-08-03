@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #include "esp_log.h"
 #include "esp_rom_gpio.h"
 #include "esp_rom_sys.h"
@@ -52,6 +54,40 @@ static inline void bootloader_gpio_set_and_lock(gpio_num_t gpio_num, uint32_t le
     }
 }
 
+// 将毫伏值格式化为 "X.XXV" 字符串（不使用 sprintf）
+static void format_battery_voltage(uint32_t mv, char *out, uint8_t out_size) {
+    uint8_t idx = 0;
+    uint32_t int_part = mv / 1000;
+
+    if (int_part > 99) {
+        int_part = 99;  // 防止溢出缓冲区
+    }
+
+    // 整数部分
+    if (int_part == 0) {
+        out[idx++] = '0';
+    } else {
+        char rev[3];
+        uint8_t rlen = 0;
+        while (int_part > 0 && rlen < sizeof(rev)) {
+            rev[rlen++] = (char)('0' + (int_part % 10));
+            int_part /= 10;
+        }
+        while (rlen > 0) {
+            out[idx++] = rev[--rlen];
+        }
+    }
+
+    // 小数部分：X.YYV
+    out[idx++] = '.';
+    out[idx++] = (char)('0' + ((mv / 100) % 10));
+    out[idx++] = (char)('0' + ((mv / 10) % 10));
+    out[idx++] = 'V';
+    out[idx] = '\0';
+
+    (void)out_size;
+}
+
 void bootloader_before_init(void) {
     bootloader_gpio_set_and_lock(ACC_EN_PIN, 1, true);
     esp_rom_printf(
@@ -78,48 +114,49 @@ void bootloader_before_init(void) {
 
 
 void bootloader_after_init(void) {
+    bootloader_adc_init();
     bootloader_st7789v_init();
     bootloader_lcd_fill_rect(0, 0, 320, 240, 0x0000);
+    bootloader_gpio_set_and_lock(BACKLIGHT_EN_PIN, 1, true);
+    uint32_t mv = bootloader_adc_read_mv();
+    esp_rom_printf("Battery: %lu mV\n", mv);
+    uint32_t raw = bootloader_adc_read_raw();
+    esp_rom_printf("Battery raw: %lu\n", raw);
+    // bootloader_adc_debug_dump();
     uint8_t reason = esp_rom_get_reset_reason(0);
     esp_rom_printf("Reset reason: %d\n", reason);
-    bootloader_adc_init();
-    uint32_t mv = bootloader_adc_read_mv();
-    esp_rom_printf(
-        "Battery: %lu mV\n",
-        mv
-    );
-    // 打印十六进制和无符号/有符号十进制，暴露真实内存数值
-    ESP_LOGI("pmserv", "Battery Check Raw MV: %lu (0x%08X), signed: %ld", mv, mv, (int32_t)mv);
-    bootloader_gpio_set_and_lock(BACKLIGHT_EN_PIN, 1, true);
-    if (bootloader_check_long_press(BOOT_KEY_PIN, 1, 200)) {
+    if (bootloader_check_long_press(BOOT_KEY_PIN, 1, 180)) {
         ESP_LOGI("pmserv", "Long press confirmed.");
     } 
     else if(reason == 1) {  // RESET_REASON_CHIP_POWER_ON
         ESP_LOGI("pmserv", "Short press confirmed.");
-        if (mv < 3200) {
-            ESP_LOGI("pmserv", "Battery voltage is too low, please charge the device.");
-            lcd_show_string(10, 10, "Battery voltage is too low!", 0xF800, 0x0000);
-            lcd_show_string(10, 30, "Please charge the device.", 0xF800, 0x0000);
+        // 在屏幕上显示电池电压读数（V），不使用 sprintf
+        char bat_str[16];
+        format_battery_voltage(mv, bat_str, sizeof(bat_str));
+        lcd_show_string(10, 110, "Battery: ", 0xFFFF, 0x0000);
+        lcd_show_string(82, 110, bat_str, 0x07FF, 0x0000);
+        if (mv < 3100) {
+            lcd_show_string(10, 130, "WARN: Battery low!", 0xF800, 0x0000);
         }
-        else {
-            ESP_LOGI("pmserv", "Battery voltage is sufficient.");
-        }
-        // 5s 后自动关机
-        lcd_show_string(10, 70, "Shutting down in 3s", 0xF800, 0x0000);
-        esp_rom_delay_us(1000 * 1000);
-        lcd_show_string(10, 70, "Shutting down in 2s", 0xF800, 0x0000);
-        esp_rom_delay_us(1000 * 1000);
-        lcd_show_string(10, 70, "Shutting down in 1s", 0xF800, 0x0000);
-        esp_rom_delay_us(1000 * 1000);
-        lcd_show_string(10, 70, "Shutting down in 0s", 0xF800, 0x0000);
+        // 停留 1s，让电压读数可以在屏幕上看到
+        esp_rom_delay_us(1000000);
         bootloader_gpio_set_and_lock(ACC_EN_PIN, 0, true);
     }
-    ESP_LOGI("pmserv", "Pulling up Backlight pin...");
 
     lcd_show_string(10, 10," __                            _", 0x07FF, 0x0000);
     lcd_show_string(10, 30,"|  |   ___ _____ ___ ___ ___ _| |___", 0x07FF, 0x0000);
     lcd_show_string(10, 50,"|  |__| -_|     | . |   | .'| . | -_|", 0x07FF, 0x0000);
     lcd_show_string(10, 70,"|_____|___|_|_|_|___|_|_|__,|___|___|", 0x07FF, 0x0000);
-    lcd_show_string(10, 110, "Lemonade Bootloader " VER, 0xFFE0, 0x0000);
-    lcd_show_string(10, 130, "Loading Application...", 0xFFFF, 0x0000);
+    lcd_show_string(10, 90, "Lemonade Bootloader " VER, 0xFFE0, 0x0000);
+    char bat_str[16];
+    format_battery_voltage(mv, bat_str, sizeof(bat_str));
+    lcd_show_string(10, 130, "Battery: ", 0xFFFF, 0x0000);
+    lcd_show_string(82, 130, bat_str, 0x07FF, 0x0000);
+    if (mv < 3100) {
+        lcd_show_string(10, 150, "WARN: Battery low!", 0xF800, 0x0000);
+        lcd_show_string(10, 170, "Loading Application...", 0xFFFF, 0x0000);
+    }
+    else{
+        lcd_show_string(10, 150, "Loading Application...", 0xFFFF, 0x0000);
+    }
 }

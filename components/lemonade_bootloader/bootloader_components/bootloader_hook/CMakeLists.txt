@@ -1,10 +1,10 @@
 idf_component_register(
-    SRCS 
+    SRCS
         "hooks.c"
         "bl_lcd.c"
         "bl_adc.c"
     INCLUDE_DIRS "."
-    REQUIRES bootloader_support log soc hal
+    REQUIRES bootloader_support log soc hal esp_hw_support efuse
 )
 
 # We need to force GCC to integrate this static library into the

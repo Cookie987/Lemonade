@@ -8,6 +8,11 @@
 void bootloader_adc_init(void);
 
 /**
+ * @brief 打印 ADC 相关寄存器与校准状态（调试用）
+ */
+void bootloader_adc_debug_dump(void);
+
+/**
  * @brief 读取 ADC1 原始采样值 (12-bit, 0~4095)
  */
 uint32_t bootloader_adc_read_raw(void);
