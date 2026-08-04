@@ -389,7 +389,7 @@ static constexpr uint32_t WIFI_COOLDOWN_WITH_AP_ACTIVE_MS = 30000;
 /// Timeout for WiFi scan operations
 /// This is a fallback in case we don't receive a scan done callback from the WiFi driver.
 /// Normal scans complete via callback; this only triggers if something goes wrong.
-static constexpr uint32_t WIFI_SCAN_TIMEOUT_MS = 31000;
+static constexpr uint32_t WIFI_SCAN_TIMEOUT_MS = 15000;
 
 /// Timeout for WiFi connection attempts
 /// This is a fallback in case we don't receive connection success/failure callbacks.
@@ -399,7 +399,7 @@ static constexpr uint32_t WIFI_SCAN_TIMEOUT_MS = 31000;
 /// If this timeout fires prematurely while a connection is still in progress, it causes
 /// cascading failures: the subsequent scan will also fail because the WiFi driver is
 /// still busy with the previous connection attempt.
-static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 46000;
+static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 25000;
 
 static constexpr uint8_t get_max_retries_for_phase(WiFiRetryPhase phase) {
   switch (phase) {
@@ -1075,13 +1075,68 @@ void WiFiComponent::rebuild_sta_from_saved_wifi_array_(const SavedWifiSettingsAr
   this->selected_sta_index_ = preferred_index >= 0 ? preferred_index : 0;
 }
 
+bool WiFiComponent::ssid_in_sta_list_(const std::string &ssid) const {
+  if (ssid.empty() || this->sta_.empty()) {
+    return false;
+  }
+  for (const auto &ap : this->sta_) {
+    if (ap.get_ssid() == ssid) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void WiFiComponent::reload_saved_wifi_stas() {
+  this->reload_saved_wifi_stas(nullptr);
+}
+
+void WiFiComponent::reload_saved_wifi_stas(const char *preferred_ssid) {
   ESP_LOGI(TAG, "Reloading saved WiFi STAs from LittleFS");
-  this->load_creds_from_littlefs_();
+
+  // Snapshot what we are currently doing so the refresh below can avoid
+  // needlessly tearing down a working connection or an in-flight attempt.
+  std::string connected_ssid;
+  if (this->connected_) {
+    char ssid_buf[SSID_BUFFER_SIZE];
+    connected_ssid = wifi_ssid_to(ssid_buf);
+  }
+  std::string target_ssid;
+  if (const WiFiAP *selected = this->get_selected_sta_(); selected != nullptr) {
+    target_ssid = selected->get_ssid();
+  }
+  WiFiComponentState state_before = this->state_;
+
+  bool keep_current = false;
+  if (this->load_creds_from_littlefs_(preferred_ssid)) {
+    if (!connected_ssid.empty() && this->ssid_in_sta_list_(connected_ssid)) {
+      // Already connected to a network that is still in the (possibly updated)
+      // saved list. Keep the connection — no need to bounce it.
+      keep_current = true;
+    } else if (state_before == WIFI_COMPONENT_STATE_STA_CONNECTING ||
+               state_before == WIFI_COMPONENT_STATE_STA_CONNECTED) {
+      // An attempt is in flight toward target_ssid. Don't interrupt it when the
+      // refreshed list still contains that network and the caller didn't request
+      // a specific different network.
+      if (preferred_ssid == nullptr && !target_ssid.empty() && this->ssid_in_sta_list_(target_ssid)) {
+        keep_current = true;
+      }
+    } else if (state_before == WIFI_COMPONENT_STATE_STA_SCANNING) {
+      // A scan is in flight; when it completes, the scan-based selection matches
+      // against the refreshed sta_ list, so interrupting would only waste time.
+      keep_current = true;
+    }
+  }
+
+  if (keep_current) {
+    ESP_LOGD(TAG, "Saved WiFi list refreshed without interrupting current connection");
+    return;
+  }
+
   this->connect_soon_();
 }
 
-bool WiFiComponent::load_creds_from_littlefs_() {
+bool WiFiComponent::load_creds_from_littlefs_(const char *preferred_ssid) {
   std::ifstream ifs(WIFI_CREDS_FILE);
   if (!ifs.is_open()) {
     ESP_LOGD(TAG, "WiFi credentials file not found: %s", WIFI_CREDS_FILE);
@@ -1126,7 +1181,7 @@ bool WiFiComponent::load_creds_from_littlefs_() {
   }
 
   this->sanitize_saved_wifi_array_(saved_array);
-  this->rebuild_sta_from_saved_wifi_array_(saved_array);
+  this->rebuild_sta_from_saved_wifi_array_(saved_array, preferred_ssid);
   ESP_LOGI(TAG, "Loaded %d saved WiFi STAs from LittleFS", saved_array.count);
   return true;
 }
@@ -1416,6 +1471,20 @@ void WiFiComponent::append_wifi_sta(const char *ssid, const char *password) {
 void WiFiComponent::connect_soon_() {
   if (!this->has_sta() || this->state_ == WIFI_COMPONENT_STATE_DISABLED) {
     return;
+  }
+
+  // Already connected to the network we are supposed to connect to — do not
+  // bounce the radio. (The caller updates the selection first when it wants to
+  // switch to a different saved network.)
+  if (this->connected_) {
+    char ssid_buf[SSID_BUFFER_SIZE];
+    std::string current_ssid = wifi_ssid_to(ssid_buf);
+    const WiFiAP *selected = this->get_selected_sta_();
+    if (selected != nullptr && !current_ssid.empty() && current_ssid == selected->get_ssid()) {
+      ESP_LOGD(TAG, "Already connected to " LOG_SECRET("'%s'") ", skipping reconnect",
+               current_ssid.c_str());
+      return;
+    }
   }
 
   ESP_LOGD(TAG, "Starting immediate WiFi reconnect due to new WiFi credentials");

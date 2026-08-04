@@ -604,7 +604,11 @@ lvgl:
             y: 48
             on_change:
               then:
-                - script.execute: prase_wifi_list
+                - if:
+                    condition:
+                      lambda: 'return id(wifi_switch).state;'
+                    then:
+                      - script.execute: prase_wifi_list
                 - lambda: global_preferences->sync();
         - button:
             id: btn_change_wifi_config
@@ -1296,6 +1300,7 @@ lvgl:
         - lvgl.label.update:
             id: lbl_topbar_title
             text: "Wi-Fi 配置"
+        - script.execute: refresh_wifi_list
       widgets:
         - list:
             id: list_scanned_wifi
@@ -1324,6 +1329,26 @@ lvgl:
                     id: system_setting_network_page
                     animation: MOVE_RIGHT
                     time: 200ms
+        - button:
+            id: btn_rescan_wifi
+            align: bottom_mid
+            x: 65
+            width: 48
+            height: 24
+            bg_color: !lambda return lv_color_hex(0x1f95f6);
+            widgets:
+              - label:
+                  align: CENTER
+                  y: 2
+                  text: "\uF4E6"  # mdi-sync
+            on_release:
+              then:
+                - lambda: |
+                    if (wifi::global_wifi_component != nullptr) {
+                      wifi::global_wifi_component->start_scanning();
+                    }
+                    lv_obj_clean(id(list_scanned_wifi));
+                    lv_list_add_text(id(list_scanned_wifi), "正在扫描……");
 
     - id: system_setting_new_wifi_page
       skip: true
@@ -1359,18 +1384,17 @@ lvgl:
             on_ready:
               then:
                 - lambda: |
-                    // 需要同步到json文件统一操作
-                    // ssid和密码
                     std::string ssid = lv_label_get_text(id(lbl_new_wifi_ssid));
                     std::string password = lv_textarea_get_text(id(txt_new_wifi_password));
-                    id(append_wifi_to_json)->execute(ssid, password);
-                    id(prase_wifi_list)->execute();
-                    global_preferences->sync();
-                    if (wifi::global_wifi_component != nullptr) {
-                      wifi::global_wifi_component->start_scanning();
+                    if (ssid.empty()) {
+                      id(lvgl_1)->show_page(system_setting_wifi_config_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+                      return;
                     }
+                    // 保存凭据到 /data/wifilist.json 并立即优先连接该网络
+                    id(append_wifi_to_json)->execute(ssid, password);
+                    id(wifi_connect_saved)->execute(ssid);
                     id(lvgl_1)->show_page(system_setting_wifi_config_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
-                    id(show_notification)->execute("建议重启 Wi-Fi 以获得最佳效果", "", 5000);
+                    global_preferences->sync();
 
         - keyboard:
             id: keyboard_new_wifi_password

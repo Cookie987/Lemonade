@@ -82,7 +82,7 @@ output:
 binary_sensor:
   - platform: gpio
     pin: GPIO39
-    id: acc
+    id: acc_button
     filters:
       - settle: 20ms
     on_multi_click:

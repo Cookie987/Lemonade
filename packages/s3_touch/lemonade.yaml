@@ -238,6 +238,11 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  # 记录用户正在等待连接的 Wi-Fi（非空表示“正在连接中”）
+  - id: wifi_pending_ssid
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: battery_soc
     type: float
     restore_value: no
@@ -386,7 +391,8 @@ ota:
         - switch.turn_off: switch_powermanage_lock
 
 wifi:
-  reboot_timeout: 0s
+  # 最后兜底：Wi-Fi 开启但连续 15 分钟连不上时自动重启恢复
+  reboot_timeout: 15min
   enable_btm: true
   enable_rrm: true
   # Enable fallback hotspot (captive portal) in case wifi connection fails
@@ -394,18 +400,32 @@ wifi:
     ssid: "Lemonade"
     password: "Lemonade"
     ap_timeout: 0s
-  power_save_mode: HIGH
+  # 已启用 power_management 的 light sleep，Wi-Fi 不再单独进入 HIGH 节能，
+  # 避免省电模式下错过 beacon / 响应慢导致的“反复开关才能连上”
+  power_save_mode: NONE
   on_connect:
     then:
       - lambda: |
           ESP_LOGI("MQTT_Cred", "MQTT connected, applying credentials...");
           id(mqtt_was_connected) = true;
+      - if:
+          condition:
+            lambda: 'return !id(wifi_pending_ssid).empty();'
+          then:
+            - script.execute:
+                id: show_notification
+                notification_message: !lambda 'return "已连接 Wi-Fi：" + id(wifi_pending_ssid);'
+                suffix: !lambda 'return id(wifi_pending_ssid);'
+                delay_ms: 5000
+            - lambda: 'id(wifi_pending_ssid) = "";'
       - script.execute: mqtt_register_credentials
       - delay: 3s
       - mqtt.enable:
-  cooldown_off_attempts: 3
   use_psram: true
-  cooldown_off_time: 1min
+  # 连续失败后只短暂降温（10s），而不是整分钟关闭 Wi-Fi，
+  # 让自动重连持续进行，不再依赖手动反复开关
+  cooldown_off_attempts: 6
+  cooldown_off_time: 10s
   on_disconnect:
     then:
       - mqtt.disable:
@@ -471,6 +491,7 @@ switch:
         - wifi.enable
     on_turn_off:
       then:
+        - lambda: 'id(wifi_pending_ssid) = "";'
         - wifi.disable
 
   - platform: lvgl

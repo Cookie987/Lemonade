@@ -273,6 +273,7 @@ script:
           file << DEFAULT_WIFI_JSON;
           file.close();
           ESP_LOGI("CookieIoT", "Restored default WiFi config");
+          id(wifi_pending_ssid) = "";
       - script.execute: prase_wifi_list
 
   - id: append_wifi_to_json
@@ -429,212 +430,278 @@ script:
           }
 
           // wifi 组件直接从 /data/wifilist.json 读取凭据
-          wifi->reload_saved_wifi_stas();
+          std::string pending = id(wifi_pending_ssid);
+          wifi->reload_saved_wifi_stas(pending.empty() ? nullptr : pending.c_str());
 
-          lv_label_set_text(lbl_wifi_get_info, "WiFi 已刷新");
-      - script.execute: refresh_wifi_list
-
-  - id: refresh_wifi_list
-    then:
-      - lambda: |
-          auto wifi = wifi::global_wifi_component;
-          if (wifi == nullptr) {
-            ESP_LOGW("Setting", "Skip refresh_wifi_list: wifi component unavailable");
-            return;
-          }
-
-          lv_obj_t *list_obj = id(list_scanned_wifi);
-          if (list_obj == nullptr || !lv_obj_is_valid(list_obj)) {
-            ESP_LOGW("Setting", "Skip refresh_wifi_list: list_scanned_wifi invalid (%p)", list_obj);
-            return;
-          }
-
-          auto trim_copy = [](std::string value) {
-            size_t start = value.find_first_not_of(" \t\r\n");
-            if (start == std::string::npos) {
-              return std::string();
-            }
-            size_t end = value.find_last_not_of(" \t\r\n");
-            return value.substr(start, end - start + 1);
-          };
-          auto has_suffix = [](const std::string &value, const std::string &suffix) {
-            return value.size() >= suffix.size() &&
-                   value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
-          };
-          auto strip_status_suffix = [&](std::string value) {
-            value = trim_copy(value);
-            static const char *const suffixes[] = {"(已连接)", "(已保存)"};
-            for (const char *suffix : suffixes) {
-              std::string marker = std::string(" ") + suffix;
-              if (has_suffix(value, marker)) {
-                value.erase(value.size() - marker.size());
+          // 若等待连接的网络已被删除/不再保存，取消等待状态
+          if (!pending.empty()) {
+            bool still_saved = false;
+            for (const auto &ap : wifi->get_sta_list()) {
+              if (ap.get_ssid() == pending) {
+                still_saved = true;
                 break;
               }
             }
-            return trim_copy(value);
-          };
-          auto extract_ssid = [&](const std::string &value) {
-            std::string cleaned = strip_status_suffix(value);
-            size_t pos = cleaned.find_last_of(':');
-            if (pos != std::string::npos) {
-              cleaned = cleaned.substr(0, pos);
+            if (!still_saved) {
+              pending = "";
+              id(wifi_pending_ssid) = "";
             }
-            return trim_copy(cleaned);
-          };
-          auto is_saved_ssid = [&](const std::string &ssid_value) {
-            for (const auto &ap : wifi->get_sta_list()) {
-              if (ap.get_ssid() == ssid_value) {
-                return true;
-              }
-            }
-            return false;
-          };
-
-          struct WifiEntry {
-            std::string raw;
-            std::string ssid;
-            int rssi;
-            bool saved;
-            bool connected;
-          };
-
-          std::string connected_ssid = id(ssid).state;
-          std::string wifi_list = id(wifi_scan_results).state;
-          std::vector<WifiEntry> entries;
-
-          size_t start = 0;
-          while (start <= wifi_list.size()) {
-            size_t end = wifi_list.find('\n', start);
-            std::string line = end == std::string::npos ? wifi_list.substr(start) : wifi_list.substr(start, end - start);
-            start = end == std::string::npos ? wifi_list.size() + 1 : end + 1;
-
-            line = trim_copy(line);
-            if (line.empty()) {
-              continue;
-            }
-
-            std::string current_ssid = extract_ssid(line);
-            if (current_ssid.empty()) {
-              continue;
-            }
-
-            int rssi_value = -127;
-            size_t colon_pos = line.find_last_of(':');
-            if (colon_pos != std::string::npos) {
-              std::string rssi_text = trim_copy(line.substr(colon_pos + 1));
-              int parsed_rssi = -127;
-              if (sscanf(rssi_text.c_str(), "%d", &parsed_rssi) == 1) {
-                rssi_value = parsed_rssi;
-              }
-            }
-
-            bool connected = !connected_ssid.empty() && current_ssid == connected_ssid;
-            bool saved = is_saved_ssid(current_ssid);
-            entries.push_back({line, current_ssid, rssi_value, saved, connected});
           }
 
-          std::sort(entries.begin(), entries.end(), [](const WifiEntry &a, const WifiEntry &b) {
-            if (a.connected != b.connected) {
-              return a.connected > b.connected;
-            }
-            if (a.rssi != b.rssi) {
-              return a.rssi > b.rssi;
-            }
-            return a.ssid < b.ssid;
-          });
+          if (!pending.empty()) {
+            lv_label_set_text(lbl_wifi_get_info, (std::string("正在连接：") + pending).c_str());
+          } else if (id(wifi_switch).state && !id(ssid).state.empty()) {
+            lv_label_set_text(lbl_wifi_get_info, (std::string("已连接：") + id(ssid).state).c_str());
+          } else {
+            lv_label_set_text(lbl_wifi_get_info, "Wi-Fi 已刷新");
+          }
+      - script.execute: refresh_wifi_list
 
-          lv_obj_clean(list_obj);
-          lv_list_add_text(list_obj, "扫描到的Wi-Fi");
-          if (entries.empty()) {
-            lv_list_add_text(list_obj, "暂无扫描结果");
+  # 从列表选择 Wi-Fi 后：保存凭据 -> 重新加载并优先连接该网络 -> 等待结果反馈
+  - id: wifi_connect_saved
+    mode: queued
+    parameters:
+      ssid: string
+    then:
+      - lambda: |
+          if (ssid.empty()) {
             return;
           }
+          id(wifi_pending_ssid) = ssid;
+          lv_label_set_text(lbl_wifi_get_info, (std::string("正在连接：") + ssid).c_str());
+          id(show_notification)->execute(std::string("正在连接 Wi-Fi：") + ssid, ssid, 0);
+      - script.execute: prase_wifi_list
+      - wait_until:
+          condition:
+            lambda: 'return id(wifi_pending_ssid).empty();'
+          timeout: 45s
+      - if:
+          condition:
+            lambda: 'return !id(wifi_pending_ssid).empty();'
+          then:
+            - lambda: 'id(wifi_pending_ssid) = "";'
+            - script.execute:
+                id: show_notification
+                notification_message: !lambda 'return "Wi-Fi 连接失败：" + ssid;'
+                suffix: !lambda 'return ssid;'
+                delay_ms: 5000
+            - lambda: 'lv_label_set_text(lbl_wifi_get_info, "连接失败，请检查密码后重试");'
 
-          for (const auto &entry : entries) {
-            std::string display_text = entry.raw;
-            if (entry.connected) {
-              display_text += " (已连接)";
-            } else if (entry.saved) {
-              display_text += " (已保存)";
-            }
+  - id: refresh_wifi_list
+    mode: single
+    then:
+      - if:
+          # 页面不可见时不做无谓的重建（扫描/连接过程中会频繁触发）
+          condition:
+            lvgl.page.is_showing: system_setting_wifi_config_page
+          then:
+            - lambda: |
+                auto wifi = wifi::global_wifi_component;
+                if (wifi == nullptr) {
+                  ESP_LOGW("Setting", "Skip refresh_wifi_list: wifi component unavailable");
+                  return;
+                }
 
-            lv_obj_t *btn = lv_list_add_btn(list_obj, NULL, display_text.c_str());
-            lv_obj_add_event_cb(
-                btn,
-                [](lv_event_t *e) {
-                  auto trim_copy = [](std::string value) {
-                    size_t start = value.find_first_not_of(" \t\r\n");
-                    if (start == std::string::npos) {
-                      return std::string();
+                lv_obj_t *list_obj = id(list_scanned_wifi);
+                if (list_obj == nullptr || !lv_obj_is_valid(list_obj)) {
+                  ESP_LOGW("Setting", "Skip refresh_wifi_list: list_scanned_wifi invalid (%p)", list_obj);
+                  return;
+                }
+
+                auto trim_copy = [](std::string value) {
+                  size_t start = value.find_first_not_of(" \t\r\n");
+                  if (start == std::string::npos) {
+                    return std::string();
+                  }
+                  size_t end = value.find_last_not_of(" \t\r\n");
+                  return value.substr(start, end - start + 1);
+                };
+                auto is_saved_ssid = [&](const std::string &ssid_value) {
+                  for (const auto &ap : wifi->get_sta_list()) {
+                    if (ap.get_ssid() == ssid_value) {
+                      return true;
                     }
-                    size_t end = value.find_last_not_of(" \t\r\n");
-                    return value.substr(start, end - start + 1);
-                  };
-                  auto has_suffix = [](const std::string &value, const std::string &suffix) {
-                    return value.size() >= suffix.size() &&
-                           value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
-                  };
-                  auto strip_status_suffix = [&](std::string value) {
-                    value = trim_copy(value);
-                    static const char *const suffixes[] = {"(已连接)", "(已保存)"};
-                    for (const char *suffix : suffixes) {
-                      std::string marker = std::string(" ") + suffix;
-                      if (has_suffix(value, marker)) {
-                        value.erase(value.size() - marker.size());
-                        break;
+                  }
+                  return false;
+                };
+
+                struct WifiEntry {
+                  std::string ssid;
+                  int rssi;
+                  bool saved;
+                  bool connected;
+                  bool pending;
+                };
+
+                // 扫描结果格式为一行一个："SSID: -60dB"（SSID 自身可能包含 ':'）
+                auto parse_scan_line = [&](const std::string &line, std::string &ssid_out, int &rssi_out) -> bool {
+                  size_t dB_pos = line.rfind("dB");
+                  if (dB_pos == std::string::npos || dB_pos + 2 != line.size()) {
+                    return false;
+                  }
+                  size_t num_start = dB_pos;
+                  while (num_start > 0 &&
+                         (line[num_start - 1] == '-' || (line[num_start - 1] >= '0' && line[num_start - 1] <= '9'))) {
+                    num_start--;
+                  }
+                  if (num_start < 2 || line[num_start - 2] != ':' || line[num_start - 1] != ' ') {
+                    return false;
+                  }
+                  std::string ssid = trim_copy(line.substr(0, num_start - 2));
+                  if (ssid.empty()) {
+                    return false;
+                  }
+                  ssid_out = ssid;
+                  rssi_out = atoi(line.c_str() + num_start);
+                  return true;
+                };
+
+                std::string connected_ssid = id(ssid).state;
+                std::string pending_ssid = id(wifi_pending_ssid);
+                std::string wifi_list = id(wifi_scan_results).state;
+                std::vector<WifiEntry> entries;
+
+                auto upsert_entry = [&](const WifiEntry &entry) {
+                  for (auto &existing : entries) {
+                    if (existing.ssid == entry.ssid) {
+                      if (entry.rssi > existing.rssi) {
+                        existing = entry;  // 同一 SSID 保留信号最强的一个
                       }
+                      return;
                     }
-                    return trim_copy(value);
-                  };
-                  auto extract_ssid = [&](const std::string &value) {
-                    std::string cleaned = strip_status_suffix(value);
-                    size_t pos = cleaned.find_last_of(':');
-                    if (pos != std::string::npos) {
-                      cleaned = cleaned.substr(0, pos);
-                    }
-                    return trim_copy(cleaned);
-                  };
-
-                  lv_obj_t *target_btn = static_cast<lv_obj_t *>(lv_event_get_target(e));
-                  if (target_btn == nullptr) {
-                    return;
                   }
-                  lv_obj_t *parent = lv_obj_get_parent(target_btn);
-                  if (parent == nullptr) {
-                    return;
+                  entries.push_back(entry);
+                };
+
+                size_t start = 0;
+                while (start <= wifi_list.size()) {
+                  size_t end = wifi_list.find('\n', start);
+                  std::string line =
+                      end == std::string::npos ? wifi_list.substr(start) : wifi_list.substr(start, end - start);
+                  start = end == std::string::npos ? wifi_list.size() + 1 : end + 1;
+
+                  std::string current_ssid;
+                  int rssi_value = -127;
+                  if (!parse_scan_line(trim_copy(line), current_ssid, rssi_value)) {
+                    continue;
                   }
 
-                  const char *txt = lv_list_get_btn_text(parent, target_btn);
-                  if (txt == nullptr) {
-                    return;
+                  bool connected = !connected_ssid.empty() && current_ssid == connected_ssid;
+                  bool pending = !pending_ssid.empty() && current_ssid == pending_ssid;
+                  upsert_entry({current_ssid, rssi_value, is_saved_ssid(current_ssid), connected, pending});
+                }
+
+                std::sort(entries.begin(), entries.end(), [](const WifiEntry &a, const WifiEntry &b) {
+                  if (a.connected != b.connected) {
+                    return a.connected > b.connected;
+                  }
+                  if (a.pending != b.pending) {
+                    return a.pending > b.pending;
+                  }
+                  if (a.rssi != b.rssi) {
+                    return a.rssi > b.rssi;
+                  }
+                  return a.ssid < b.ssid;
+                });
+
+                lv_obj_clean(list_obj);
+                lv_list_add_text(list_obj, "扫描到的Wi-Fi");
+                if (entries.empty()) {
+                  lv_list_add_text(list_obj, "暂无扫描结果，点右下角重新扫描");
+                  return;
+                }
+
+                for (const auto &entry : entries) {
+                  std::string display_text = entry.ssid + ": " + std::to_string(entry.rssi) + "dB";
+                  if (entry.connected) {
+                    display_text += " (已连接)";
+                  } else if (entry.pending) {
+                    display_text += " (连接中)";
+                  } else if (entry.saved) {
+                    display_text += " (已保存)";
                   }
 
-                  std::string selected_text = txt;
-                  std::string selected_ssid = extract_ssid(selected_text);
-                  if (selected_ssid.empty()) {
-                    return;
-                  }
+                  lv_obj_t *btn = lv_list_add_btn(list_obj, NULL, display_text.c_str());
+                  lv_obj_add_event_cb(
+                      btn,
+                      [](lv_event_t *e) {
+                        auto trim_copy = [](std::string value) {
+                          size_t start = value.find_first_not_of(" \t\r\n");
+                          if (start == std::string::npos) {
+                            return std::string();
+                          }
+                          size_t end = value.find_last_not_of(" \t\r\n");
+                          return value.substr(start, end - start + 1);
+                        };
+                        auto extract_ssid = [&](const std::string &value) -> std::string {
+                          std::string cleaned = trim_copy(value);
+                          static const char *const suffixes[] = {"(已连接)", "(连接中)", "(已保存)"};
+                          for (const char *suffix : suffixes) {
+                            std::string marker = std::string(" ") + suffix;
+                            if (cleaned.size() >= marker.size() &&
+                                cleaned.compare(cleaned.size() - marker.size(), marker.size(), marker) == 0) {
+                              cleaned.erase(cleaned.size() - marker.size());
+                              cleaned = trim_copy(cleaned);
+                              break;
+                            }
+                          }
+                          // 去掉尾部 ": -60dB"
+                          size_t dB_pos = cleaned.rfind("dB");
+                          if (dB_pos == std::string::npos || dB_pos + 2 != cleaned.size()) {
+                            return std::string();
+                          }
+                          size_t num_start = dB_pos;
+                          while (num_start > 0 &&
+                                 (cleaned[num_start - 1] == '-' ||
+                                  (cleaned[num_start - 1] >= '0' && cleaned[num_start - 1] <= '9'))) {
+                            num_start--;
+                          }
+                          if (num_start < 2 || cleaned[num_start - 2] != ':' || cleaned[num_start - 1] != ' ') {
+                            return std::string();
+                          }
+                          return trim_copy(cleaned.substr(0, num_start - 2));
+                        };
 
-                  bool managed_wifi = selected_text.find("(已保存)") != std::string::npos ||
-                                      selected_text.find("(已连接)") != std::string::npos;
-                  if (managed_wifi) {
-                    lv_obj_t *msgbox_content = lv_msgbox_get_content(msgbox_delete_wifi_message);
-                    lv_obj_t *msgbox_text =
-                        (msgbox_content != nullptr && lv_obj_get_child_count(msgbox_content) > 0)
-                            ? lv_obj_get_child(msgbox_content, 0)
-                            : nullptr;
-                    if (msgbox_text != nullptr) {
-                      lv_label_set_text(msgbox_text, (std::string("确定要删除 ") + selected_ssid + " 吗？").c_str());
-                    }
-                    lv_obj_clear_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
-                    lv_obj_move_foreground(msgbox_delete_wifi_message_outer);
-                    return;
-                  }
+                        lv_obj_t *target_btn = static_cast<lv_obj_t *>(lv_event_get_target(e));
+                        if (target_btn == nullptr) {
+                          return;
+                        }
+                        lv_obj_t *parent = lv_obj_get_parent(target_btn);
+                        if (parent == nullptr) {
+                          return;
+                        }
 
-                  ESP_LOGD("Setting", "Going to password input for Wi-Fi: %s", selected_ssid.c_str());
-                  lv_label_set_text(lbl_new_wifi_ssid, selected_ssid.c_str());
-                  id(lvgl_1)->show_page(system_setting_new_wifi_page->index, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200);
-                },
-                LV_EVENT_CLICKED,
-                NULL);
-          }
+                        const char *txt = lv_list_get_btn_text(parent, target_btn);
+                        if (txt == nullptr) {
+                          return;
+                        }
+
+                        std::string selected_text = txt;
+                        std::string selected_ssid = extract_ssid(selected_text);
+                        if (selected_ssid.empty()) {
+                          return;
+                        }
+
+                        bool managed_wifi = selected_text.find("(已保存)") != std::string::npos ||
+                                            selected_text.find("(已连接)") != std::string::npos;
+                        if (managed_wifi) {
+                          lv_obj_t *msgbox_content = lv_msgbox_get_content(msgbox_delete_wifi_message);
+                          lv_obj_t *msgbox_text =
+                              (msgbox_content != nullptr && lv_obj_get_child_count(msgbox_content) > 0)
+                                  ? lv_obj_get_child(msgbox_content, 0)
+                                  : nullptr;
+                          if (msgbox_text != nullptr) {
+                            lv_label_set_text(msgbox_text, (std::string("确定要删除 ") + selected_ssid + " 吗？").c_str());
+                          }
+                          lv_obj_clear_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
+                          lv_obj_move_foreground(msgbox_delete_wifi_message_outer);
+                          return;
+                        }
+
+                        ESP_LOGD("Setting", "Going to password input for Wi-Fi: %s", selected_ssid.c_str());
+                        lv_label_set_text(lbl_new_wifi_ssid, selected_ssid.c_str());
+                        id(lvgl_1)->show_page(system_setting_new_wifi_page->index, LV_SCR_LOAD_ANIM_MOVE_LEFT, 200);
+                      },
+                      LV_EVENT_CLICKED,
+                      NULL);
+                }

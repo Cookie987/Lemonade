@@ -501,6 +501,8 @@ class WiFiComponent final : public Component {
 
   /// Reload saved WiFi STAs from LittleFS /data/wifilist.json
   void reload_saved_wifi_stas();
+  /// Reload saved WiFi STAs and prefer connecting to the given SSID (empty = default priority order)
+  void reload_saved_wifi_stas(const char *preferred_ssid);
 
   // ========== INTERNAL METHODS ==========
   // (In most use cases you won't need these)
@@ -801,9 +803,11 @@ class WiFiComponent final : public Component {
   bool sanitize_saved_wifi_array_(SavedWifiSettingsArray &array);
   int8_t find_saved_wifi_index_(const SavedWifiSettingsArray &array, const char *ssid) const;
   void rebuild_sta_from_saved_wifi_array_(const SavedWifiSettingsArray &array, const char *preferred_ssid = nullptr);
+  /// Returns true when the given SSID is present in the current saved STA list
+  bool ssid_in_sta_list_(const std::string &ssid) const;
 
   /// Load saved WiFi credentials from LittleFS /data/wifilist.json
-  bool load_creds_from_littlefs_();
+  bool load_creds_from_littlefs_(const char *preferred_ssid = nullptr);
   /// Save current saved WiFi credentials to LittleFS /data/wifilist.json
   bool save_creds_to_littlefs_();
   /// Migrate saved WiFi credentials from NVS to LittleFS (backward compatibility)

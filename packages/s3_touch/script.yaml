@@ -526,6 +526,9 @@ script:
                   if (!id(wifi_switch).state) {
                     return "\U000F092E OFF";
                   }
+                  if (!id(wifi_pending_ssid).empty()) {
+                    return "\U000F092F Connecting";  // mdi-wifi-strength-outline
+                  }
                   // if (in_ap_mode) {
                   //   return "\U000F0003 AP";
                   // }
@@ -652,9 +655,13 @@ script:
           auto esphome_ver = id(esphome_version).state;
           auto ssid_val = id(ssid).state;
           auto rssi_val = id(rssi).state;
+          auto pending_ssid = id(wifi_pending_ssid);
           std::string rssi_str = std::to_string((int)rssi_val);
           if (!id(wifi_switch).state) {
             ssid_val = "(已关闭)";
+            rssi_str = "-∞";
+          } else if (!pending_ssid.empty()) {
+            ssid_val = "(连接中)";
             rssi_str = "-∞";
           }
 
@@ -687,6 +694,15 @@ script:
                   mac.c_str()
                   );
           lv_label_set_text(id(lbl_wifi_info), buf_wifi_info);
+          if (!id(wifi_switch).state) {
+            lv_label_set_text(id(lbl_wifi_get_info), "Wi-Fi 已关闭");
+          } else if (!pending_ssid.empty()) {
+            lv_label_set_text(id(lbl_wifi_get_info), (std::string("正在连接：") + pending_ssid).c_str());
+          } else if (!id(ssid).state.empty()) {
+            lv_label_set_text(id(lbl_wifi_get_info), (std::string("已连接：") + id(ssid).state).c_str());
+          } else {
+            lv_label_set_text(id(lbl_wifi_get_info), "Wi-Fi 未连接");
+          }
           lv_label_set_text(id(lbl_about_device_model_value), "${lemonade_device_model}");
           lv_label_set_text(id(lbl_about_cpu_temp_value), cpu_temp.c_str());
           lv_label_set_text(id(lbl_about_esphome_version_value), esphome_ver.c_str());
