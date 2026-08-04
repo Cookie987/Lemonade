@@ -4,7 +4,7 @@ idf_component_register(
         "bl_lcd.c"
         "bl_adc.c"
     INCLUDE_DIRS "."
-    REQUIRES bootloader_support log soc hal esp_hw_support efuse
+    REQUIRES bootloader_support log soc hal esp_hw_support efuse spi_flash
 )
 
 # We need to force GCC to integrate this static library into the
