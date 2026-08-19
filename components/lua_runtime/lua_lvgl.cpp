@@ -240,10 +240,16 @@ void process_lvgl_jobs() {
   int processed = 0;
   while (xQueueReceive(g_lvgl_job_queue, &job, 0) == pdTRUE) {
     if (job != nullptr) {
+      // Cache the waiter before running: notifying it can wake the Lua task, which may
+      // destroy/reuse the stack-allocated job immediately. Never touch the job after that.
+      TaskHandle_t waiter = job->waiter;
       job->run();
       job->done = true;
-      if (job->waiter != nullptr) xTaskNotifyGive(job->waiter);
-      if (job->waiter == nullptr) delete job;
+      if (waiter != nullptr) {
+        xTaskNotifyGive(waiter);
+      } else {
+        delete job;
+      }
     }
     if (++processed >= 256) break;
   }

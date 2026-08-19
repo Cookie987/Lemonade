@@ -1,8 +1,8 @@
 lvgl:
   id: lvgl_1
   log_level: WARN
-  double_buffer: false
-  use_dma: false
+  double_buffer: true
+  use_dma: true
   use_psram: true
   setup_priority: 650
   touchscreens:
