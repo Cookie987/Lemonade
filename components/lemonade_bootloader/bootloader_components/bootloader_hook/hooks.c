@@ -268,7 +268,8 @@ void bootloader_after_init(void) {
     esp_rom_printf("Reset reason: %d\n", reason);
     if (bootloader_check_long_press(BOOT_KEY_PIN, 1, 180)) {
         ESP_LOGI("pmserv", "Long press confirmed.");
-    } 
+    }
+    // 只有在上电时才判断按键，重启时不判断
     else if(reason == 1) {  // RESET_REASON_CHIP_POWER_ON
         ESP_LOGI("pmserv", "Short press confirmed.");
         // 短按，显示电压
