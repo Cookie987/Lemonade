@@ -3,7 +3,7 @@
 esphome:
   project:
     name: "cookie987.lemonade"
-    version: "1.10.0"
+    version: "1.11.0"
   name_add_mac_suffix: false
 
 substitutions:
@@ -12,7 +12,7 @@ substitutions:
   lemonade_device_name: "lemonade-tc"
   lemonade_device_friendly_name: "Lemonade"
   lemonade_device_model: "智能时钟_T"
-  lemonade_version: "1.10.0 Canary"
+  lemonade_version: "1.11.0 Canary"
   lemonade_ota_password: !secret ota_password
   lemonade_app_store_index_url: !secret app_store_index_url
   lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
