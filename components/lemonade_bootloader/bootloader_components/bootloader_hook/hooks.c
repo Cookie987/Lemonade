@@ -221,7 +221,7 @@ static void bootloader_show_hw_info(uint32_t mv) {
     }
 
     if (mv < 3200){
-        lcd_show_string(10, 210, "Battery LOW!", 0x0000, 0xF800)
+        lcd_show_string(10, 210, "Battery LOW!", 0x0000, 0xF800);
         esp_rom_delay_us(1000000);
         bootloader_gpio_set_and_lock(ACC_EN_PIN, 0, true);
     }
