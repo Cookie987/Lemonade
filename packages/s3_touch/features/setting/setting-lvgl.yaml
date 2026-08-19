@@ -1340,7 +1340,7 @@ lvgl:
               - label:
                   align: CENTER
                   y: 2
-                  text: "\uF4E6"  # mdi-sync
+                  text: "刷新"
             on_release:
               then:
                 - lambda: |
