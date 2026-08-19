@@ -23,7 +23,7 @@ void bootloader_hooks_include(void) {
 #define BACKLIGHT_EN_PIN 8
 #define BOOT_KEY_PIN 39
 
-#define VER "1.2.0"
+#define VER "1.3.0"
 
 static bool bootloader_check_long_press(gpio_num_t key_gpio, uint32_t active_level, uint32_t hold_time_ms) {
     esp_rom_gpio_pad_select_gpio(key_gpio);
@@ -216,18 +216,26 @@ static void bootloader_show_hw_info(uint32_t mv) {
     buf[n] = '\0';
     lcd_show_string(10, 190, buf, 0x07FF, 0x0000);
 
-    if (mv < 3100) {
+    if (mv < 3300) {
         lcd_show_string(10 + (uint16_t)n * 8, 190, "LOW!", 0xF800, 0x0000);
     }
-    lcd_show_string(10, 210, "Loading Application...", 0xFFFF, 0x0000);
+
+    if (mv < 3200){
+        lcd_show_string(10, 210, "Battery LOW!", 0x0000, 0xF800)
+        esp_rom_delay_us(1000000);
+        bootloader_gpio_set_and_lock(ACC_EN_PIN, 0, true);
+    }
+    else{
+        lcd_show_string(10, 210, "Loading Application...", 0xFFFF, 0x0000);
+    }
 }
 
 void bootloader_before_init(void) {
     bootloader_gpio_set_and_lock(ACC_EN_PIN, 1, true);
     esp_rom_printf(
-    "   __                               __    ____  ____\n"
-    "  / /  ___ __ _  ___  ___  ___ ____/ /__ / __ \\/ __/\n"
-    " / /__/ -_) ' \\/ _ \\/ _ \\/ _ `/ _  / -_) / /_/ /\\ \\  \n"
+    "   __                               __      ____  ____\n"
+    "  / /  ___ __ _  ___  ___  ___ ____/ /__   / __ \\/ __/\n"
+    " / /__/ -_)  ' \\/ _ \\/ _ \\/ _ `/ _  / -_) / /_/ /\\ \\  \n"
     "/____/\\__/_/_/_/\\___/_//_/\\_,_/\\_,_/\\__/  \\____/___/  \n"
     );
     esp_rom_printf("\n");
@@ -256,7 +264,6 @@ void bootloader_after_init(void) {
     esp_rom_printf("Battery: %lu mV\n", mv);
     uint32_t raw = bootloader_adc_read_raw();
     esp_rom_printf("Battery raw: %lu\n", raw);
-    // bootloader_adc_debug_dump();
     uint8_t reason = esp_rom_get_reset_reason(0);
     esp_rom_printf("Reset reason: %d\n", reason);
     if (bootloader_check_long_press(BOOT_KEY_PIN, 1, 180)) {
@@ -264,12 +271,13 @@ void bootloader_after_init(void) {
     } 
     else if(reason == 1) {  // RESET_REASON_CHIP_POWER_ON
         ESP_LOGI("pmserv", "Short press confirmed.");
-        // 在屏幕上显示电池电压读数（V），不使用 sprintf
+        // 短按，显示电压
+
         char bat_str[16];
         format_battery_voltage(mv, bat_str, sizeof(bat_str));
         lcd_show_string(10, 110, "Battery: ", 0xFFFF, 0x0000);
         lcd_show_string(82, 110, bat_str, 0x07FF, 0x0000);
-        if (mv < 3100) {
+        if (mv < 3300) {
             lcd_show_string(10, 130, "WARN: Battery low!", 0xF800, 0x0000);
         }
         // 停留 1s，让电压读数可以在屏幕上看到
