@@ -189,6 +189,7 @@ esp32:
       CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM: '6'
       CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM: '6'
       CONFIG_ESP_WIFI_RX_BA_WIN: '12'
+      CONFIG_RTC_CLK_SRC_INT_8MD256: y
 
 psram:
   mode: octal
@@ -400,9 +401,7 @@ wifi:
     ssid: "Lemonade"
     password: "Lemonade"
     ap_timeout: 0s
-  # 已启用 power_management 的 light sleep，Wi-Fi 不再单独进入 HIGH 节能，
-  # 避免省电模式下错过 beacon / 响应慢导致的“反复开关才能连上”
-  power_save_mode: NONE
+  power_save_mode: LIGHT
   on_connect:
     then:
       - lambda: |
