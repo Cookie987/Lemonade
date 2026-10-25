@@ -189,7 +189,6 @@ esp32:
       CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM: '6'
       CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM: '6'
       CONFIG_ESP_WIFI_RX_BA_WIN: '12'
-      CONFIG_RTC_CLK_SRC_INT_8MD256: y
 
 psram:
   mode: octal
@@ -392,8 +391,7 @@ ota:
         - switch.turn_off: switch_powermanage_lock
 
 wifi:
-  # 最后兜底：Wi-Fi 开启但连续 15 分钟连不上时自动重启恢复
-  reboot_timeout: 15min
+  reboot_timeout: 0s
   enable_btm: true
   enable_rrm: true
   # Enable fallback hotspot (captive portal) in case wifi connection fails

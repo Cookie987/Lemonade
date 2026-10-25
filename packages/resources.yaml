@@ -77,6 +77,13 @@ font:
           "\uF054",
           "\uF00C",
         ]
+      - file: "fonts/Font Awesome 7 Brands-Regular-400.otf"
+        glyphs: [
+          "\uF1D4",  # fa-github
+          "\uF1D5",  # fa-gitlab
+          "\uF1D6",  # fa-bitbucket
+          "\uF287",  # USB
+        ]
 
   - file: "fonts/MiSans-Medium.ttf"
     id: "chinese_font36"

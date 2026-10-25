@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "id": "com.lemonade.uvk5",
+  "platform": ["s3_t", "s3_t_3_2"],
+  "name": "UV-K5/6 V3 副屏",
+  "description": "为 UV-K5/6 V3 提供副屏支持",
+  "author": "LemonadeOS Team",
+  "icon": "assets/icon.png"
+}

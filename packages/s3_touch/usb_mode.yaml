@@ -1,0 +1,66 @@
+# ============================================================================
+# USB 角色切换（只有一个 Type-C 口：设备日志 <-> 主机读 CDC 串口设备）
+#
+# ESP32-S3 的内部 USB PHY 由 USB-OTG 和 USB-Serial-JTAG 共用，同一时刻只能给一个用。
+#   switch OFF（默认，restore_mode: RESTORE_DEFAULT_OFF）:
+#       设备模式 —— Type-C 是 USB-Serial-JTAG 串口，ESPHome 日志输出到电脑的 COM 口
+#   switch ON:
+#       主机模式 —— Type-C 读取插上的 USB CDC 串口设备（usb_uart 的 channel）
+# 切换是运行时的，不用重新烧写（组件实现见 components/usb_mode/）
+#
+# ⚠ light sleep 会杀死 USB：
+#   - 主机模式：组件自己持有 APB max + no-light-sleep 锁（见下面 switch 的注释）
+#   - 设备模式：靠 IDF 的 CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION —— 只有电脑插着时才不睡，
+#     拔掉照样正常省电。这就是"关了 APB 锁 USB 就没反应"的正解。
+# ============================================================================
+esp32:
+  framework:
+    sdkconfig_options:
+      CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION: y
+
+logger:
+  # usb_mode 依赖日志走 USB-Serial-JTAG（S3 的默认值，这里显式写出来）
+  hardware_uart: USB_SERIAL_JTAG
+  logs:
+    # 切模式的两行日志是 INFO 级；即使换到 log_level: WARN 的设备文件里也看得到
+    usb_mode: INFO
+
+usb_host:
+  max_transfer_requests: 16
+  max_packet_size: 64
+
+usb_uart:
+  - id: usb_cdc_dev
+    type: CDC_ACM
+    # 已知设备后建议收紧（PUYA CDC DEMO = 0x36B7/0xFFFF）
+    # 0x0000/0x0000 = 匹配任意 USB 设备；接上后在日志里看真实 VID/PID 再收紧
+    vid: 0x0000
+    pid: 0x0000
+    channels:
+      - id: usb_cdc_ch0
+        # 收到的数据直接以十六进制打到日志里（主机模式下串口日志不可用，走 API/MQTT 看）
+        debug: true
+
+# 异步接收：消费 usb_cdc_ch0 的数据。它同时负责"喂"这个通道 —— usb_uart 只有在
+# read_array() 被调用时才会重启一次失败的 IN 传输，没有消费者的话一次瞬时错误
+# （比如 light sleep 那一下）就会让 RX 永久静音，只能拔插。
+#
+# ⚠ 不要再往 text_sensor / 文本类实体里塞这个通道的原始数据：K5 协议是二进制的，
+#    非法 UTF-8 会让 API 客户端报 "String field had bad UTF-8" 并断开连接。
+#    原始数据的十六进制已经由上面 usb_uart 的 debug: true 输出；
+#    要结构化数据就交给 Lua（usb.on_receive / lib/k5.lua）。
+usb_cdc_rx:
+  id: usb_rx
+  uart_id: usb_cdc_ch0
+  # 只做桥接：数据经 raw listener 交给 Lua（usb.on_receive / lib/k5.lua），
+  # 不挂 on_data/on_line 触发器，也就不会往文本实体里塞二进制。
+  # 需要临时看数据时把触发器加回来可以，但别接 text_sensor。
+
+switch:
+  - platform: usb_mode
+    id: switch_usb_mode
+    restore_mode: RESTORE_DEFAULT_OFF
+    # 主机模式下组件自己持有 APB + NO_LIGHT_SLEEP 锁：light sleep 会让
+    # 挂起的 USB 传输以 USB_TRANSFER_STATUS_ERROR 失败、设备掉线重枚举。
+    # 界面上的 APB 开关和这个锁是两回事。真要省电就设成 true（USB 会失效）。
+    allow_light_sleep: false

@@ -51,6 +51,8 @@ packages:
   - !include packages/s3_touch/networks.yaml
   - !include packages/s3_touch/features/mqtt_handler.yaml
   - !include packages/s3_touch/features/mqtt_credentials.yaml
+  # USB 角色切换（设备日志 <-> 主机读 CDC 设备）
+  - !include packages/s3_touch/usb_mode.yaml
 
   # - !include packages/storage.yaml
   # 设置
@@ -63,3 +65,4 @@ packages:
   - !include packages/s3_touch/features/weather/weather.yaml
   # 聊天
   - !include packages/s3_touch/features/message/message.yaml
+

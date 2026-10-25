@@ -80,6 +80,16 @@ async def to_code(config):
         media_player = await cg.get_variable(media_player_config[CONF_ID])
         cg.add(var.register_media_player(str(media_player_config[CONF_ID]), media_player))
 
+    # Bridge the Lua `usb` API to a usb_cdc_rx component (host-mode USB CDC).
+    # Optional: only wired when the config actually has a usb_cdc_rx.
+    usb_rx_configs = CORE.config.get("usb_cdc_rx") if CORE.config else None
+    if usb_rx_configs:
+        if not isinstance(usb_rx_configs, list):
+            usb_rx_configs = [usb_rx_configs]
+        rx_var = await cg.get_variable(usb_rx_configs[0][CONF_ID])
+        cg.add(var.set_usb_source(rx_var))
+        cg.add_define("USE_LUA_USB")
+
     # Export lemonade_version (from substitutions) as a C define if present
     lemonade_ver = None
     try:

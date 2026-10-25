@@ -15,6 +15,9 @@ class Rtttl;
 namespace media_player {
 class MediaPlayer;
 }  // namespace media_player
+namespace usb_cdc_rx {
+class USBCdcRx;
+}  // namespace usb_cdc_rx
 }  // namespace esphome
 
 namespace esphome {
@@ -36,6 +39,8 @@ class LuaRuntime : public Component {
   void set_ota_active(bool active);
   void register_rtttl_player(const std::string &name, rtttl::Rtttl *player);
   void register_media_player(const std::string &name, media_player::MediaPlayer *player);
+  /// USB CDC bridge for the Lua `usb` API (see lua_usb.cpp). Optional.
+  void set_usb_source(usb_cdc_rx::USBCdcRx *source) { this->usb_source_ = source; }
   bool is_ota_active() const;
   template<typename T> void set_uid_global(T *uid) {
     this->uid_reader_ = [uid]() -> std::string {
@@ -52,6 +57,7 @@ class LuaRuntime : public Component {
   int async_core_{0};
   std::string cached_uid_{"0000"};
   std::function<std::string()> uid_reader_{};
+  usb_cdc_rx::USBCdcRx *usb_source_{nullptr};
 };
 
 template<typename... Ts> class LuaRunFileAction : public Action<Ts...> {

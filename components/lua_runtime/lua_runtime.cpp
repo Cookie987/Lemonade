@@ -12,6 +12,7 @@
 #include "lua_esphome.h"
 #include "lua_fs.h"
 #include "lua_lvgl.h"
+#include "lua_usb.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
@@ -366,6 +367,14 @@ static int rtos_receive(lua_State *L) {
   if (timeout < 0) {
     while (true) {
       lua_abort_if_ota(L);
+      // Event-driven USB delivery: runs on this task, which owns the Lua state.
+      // If a batch was handed to a Lua callback (which typically sys.publish()es),
+      // bail out now so sys.run() can dispatch the message queue; otherwise a
+      // waiting coroutine would only wake up on its own timeout timer.
+      if (lua_usb_rtos_pump(L)) {
+        lua_pushinteger(L, -1);
+        return 1;
+      }
       if (xQueueReceive(ctx->queue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
         break;
       }
@@ -374,6 +383,10 @@ static int rtos_receive(lua_State *L) {
     int remaining = timeout;
     while (true) {
       lua_abort_if_ota(L);
+      if (lua_usb_rtos_pump(L)) {
+        lua_pushinteger(L, -1);
+        return 1;
+      }
       int slice = remaining > 100 ? 100 : remaining;
       if (xQueueReceive(ctx->queue, &msg, pdMS_TO_TICKS(slice)) == pdTRUE) {
         break;
@@ -858,6 +871,7 @@ static void register_base_api(lua_State *L, const std::string &script_path, LuaR
   register_lemonade_api(L, runtime);
   register_app_api(L, script_path);
   register_esphome_api(L);
+  register_usb_api(L);
   register_fs_api(L);
   register_lvgl_api(L, script_path);
   register_fskv_api(L, script_path);
@@ -875,12 +889,14 @@ void LuaRuntime::setup() {
 #ifndef LUA_RUNTIME_STUB
   set_lvgl_owner_task((void *) xTaskGetCurrentTaskHandle());
   this->cached_uid_ = load_uid_from_preferences();
+  lua_usb_attach(this->usb_source_);
 #endif
 }
 
 void LuaRuntime::loop() {
 #ifndef LUA_RUNTIME_STUB
   process_lvgl_jobs();
+  lua_usb_pump_tx();
 #endif
 }
 
