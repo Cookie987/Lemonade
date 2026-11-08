@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "id": "com.lemonade.novel",
+  "platform": ["s3_t", "s3_t_3_2"],
+  "name": "小说",
+  "description": "从 SD 卡读取 TXT 小说，自动保存阅读位置，下次打开继续阅读。",
+  "author": "LemonadeOS Team",
+  "icon": "assets/icon.png"
+}
