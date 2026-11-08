@@ -349,7 +349,6 @@ script:
           id(security_pattern_entry).clear();
           id(security_status_text).clear();
       - script.execute: security_register_activity
-      - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
       - script.execute: security_resume_saved_page
 
   - id: security_resume_saved_page
@@ -366,6 +365,11 @@ script:
           }
           id(security_resume_page) = resume_page;
           lv_scr_load_anim(resume_page, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
+          if (resume_page == id(page_main)->obj) {
+            id(statusbar_immersive)->execute();
+          } else {
+            id(statusbar_restore)->execute();
+          }
       - script.execute:
           id: show_previous_crash_report
           force: false

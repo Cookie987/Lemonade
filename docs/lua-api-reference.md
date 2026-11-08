@@ -239,6 +239,8 @@ Lemonade UI 辅助接口：
 - `ui.close_notification([suffix])`
 - `ui.font14() -> font|nil`
 
+默认情况下 Lua 应用顶部会显示系统状态栏（标题 + 时间 + 电量，透明底）。`ui.hide_topbar()` 会隐藏整条状态栏（适合需要全屏绘制的应用），`ui.show_topbar()` 恢复当前应用的状态栏。
+
 `suffix` 用于匹配已有通知并更新，或关闭指定通知。空 suffix 关闭全部通知。
 
 ## `lvgl`

@@ -1,0 +1,397 @@
+# ============================================================================
+# 系统状态栏（320×22）
+#
+# 布局：← 32px │ 时间 36/12px │ 标题居中（宽 150/110） │ 电量 │ 页面动作
+#
+# 模式：
+#   statusbar_enter    实底栏：时间 + 标题 + 电量（+ 可选动作）
+#   statusbar_compat   Lua 应用：透明，只保留标题
+#   statusbar_immersive 主屏/锁屏/OTA/高温：整条隐藏
+#
+# 返回：只有“页内上级”才显示返回箭头；回主页交给物理 Home 键。
+# ============================================================================
+
+globals:
+  - id: bar_back_available
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # 锁屏前保存的状态，解锁后原样恢复（0=导航 1=兼容 2=沉浸）
+  - id: bar_saved_mode
+    type: int
+    restore_value: no
+    initial_value: '2'
+  - id: bar_saved_title
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: bar_saved_back
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: bar_saved_action
+    type: int
+    restore_value: no
+    initial_value: '0'
+
+lvgl:
+  style_definitions:
+    - id: bar_title_style
+      text_color: 0x1f1f1f
+      text_font: chinese_font14
+      text_align: CENTER
+    - id: bar_status_style
+      text_color: 0x8a9099
+      text_font: chinese_font14
+    - id: bar_action_style
+      text_color: 0x1f95f6
+      text_font: chinese_font14
+
+  top_layer:
+    widgets:
+      - obj:
+          id: statusbar_root
+          x: 0
+          y: 0
+          width: 320
+          height: 22
+          pad_all: 0
+          border_width: 0
+          bg_opa: TRANSP
+          hidden: true
+          widgets:
+            # 实底（兼容模式隐藏后只剩文字）
+            - obj:
+                id: statusbar_bg
+                x: 0
+                y: 0
+                width: 320
+                height: 22
+                bg_color: 0xffffff
+                bg_opa: COVER
+                border_side: BOTTOM
+                border_width: 1
+                border_color: 0xe7e9ec
+                radius: 0
+                pad_all: 0
+
+            - button:
+                id: btn_topbar_back
+                x: 0
+                y: 0
+                width: 32
+                height: 22
+                hidden: true
+                bg_opa: TRANSP
+                border_width: 0
+                shadow_width: 0
+                pad_all: 0
+                pressed:
+                  bg_color: 0xe7e9ec
+                  bg_opa: COVER
+                widgets:
+                  - label:
+                      align: CENTER
+                      text: "\uF104"  # angle-left
+                      text_color: 0x1f1f1f
+                      text_font: chinese_font14
+                on_click:
+                  then:
+                    - script.execute: page_back
+
+            - label:
+                id: lbl_bar_time
+                x: 12
+                y: 2
+                height: 18
+                styles: [bar_status_style]
+                text: "--:--"
+
+            - label:
+                id: lbl_topbar_title
+                align: TOP_MID
+                y: 2
+                height: 18
+                width: 150
+                long_mode: DOT
+                styles: [bar_title_style]
+                text: "系统"
+
+            - label:
+                id: lbl_bar_battery
+                align: TOP_RIGHT
+                x: -4
+                y: 2
+                height: 18
+                recolor: true
+                styles: [bar_status_style]
+                text: "--%"
+
+            - button:
+                id: btn_app_store_refresh
+                align: TOP_RIGHT
+                x: -4
+                y: 0
+                width: 36
+                height: 22
+                hidden: true
+                bg_opa: TRANSP
+                border_width: 0
+                shadow_width: 0
+                pad_all: 0
+                pressed:
+                  bg_color: 0xe7e9ec
+                  bg_opa: COVER
+                widgets:
+                  - label:
+                      align: CENTER
+                      styles: [bar_action_style]
+                      text: "刷新"
+                on_click:
+                  then:
+                    - lambda: |
+                        id(app_store_component).request_refresh();
+                        id(refresh_app_store_widgets)->execute();
+
+            - button:
+                id: btn_message_add
+                align: TOP_RIGHT
+                x: -4
+                y: 0
+                width: 36
+                height: 22
+                hidden: true
+                bg_opa: TRANSP
+                border_width: 0
+                shadow_width: 0
+                pad_all: 0
+                pressed:
+                  bg_color: 0xe7e9ec
+                  bg_opa: COVER
+                widgets:
+                  - label:
+                      align: CENTER
+                      styles: [bar_action_style]
+                      text: "+"
+                on_click:
+                  then:
+                    - lambda: |
+                        lv_textarea_set_text(id(textarea_contact_add_input), "");
+                        lv_obj_clear_flag(id(obj_contact_add_overlay), LV_OBJ_FLAG_HIDDEN);
+                        lv_obj_move_foreground(id(obj_contact_add_overlay));
+
+script:
+  # 实底导航栏：标题 + 时间 + 电量（+ 可选动作）
+  - id: statusbar_enter
+    parameters:
+      title: string
+      back: bool
+      action: int
+    then:
+      - lambda: |
+          lv_obj_clear_flag(id(statusbar_root), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(statusbar_bg), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(lbl_bar_time), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(lbl_bar_battery), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);
+          lv_label_set_text(id(lbl_topbar_title), title.c_str());
+          id(bar_saved_mode) = 0;
+          id(bar_saved_title) = title;
+          id(bar_saved_back) = back;
+          id(bar_saved_action) = action;
+          lv_obj_set_x(id(lbl_bar_time), back ? 36 : 12);
+          if (back) {
+            lv_obj_clear_flag(id(btn_topbar_back), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(btn_topbar_back), LV_OBJ_FLAG_HIDDEN);
+          }
+          id(bar_back_available) = back;
+          if (action == 1) {
+            lv_obj_clear_flag(id(btn_app_store_refresh), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(btn_app_store_refresh), LV_OBJ_FLAG_HIDDEN);
+          }
+          if (action == 2) {
+            lv_obj_clear_flag(id(btn_message_add), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(btn_message_add), LV_OBJ_FLAG_HIDDEN);
+          }
+          if (action == 1 || action == 2) {
+            lv_obj_set_x(id(lbl_bar_battery), -44);
+            lv_obj_set_width(id(lbl_topbar_title), 105);
+          } else {
+            lv_obj_set_x(id(lbl_bar_battery), -4);
+            lv_obj_set_width(id(lbl_topbar_title), 150);
+          }
+      - script.execute: statusbar_update_status
+
+  # Lua 应用：透明，只保留标题，避免盖住应用顶部内容
+  - id: statusbar_compat
+    parameters:
+      title: string
+    then:
+      - lambda: |
+          lv_obj_clear_flag(id(statusbar_root), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(statusbar_bg), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(lbl_bar_time), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(lbl_bar_battery), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(btn_app_store_refresh), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(btn_topbar_back), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_x(id(lbl_bar_time), 12);
+          lv_obj_set_x(id(lbl_bar_battery), -4);
+          lv_obj_add_flag(id(btn_message_add), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_width(id(lbl_topbar_title), 150);
+          lv_label_set_text(id(lbl_topbar_title), title.c_str());
+          id(bar_saved_mode) = 1;
+          id(bar_saved_title) = title;
+          id(bar_back_available) = false;
+      - script.execute: statusbar_update_status
+
+  - id: statusbar_title
+    parameters:
+      title: string
+    then:
+      - lambda: |
+          lv_label_set_text(id(lbl_topbar_title), title.c_str());
+          if (id(bar_saved_mode) == 0 || id(bar_saved_mode) == 1) {
+            id(bar_saved_title) = title;
+          }
+
+  - id: statusbar_immersive
+    then:
+      - lvgl.widget.hide: statusbar_root
+      - lambda: |
+          id(bar_back_available) = false;
+          id(bar_saved_mode) = 2;
+
+  # 锁屏/密码/图案这类临时覆盖页：只藏栏，不覆盖保存的状态
+  - id: statusbar_overlay_hide
+    then:
+      - lvgl.widget.hide: statusbar_root
+      - lambda: |
+          id(bar_back_available) = false;
+
+  # 解锁后恢复锁屏前的栏状态
+  - id: statusbar_restore
+    then:
+      - lambda: |
+          if (id(bar_saved_mode) == 2) {
+            lv_obj_add_flag(id(statusbar_root), LV_OBJ_FLAG_HIDDEN);
+            id(bar_back_available) = false;
+          } else if (id(bar_saved_mode) == 1) {
+            id(statusbar_compat)->execute(id(bar_saved_title));
+          } else {
+            id(statusbar_enter)->execute(id(bar_saved_title), id(bar_saved_back), id(bar_saved_action));
+          }
+
+  # 时间 + 电量（进入页面时和每分钟各刷新一次）
+  - id: statusbar_update_status
+    then:
+      - lambda: |
+          auto t = id(ntp_time).now();
+          if (t.is_valid()) {
+            char tbuf[8];
+            snprintf(tbuf, sizeof(tbuf), "%02d:%02d", t.hour, t.minute);
+            lv_label_set_text(id(lbl_bar_time), tbuf);
+          }
+
+          float percent = id(battery_soc);
+          if (percent > 100.0f) percent = 100.0f;
+          if (percent < 0.0f) percent = 0.0f;
+          int pct = (int)(percent + 0.5f);
+
+          std::string iconbat = id(charge).state ? "mdi-battery-charging" : "mdi-battery";
+          if (percent >= 95.0f) {
+            // full
+          } else if (percent >= 85.0f) {
+            iconbat += "-90";
+          } else if (percent >= 75.0f) {
+            iconbat += "-80";
+          } else if (percent >= 65.0f) {
+            iconbat += "-70";
+          } else if (percent >= 55.0f) {
+            iconbat += "-60";
+          } else if (percent >= 45.0f) {
+            iconbat += "-50";
+          } else if (percent >= 35.0f) {
+            iconbat += "-40";
+          } else if (percent >= 25.0f) {
+            iconbat += "-30";
+          } else if (percent >= 15.0f) {
+            iconbat += "-20";
+          } else if (percent >= 5.0f) {
+            iconbat += "-10";
+          } else {
+            iconbat += "-outline";
+          }
+          iconbat = id(mdi_icon_map)[iconbat];
+
+          char buf[8];
+          snprintf(buf, sizeof(buf), "%d%%", pct);
+          std::string text = iconbat + " " + buf;
+          if (percent < 20.0f) {
+            text = "#FF0000 " + text + "#";
+          }
+          lv_label_set_text(id(lbl_bar_battery), text.c_str());
+
+  # 返回“页内上级”；回主页交给物理 Home 键
+  - id: page_back
+    then:
+      - lambda: |
+          lv_obj_t *active = lv_screen_active();
+          auto show = [&](int index) {
+            id(lvgl_1)->show_page(index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+          };
+
+          if (active == id(page_security_pattern)->obj) {
+            id(security_back_from_pattern)->execute();
+            return;
+          }
+          if (active == id(page_security_pin)->obj) {
+            id(security_back_from_pin)->execute();
+            return;
+          }
+          if (active == id(system_setting_wifi_config_page)->obj) {
+            show(id(system_setting_network_page)->index);
+            return;
+          }
+          if (active == id(system_setting_new_wifi_page)->obj) {
+            show(id(system_setting_wifi_config_page)->index);
+            return;
+          }
+          if (active == id(system_setting_iot_page)->obj) {
+            show(id(system_setting_network_page)->index);
+            return;
+          }
+          if (active == id(system_setting_previous_error_page)->obj) {
+            show(id(system_setting_system_page)->index);
+            return;
+          }
+          if (active == id(page_app_store_detail)->obj) {
+            show(id(page_app_store)->index);
+            return;
+          }
+          if (active == id(page_message)->obj) {
+            if (!lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN)) {
+              id(contacts_close_chat)->execute();
+              lv_obj_t *list = id(list_message_friend);
+              if (list != nullptr) {
+                lv_obj_clean(list);
+              }
+            }
+            return;
+          }
+          if (active == id(system_setting_power_page)->obj ||
+              active == id(system_setting_display_page)->obj ||
+              active == id(system_setting_sound_page)->obj ||
+              active == id(system_setting_network_page)->obj ||
+              active == id(system_setting_system_page)->obj ||
+              active == id(system_setting_bottle_ocean_page)->obj ||
+              active == id(system_setting_update_page)->obj ||
+              active == id(system_setting_storage_page)->obj ||
+              active == id(system_setting_security_page)->obj) {
+            show(id(page_setting_menu)->index);
+            return;
+          }
+          // 其余页面（主屏/应用首页/Lua 应用）没有“页内上级”，不回退

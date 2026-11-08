@@ -3,10 +3,8 @@ lvgl:
     - id: page_lock_screen
       skip: true
       on_load:
-        - lvgl.widget.hide: [btn_topbar_back, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - script.execute: statusbar_overlay_hide
         - script.execute: security_render_lock_screen
-      on_unload:
-        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
       widgets:
         - image:
             id: img_lock_screen_bg
@@ -85,13 +83,12 @@ lvgl:
     - id: system_setting_security_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "安全与隐私"
+        - script.execute:
+            id: statusbar_enter
+            title: "安全与隐私"
+            back: true
+            action: 0
         - script.execute: security_render_settings_page
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -255,10 +252,8 @@ lvgl:
     - id: page_security_pin
       skip: true
       on_load:
-        - lvgl.widget.hide: [btn_topbar_back, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - script.execute: statusbar_overlay_hide
         - script.execute: security_render_pin_page
-      on_unload:
-        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
       widgets:
         - obj:
             x: 0
@@ -514,7 +509,7 @@ lvgl:
     - id: page_security_pattern
       skip: true
       on_load:
-        - lvgl.widget.hide: [btn_topbar_back, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - script.execute: statusbar_overlay_hide
         - lambda: |
             if (!id(security_pattern_handler_bound)) {
               auto *canvas = id(canvas_security_pattern);
@@ -704,8 +699,6 @@ lvgl:
               id(security_pattern_handler_bound) = true;
             }
         - script.execute: security_render_pattern_page
-      on_unload:
-        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
       widgets:
         - obj:
             x: 0

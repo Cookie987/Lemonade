@@ -854,27 +854,21 @@ static lv_obj_t *get_ui_top_layer_for_page(lv_obj_t *page) {
   return lv_disp_get_layer_top(disp);
 }
 
-struct LuaTopbarRefs {
-  lv_obj_t *title{nullptr};
-  lv_obj_t *date{nullptr};
-  lv_obj_t *time{nullptr};
-};
-
-static LuaTopbarRefs find_topbar_refs(lv_obj_t *top_layer) {
-  LuaTopbarRefs refs;
-  if (top_layer == nullptr) return refs;
-
-  lv_obj_t **slots[] = {&refs.title, &refs.date, &refs.time};
-  size_t next_slot = 0;
+// 状态栏根节点是 top_layer 里 320×22 的容器（见 statusbar.yaml），
+// Lua 的 ui.hide_topbar()/show_topbar() 直接整条显隐。
+static lv_obj_t *find_statusbar_root(lv_obj_t *top_layer) {
+  if (top_layer == nullptr) return nullptr;
   uint32_t child_count = lv_obj_get_child_cnt(top_layer);
-  for (uint32_t i = 0; i < child_count && next_slot < 3; i++) {
+  for (uint32_t i = 0; i < child_count; i++) {
     lv_obj_t *child = lv_obj_get_child(top_layer, i);
-    if (child == nullptr || !lv_obj_check_type(child, &lv_label_class)) continue;
-    *slots[next_slot] = child;
-    next_slot++;
+    if (child == nullptr) continue;
+    // 跳过 Lua 通知条（240×25，带 USER_1 标记）
+    if (lv_obj_has_flag(child, LV_OBJ_FLAG_USER_1)) continue;
+    if (lv_obj_get_width(child) == 320 && lv_obj_get_height(child) == 22) {
+      return child;
+    }
   }
-
-  return refs;
+  return nullptr;
 }
 
 static LuaNotificationBar *get_notification_bar_data(lv_obj_t *obj) {
@@ -992,10 +986,8 @@ static void set_notification_bar_timer(LuaNotificationBar *data, int delay_ms) {
 static int l_ui_hide_topbar(lua_State *L) {
   lv_obj_t *app_page = get_app_page_from_lua(L);
   lvgl_call_void([app_page]() {
-    LuaTopbarRefs refs = find_topbar_refs(get_ui_top_layer_for_page(app_page));
-    if (refs.title != nullptr) lv_obj_add_flag(refs.title, LV_OBJ_FLAG_HIDDEN);
-    if (refs.date != nullptr) lv_obj_add_flag(refs.date, LV_OBJ_FLAG_HIDDEN);
-    if (refs.time != nullptr) lv_obj_add_flag(refs.time, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *bar = find_statusbar_root(get_ui_top_layer_for_page(app_page));
+    if (bar != nullptr) lv_obj_add_flag(bar, LV_OBJ_FLAG_HIDDEN);
   });
   return 0;
 }
@@ -1003,10 +995,8 @@ static int l_ui_hide_topbar(lua_State *L) {
 static int l_ui_show_topbar(lua_State *L) {
   lv_obj_t *app_page = get_app_page_from_lua(L);
   lvgl_call_void([app_page]() {
-    LuaTopbarRefs refs = find_topbar_refs(get_ui_top_layer_for_page(app_page));
-    if (refs.title != nullptr) lv_obj_clear_flag(refs.title, LV_OBJ_FLAG_HIDDEN);
-    if (refs.date != nullptr) lv_obj_clear_flag(refs.date, LV_OBJ_FLAG_HIDDEN);
-    if (refs.time != nullptr) lv_obj_clear_flag(refs.time, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *bar = find_statusbar_root(get_ui_top_layer_for_page(app_page));
+    if (bar != nullptr) lv_obj_clear_flag(bar, LV_OBJ_FLAG_HIDDEN);
   });
   return 0;
 }

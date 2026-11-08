@@ -80,16 +80,17 @@ script:
                       std::string time_str = esp_time.strftime("%Y-%m-%d %H:%M:%S");
                       if (from_name == id(uid)) {
                         id(chat_private_append)->execute(to_name, from_name, content, time_str);
+                        id(contacts_increment_unread)->execute(to_name, content, time_str, false);
                       } else if (to_name == id(uid)) {
                         id(chat_private_append)->execute(from_name, from_name, content, time_str);
                       }
 
                       if (to_name == id(uid) && from_name != id(uid)) {
-                        if (is_active_contact && page_show) {
+                        bool active_chat = is_active_contact && page_show;
+                        if (active_chat) {
                           id(contacts_clear_unread)->execute(from_name);
-                        } else {
-                          id(contacts_increment_unread)->execute(from_name);
                         }
+                        id(contacts_increment_unread)->execute(from_name, content, time_str, !active_chat);
                       }
 
                       if (to_name == id(uid) && from_name != id(uid) && private_alert_enabled) {

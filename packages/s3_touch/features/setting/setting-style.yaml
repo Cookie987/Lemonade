@@ -12,13 +12,11 @@
 
 lvgl:
   style_definitions:
-    # 页面内容底色（顶栏 22px 留给页面默认白底）
+    # 页面内容底色（顶栏由 statusbar.yaml 负责）
     - id: setting_page
       bg_color: 0xf2f3f5
       bg_opa: COVER
-      border_width: 1
-      border_side: TOP
-      border_color: 0xe7e9ec
+      border_width: 0
       radius: 0
       pad_all: 0
 

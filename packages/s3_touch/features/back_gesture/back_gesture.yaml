@@ -4,8 +4,7 @@
 # 复用说明（移植到其它触摸项目）：
 #   1. 拷贝本文件，改 substitutions 里的屏幕尺寸/阈值；
 #   2. 在目标项目的 touchscreen 配置里挂 3 个钩子（见文件底部注释）；
-#   3. 重写 back_gesture_update 里的 target 映射与 back_gesture_event 的
-#      分发，其余部分不用动。
+#   3. 返回动作统一交给 statusbar.yaml 的 page_back，本文件只负责手势判定。
 # ════════════════════════════════════════════════════════════════════
 substitutions:
   back_gesture_screen_width: "320"
@@ -13,7 +12,7 @@ substitutions:
   back_gesture_edge_margin: "24"    # 起点须落在屏幕左右边缘多少像素内
   back_gesture_show_dx: "20"        # 图标开始跟随手指的距离 px
   back_gesture_stop_dx: "40"        # 图标向内移动到这里后停住；必须滑到这里才触发返回
-  back_gesture_max_dy: "45"         # 垂直方向最大偏移 px（过滤斜滑/竖向滚动）
+  back_gesture_max_dy: "55"         # 垂直方向最大偏移 px（过滤斜滑/竖向滚动）
 
 globals:
   - id: back_gesture_active
@@ -35,10 +34,6 @@ globals:
   - id: back_gesture_reached
     type: bool
     initial_value: 'false'
-  # 本次手势能返回的目标：0=当前页面不支持返回，其余见 back_gesture_event
-  - id: back_gesture_target
-    type: int
-    initial_value: '0'
 
 script:
   # ── 新手势开始：记录起点，清掉上一次的状态 ──
@@ -72,45 +67,13 @@ script:
           if (arrow == nullptr) return;
 
           // 用“真正显示在屏幕上的页面”判断能否返回。
-          // 不要用 page.is_showing()：它读的是 LVGL 组件里记录的 current_page，
-          // 解锁恢复页面 / lv_scr_load 直接切屏后可能与画面不同步，
-          // 会导致桌面等不该返回的页面误触发（例如回到“安全和隐私”）。
+          // 有页内上级的页面由状态栏把 bar_back_available 置 true；
+          // 回主页交给物理 Home 键，手势只处理页内返回。
           lv_obj_t *active = lv_screen_active();
-          int target = 0;
-          if (active == id(page_security_pattern)->obj) {
-            target = 1;
-          } else if (active == id(page_security_pin)->obj) {
-            target = 2;
-          } else if (active == id(page_app_store_detail)->obj) {
-            target = 3;
-          } else if (active == id(page_message)->obj) {
-            if (!lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN)) {
-              target = 4;
-            }
-          } else if (active == id(system_setting_wifi_config_page)->obj) {
-            target = 5;
-          } else if (active == id(system_setting_new_wifi_page)->obj) {
-            target = 6;
-          } else if (active == id(page_setting_menu)->obj) {
-            target = 8;
-          } else if (active == id(system_setting_previous_error_page)->obj) {
-            // 上次错误日志：返回到「关于」
-            target = 9;
-          } else if (active == id(system_setting_iot_page)->obj) {
-            // Cookie IoT：返回到「网络与连接」
-            target = 10;
-          } else if (active == id(system_setting_power_page)->obj ||
-                     active == id(system_setting_display_page)->obj ||
-                     active == id(system_setting_sound_page)->obj ||
-                     active == id(system_setting_network_page)->obj ||
-                     active == id(system_setting_system_page)->obj ||
-                     active == id(system_setting_bottle_ocean_page)->obj ||
-                     active == id(system_setting_update_page)->obj ||
-                     active == id(system_setting_storage_page)->obj ||
-                     active == id(system_setting_security_page)->obj) {
-            target = 7;
-          }
-          id(back_gesture_target) = target;
+          bool special_back =
+              active == id(page_security_pattern)->obj ||
+              active == id(page_security_pin)->obj;
+          bool can_back = special_back || id(bar_back_available);
 
           // on_update 可能先于 on_touch 到达：第一次拿到坐标就当作起点
           if (!id(back_gesture_active)) {
@@ -127,7 +90,7 @@ script:
           id(back_gesture_last_x) = x;
           id(back_gesture_last_y) = y;
 
-          if (target == 0) {
+          if (!can_back) {
             lv_obj_add_flag(arrow, LV_OBJ_FLAG_HIDDEN);
             return;
           }
@@ -193,61 +156,19 @@ script:
           id(back_gesture_active) = false;
           id(back_gesture_reached) = false;
 
+          lv_obj_t *active = lv_screen_active();
+          bool special_back =
+              active == id(page_security_pattern)->obj ||
+              active == id(page_security_pin)->obj;
+
           if (triggered &&
               (from_left || from_right) &&
               std::abs(dy) <= ${back_gesture_max_dy} &&
-              id(back_gesture_target) != 0) {
-            id(back_gesture_event)->execute();
+              (special_back || id(bar_back_available))) {
+            id(page_back)->execute();
           }
 
-  # ── 项目分发（换项目只需改 back_gesture_update 的 target 映射）──
-  # target: 1 图案密码页, 2 数字密码页, 3 应用详情, 4 私聊,
-  #         5 Wi-Fi 配置, 6 添加 Wi-Fi, 7 设置子页, 8 设置菜单,
-  #         9 上次错误日志, 10 Cookie IoT
-  - id: back_gesture_event
-    mode: restart
-    then:
-      - lambda: |
-          auto anim = LV_SCR_LOAD_ANIM_MOVE_RIGHT;
-          switch (id(back_gesture_target)) {
-            case 1:
-              id(security_back_from_pattern)->execute();
-              break;
-            case 2:
-              id(security_back_from_pin)->execute();
-              break;
-            case 3:
-              id(lvgl_1)->show_page(id(page_app_store).index, anim, 200);
-              break;
-            case 4: {
-              id(contacts_close_chat)->execute();
-              lv_obj_t *list = id(list_message_friend);
-              if (list != nullptr) {
-                lv_obj_clean(list);
-              }
-              break;
-            }
-            case 5:
-              id(lvgl_1)->show_page(id(system_setting_network_page).index, anim, 200);
-              break;
-            case 6:
-              id(lvgl_1)->show_page(id(system_setting_wifi_config_page).index, anim, 200);
-              break;
-            case 7:
-              id(lvgl_1)->show_page(id(page_setting_menu).index, anim, 200);
-              break;
-            case 8:
-              id(lvgl_1)->show_page(id(page_main).index, anim, 200);
-              break;
-            case 9:
-              id(lvgl_1)->show_page(id(system_setting_system_page).index, anim, 200);
-              break;
-            case 10:
-              id(lvgl_1)->show_page(id(system_setting_network_page).index, anim, 200);
-              break;
-            default:
-              break;
-          }
+  # ── 返回分发已统一到 statusbar.yaml 的 page_back ──
 
 lvgl:
   top_layer:

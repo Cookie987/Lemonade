@@ -71,10 +71,45 @@ globals:
     type: uint16_t
     restore_value: no
     initial_value: '25'
+  # 私聊最后渲染的日期（用于插入“今天/昨天/日期”分隔）
+  - id: chat_private_last_date
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # 当前私聊是否显示着“还没有消息”空状态
+  - id: chat_private_empty_shown
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # 连续上滑加载时，暂时把最新一块移出渲染窗口
+  - id: chat_private_skip_newest
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: chat_private_load_streak
+    type: uint8_t
+    restore_value: no
+    initial_value: '0'
   - id: chat_public_render_limit
     type: uint16_t
     restore_value: no
     initial_value: '25'
+  - id: chat_public_last_date
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: chat_public_skip_newest
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: chat_public_load_streak
+    type: uint8_t
+    restore_value: no
+    initial_value: '0'
+  - id: chat_public_empty_shown
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: chat_private_total_messages
     type: uint16_t
     restore_value: no
@@ -157,10 +192,11 @@ script:
           if (chat_open) {
             std::string active_contact = id(current_contact_uid);
             if (!active_contact.empty()) {
-              lv_label_set_text(lbl_topbar_title, active_contact.c_str());
+              id(statusbar_enter)->execute(active_contact, true, 0);
             }
             return;
           }
+          id(statusbar_enter)->execute(std::string("消息"), false, 2);
 
           uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
           if (tab_act == 0) {
@@ -240,9 +276,6 @@ script:
           // Clear and rebuild list
           lv_obj_clean(list);
 
-          static lv_obj_t * float_btn = nullptr;
-          float_btn = nullptr;
-
           // Load contacts JSON
           std::ifstream file("/data/contacts.json");
           std::string config_json;
@@ -287,65 +320,146 @@ script:
           bool only_favorite = id(message_only_favorite_switch).state;
 
           ESP_LOGD("Chat", "contacts.size(): %u", (unsigned)contacts.size());
+          lv_obj_set_style_pad_all(list, 8, 0);
+          lv_obj_set_style_pad_row(list, 6, 0);
+          auto now = id(ntp_time).now();
+          std::string today = now.strftime("%Y-%m-%d");
+
+          auto first_utf8 = [](const std::string &text) -> std::string {
+            if (text.empty()) return "?";
+            unsigned char c = text[0];
+            size_t len = 1;
+            if ((c & 0xE0) == 0xC0) len = 2;
+            else if ((c & 0xF0) == 0xE0) len = 3;
+            else if ((c & 0xF8) == 0xF0) len = 4;
+            if (len > text.size()) len = 1;
+            return text.substr(0, len);
+          };
+          static const uint32_t avatar_colors[] = {0x5B8FF9, 0xE8A33D, 0x35A16B, 0x9B7BD8, 0xE35D5D};
+
           if (contacts.size() == 0) {
-            lv_list_add_btn(list, NULL, "暂无联系人");
+            lv_obj_t *empty = lv_label_create(list);
+            lv_obj_set_width(empty, lv_pct(100));
+            lv_label_set_text(empty, "还没有联系人\n点右上角 + 添加");
+            lv_label_set_long_mode(empty, LV_LABEL_LONG_WRAP);
+            lv_obj_set_style_text_align(empty, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_text_color(empty, lv_color_hex(0x8A9099), 0);
+            lv_obj_set_style_text_font(empty, chinese_font14, 0);
+            lv_obj_set_style_pad_top(empty, 50, 0);
           }
           else {
+            int color_index = 0;
             for (JsonPair kv : contacts) {
               std::string contact = kv.key().c_str();
               if (contact.empty()) continue;
               bool favorite = kv.value()["favorite"] | false;
               uint8_t unread = kv.value()["unread"] | 0;
-              std::string label = contact;
-              if (favorite) {
-                label = contact + std::string(" \uF005");  // Fontawesome star
+              std::string last_message = kv.value()["last_message"] | "";
+              std::string last_time = kv.value()["last_time"] | "";
+              std::string preview = last_message.empty() ? "点击开始聊天" : last_message;
+
+              lv_obj_t *row = lv_obj_create(list);
+              lv_obj_set_size(row, 304, 52);
+              lv_obj_set_style_bg_color(row, lv_color_hex(0xFFFFFF), 0);
+              lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+              lv_obj_set_style_bg_color(row, lv_color_hex(0xF5F6F8), LV_STATE_PRESSED);
+              lv_obj_set_style_border_width(row, 0, 0);
+              lv_obj_set_style_radius(row, 12, 0);
+              lv_obj_set_style_pad_all(row, 0, 0);
+              lv_obj_set_style_shadow_width(row, 0, 0);
+              lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+              lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+              lv_obj_t *avatar = lv_obj_create(row);
+              lv_obj_set_size(avatar, 34, 34);
+              lv_obj_set_pos(avatar, 10, 9);
+              lv_obj_set_style_radius(avatar, LV_RADIUS_CIRCLE, 0);
+              lv_obj_set_style_bg_color(avatar, lv_color_hex(avatar_colors[color_index % 5]), 0);
+              lv_obj_set_style_bg_opa(avatar, LV_OPA_COVER, 0);
+              lv_obj_set_style_border_width(avatar, 0, 0);
+              lv_obj_set_style_pad_all(avatar, 0, 0);
+              lv_obj_clear_flag(avatar, LV_OBJ_FLAG_SCROLLABLE);
+              lv_obj_t *initial = lv_label_create(avatar);
+              lv_label_set_text(initial, first_utf8(contact).c_str());
+              lv_obj_set_style_text_font(initial, chinese_font14, 0);
+              lv_obj_set_style_text_color(initial, lv_color_hex(0xFFFFFF), 0);
+              lv_obj_align(initial, LV_ALIGN_CENTER, 0, 0);
+              color_index++;
+
+              lv_obj_t *name_label = lv_label_create(row);
+              lv_obj_set_pos(name_label, 54, 7);
+              lv_obj_set_width(name_label, 190);
+              lv_label_set_text(name_label, contact.c_str());
+              lv_label_set_long_mode(name_label, LV_LABEL_LONG_DOT);
+              lv_obj_set_style_text_font(name_label, chinese_font14, 0);
+              lv_obj_set_style_text_color(name_label, lv_color_hex(0x1F1F1F), 0);
+
+              lv_point_t name_size;
+              lv_txt_get_size(&name_size, contact.c_str(), chinese_font14->get_lv_font(), 0, 0, 190,
+                              LV_TEXT_FLAG_NONE);
+              lv_obj_t *star = lv_label_create(row);
+              lv_label_set_text(star, "\uF005");
+              lv_obj_set_style_text_font(star, chinese_font14, 0);
+              lv_obj_set_style_text_color(star, lv_color_hex(0xE8B23D), 0);
+              lv_obj_set_pos(star, 54 + name_size.x + 4, 8);
+              if (!favorite) lv_obj_add_flag(star, LV_OBJ_FLAG_HIDDEN);
+
+              lv_obj_t *preview_label = lv_label_create(row);
+              lv_obj_set_pos(preview_label, 54, 27);
+              lv_obj_set_width(preview_label, 210);
+              lv_label_set_text(preview_label, preview.c_str());
+              lv_label_set_long_mode(preview_label, LV_LABEL_LONG_DOT);
+              lv_obj_set_style_text_font(preview_label, chinese_font14, 0);
+              lv_obj_set_style_text_color(preview_label, lv_color_hex(0x8A9099), 0);
+
+              std::string time_text;
+              if (last_time.size() >= 16) {
+                time_text = (last_time.rfind(today, 0) == 0) ? last_time.substr(11, 5) : last_time.substr(5, 5);
               }
-              lv_obj_t * btn = lv_list_add_btn(list, NULL, label.c_str());
-              if (favorite) {
-                lv_obj_set_style_bg_color(btn, lv_color_hex(0x664cbe), 0);
-                lv_obj_set_style_bg_opa(btn, LV_OPA_50, 0);
-                lv_obj_set_style_text_color(btn, lv_color_hex(0xffffff), 0);
-              }
-              bool show_unread_dot = unread > 0 && !global_dnd && (!only_favorite || favorite);
-              if (show_unread_dot) {
-                lv_obj_t * dot = lv_obj_create(btn);
-                lv_obj_set_size(dot, 8, 8);
-                lv_obj_set_style_radius(dot, LV_RADIUS_CIRCLE, 0);
-                lv_obj_set_style_bg_color(dot, lv_color_hex(0xFF0000), 0);
-                lv_obj_set_style_border_width(dot, 0, 0);
-                lv_obj_align(dot, LV_ALIGN_RIGHT_MID, -6, 0);
+              lv_obj_t *time_label = lv_label_create(row);
+              lv_label_set_text(time_label, time_text.c_str());
+              lv_obj_set_style_text_font(time_label, chinese_font14, 0);
+              lv_obj_set_style_text_color(time_label, lv_color_hex(0x8A9099), 0);
+              lv_obj_align(time_label, LV_ALIGN_TOP_RIGHT, -10, 7);
+
+              bool show_unread = unread > 0 && !global_dnd && (!only_favorite || favorite);
+              if (show_unread) {
+                lv_obj_t *badge = lv_obj_create(row);
+                lv_obj_set_size(badge, 18, 18);
+                lv_obj_set_style_radius(badge, LV_RADIUS_CIRCLE, 0);
+                lv_obj_set_style_bg_color(badge, lv_color_hex(0xE35D5D), 0);
+                lv_obj_set_style_bg_opa(badge, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_width(badge, 0, 0);
+                lv_obj_set_style_pad_all(badge, 0, 0);
+                lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE);
+                lv_obj_align(badge, LV_ALIGN_TOP_RIGHT, -10, 26);
+                lv_obj_t *badge_label = lv_label_create(badge);
+                lv_label_set_text(badge_label, std::to_string(unread > 99 ? 99 : unread).c_str());
+                lv_obj_set_style_text_font(badge_label, chinese_font14, 0);
+                lv_obj_set_style_text_color(badge_label, lv_color_hex(0xFFFFFF), 0);
+                lv_obj_align(badge_label, LV_ALIGN_CENTER, 0, 0);
               }
 
               // Click to open chat
-              lv_obj_add_event_cb(btn, [](lv_event_t * e) {
-                lv_obj_t * target_btn = static_cast<lv_obj_t *>(lv_event_get_target(e));
-                lv_obj_t * list_obj = (lv_obj_t *) lv_event_get_user_data(e);
-                if (list_obj == nullptr) return;
-                const char * txt = lv_list_get_btn_text(list_obj, target_btn);
-                if (!txt) return;
-                // remove favorite prefix if present
-                std::string name = txt;
-                std::string fav_suffix = std::string(" \uF005");
-                if (name.size() >= fav_suffix.size() && name.rfind(fav_suffix) == name.size() - fav_suffix.size()) {
-                  name = name.substr(0, name.size() - fav_suffix.size());
-                }
-                id(contacts_open_chat)->execute(name);
-              }, LV_EVENT_SHORT_CLICKED, list);
+              lv_obj_add_event_cb(row, [](lv_event_t * e) {
+                lv_obj_t *row_obj = static_cast<lv_obj_t *>(lv_event_get_target(e));
+                lv_obj_t *name_obj = lv_obj_get_child(row_obj, 1);
+                if (name_obj == nullptr) return;
+                const char *txt = lv_label_get_text(name_obj);
+                if (txt == nullptr || txt[0] == '\0') return;
+                id(contacts_open_chat)->execute(std::string(txt));
+              }, LV_EVENT_SHORT_CLICKED, nullptr);
 
               // Long press to open actions
-              lv_obj_add_event_cb(btn, [](lv_event_t * e) {
-                lv_obj_t * target_btn = static_cast<lv_obj_t *>(lv_event_get_target(e));
-                lv_obj_t * list_obj = (lv_obj_t *) lv_event_get_user_data(e);
-                if (list_obj == nullptr) return;
-                const char * txt = lv_list_get_btn_text(list_obj, target_btn);
-                if (!txt) return;
+              lv_obj_add_event_cb(row, [](lv_event_t * e) {
+                lv_obj_t *row_obj = static_cast<lv_obj_t *>(lv_event_get_target(e));
+                lv_obj_t *name_obj = lv_obj_get_child(row_obj, 1);
+                lv_obj_t *star_obj = lv_obj_get_child(row_obj, 2);
+                if (name_obj == nullptr) return;
+                const char *txt = lv_label_get_text(name_obj);
+                if (txt == nullptr || txt[0] == '\0') return;
                 std::string name = txt;
-                bool favorite = false;
-                std::string fav_suffix = std::string(" \uF005");
-                if (name.size() >= fav_suffix.size() && name.rfind(fav_suffix) == name.size() - fav_suffix.size()) {
-                  favorite = true;
-                  name = name.substr(0, name.size() - fav_suffix.size());
-                }
+                bool favorite = star_obj != nullptr && !lv_obj_has_flag(star_obj, LV_OBJ_FLAG_HIDDEN);
                 id(pending_action_contact) = name;
                 lv_label_set_text(id(lbl_contact_action_favorite), favorite ? "取消关心" : "特别关心");
                 lv_obj_set_style_bg_color(id(btn_contact_action_favorite),
@@ -353,29 +467,10 @@ script:
                                           0);
                 lv_obj_clear_flag(id(obj_contact_action_overlay), LV_OBJ_FLAG_HIDDEN);
                 lv_obj_move_foreground(id(obj_contact_action_overlay));
-              }, LV_EVENT_LONG_PRESSED, list);
+              }, LV_EVENT_LONG_PRESSED, nullptr);
             }
           }
 
-          // Floating add button
-          if (float_btn == nullptr) {
-            float_btn = lv_btn_create(list);
-            lv_obj_set_size(float_btn, 46, 46);
-            lv_obj_add_flag(float_btn, LV_OBJ_FLAG_FLOATING);
-            lv_obj_align(float_btn, LV_ALIGN_BOTTOM_RIGHT, 0, -lv_obj_get_style_pad_right(list, LV_PART_MAIN));
-            lv_obj_set_style_radius(float_btn, LV_RADIUS_CIRCLE, 0);
-            lv_obj_set_style_bg_color(float_btn, lv_color_hex(0x1f95f6), 0);
-            lv_obj_t * label = lv_label_create(float_btn);
-            lv_label_set_text(label, "+");
-            lv_obj_set_style_text_font(label, chinese_font18, LV_PART_MAIN);
-            lv_obj_align(label, LV_ALIGN_CENTER, 0, 2);
-            lv_obj_add_event_cb(float_btn, [](lv_event_t * e) {
-              lv_obj_clear_flag(id(obj_contact_add_overlay), LV_OBJ_FLAG_HIDDEN);
-              lv_obj_move_foreground(id(obj_contact_add_overlay));
-              lv_textarea_set_text(id(textarea_contact_add_input), "");
-            }, LV_EVENT_CLICKED, NULL);
-          }
-          lv_obj_move_foreground(float_btn);
           lv_obj_update_layout(list);
           ESP_LOGD("Chat", "contacts list children: %u", (unsigned)lv_obj_get_child_cnt(list));
           id(message_update_unread_indicators)->execute();
@@ -563,7 +658,7 @@ script:
           std::string name = contact;
           if (name.empty()) return;
           id(current_contact_uid) = name;
-          lv_label_set_text(lbl_topbar_title, name.c_str());
+          id(statusbar_enter)->execute(name, true, 0);
           id(contacts_clear_unread)->execute(name);
 
           lv_obj_add_flag(id(tabview_message), LV_OBJ_FLAG_HIDDEN);
@@ -574,19 +669,23 @@ script:
           id(chat_private_total_messages) = 0;
           id(chat_private_loading_more) = false;
           id(chat_private_prepend_mode) = false;
+          id(chat_private_last_date) = "";
+          id(chat_private_empty_shown) = false;
+          id(chat_private_skip_newest) = false;
+          id(chat_private_load_streak) = 0;
 
           // Reset private chat list for the selected contact
           lv_obj_clean(id(list_message_friend));
           lv_textarea_set_text(id(textarea_message_friend_input), "");
           lv_textarea_set_placeholder_text(id(textarea_message_friend_input),
-                              "单击输入消息，长按进入全屏输入");
+                              "发送消息…");
           id(chat_private_load)->execute(name);
 
   - id: contacts_close_chat
     mode: queued
     then:
       - lambda: |
-          lv_label_set_text(lbl_topbar_title, "消息");
+          id(statusbar_enter)->execute(std::string("消息"), false, 2);
           lv_obj_add_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(id(tabview_message), LV_OBJ_FLAG_HIDDEN);
           lv_obj_move_foreground(id(tabview_message));
@@ -683,6 +782,9 @@ script:
     mode: queued
     parameters:
       contact: string
+      content: string
+      time: string
+      count_unread: bool
     then:
       - lambda: |
           std::string name = contact;
@@ -727,8 +829,11 @@ script:
             contacts[name.c_str()]["unread"] = 0;
           }
           uint8_t unread = contacts[name.c_str()]["unread"] | 0;
-          if (unread < 255) unread++;
+          if (count_unread && unread < 255) unread++;
           contacts[name.c_str()]["unread"] = unread;
+          contacts[name.c_str()]["last_message"] = content;
+          contacts[name.c_str()]["last_time"] = time;
+          contacts[name.c_str()]["last_from"] = name;
 
           std::ofstream file1("/data/contacts.json", std::ios::trunc);
           serializeJson(doc, file1);
@@ -800,6 +905,15 @@ script:
             lv_obj_align(id(dot_tab_public), LV_ALIGN_TOP_LEFT, (tab_w * 2) - 18, 6);
             lv_obj_move_foreground(id(dot_tab_contacts));
             lv_obj_move_foreground(id(dot_tab_public));
+
+            lv_obj_set_parent(id(obj_message_tab_indicator), tab_btns);
+            lv_obj_add_flag(id(obj_message_tab_indicator), LV_OBJ_FLAG_IGNORE_LAYOUT);
+            lv_obj_add_flag(id(obj_message_tab_indicator), LV_OBJ_FLAG_FLOATING);
+            uint16_t act = lv_tabview_get_tab_act(tabview_message);
+            lv_obj_align(id(obj_message_tab_indicator), LV_ALIGN_TOP_LEFT,
+                         tab_w * act + tab_w / 2 - 16, 30);
+            lv_obj_clear_flag(id(obj_message_tab_indicator), LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(id(obj_message_tab_indicator));
           }
 
   - id: message_init_chat_scroll_loaders
@@ -815,6 +929,14 @@ script:
             lv_obj_add_event_cb(public_list, [](lv_event_t * e) {
               lv_obj_t * target = static_cast<lv_obj_t *>(lv_event_get_target(e));
               if (target == nullptr) return;
+              if (id(chat_public_skip_newest) && lv_obj_get_scroll_bottom(target) <= 6) {
+                id(chat_public_skip_newest) = false;
+                id(chat_public_load_streak) = 0;
+                id(chat_public_loading_more) = false;
+                id(chat_public_prepend_mode) = false;
+                id(chat_public_load)->execute();
+                return;
+              }
               if (lv_obj_get_scroll_top(target) > 6) return;
               id(chat_public_load_more)->execute();
             }, LV_EVENT_SCROLL_END, nullptr);
@@ -827,6 +949,14 @@ script:
             lv_obj_add_event_cb(private_list, [](lv_event_t * e) {
               lv_obj_t * target = static_cast<lv_obj_t *>(lv_event_get_target(e));
               if (target == nullptr) return;
+              if (id(chat_private_skip_newest) && lv_obj_get_scroll_bottom(target) <= 6) {
+                id(chat_private_skip_newest) = false;
+                id(chat_private_load_streak) = 0;
+                id(chat_private_loading_more) = false;
+                id(chat_private_prepend_mode) = false;
+                id(chat_private_load)->execute(id(current_contact_uid));
+                return;
+              }
               if (lv_obj_get_scroll_top(target) > 6) return;
               id(chat_private_load_more)->execute();
             }, LV_EVENT_SCROLL_END, nullptr);
@@ -849,6 +979,9 @@ script:
           id(chat_private_prev_content_height) =
               lv_obj_get_height(list) + lv_obj_get_scroll_top(list) + lv_obj_get_scroll_bottom(list);
 
+          if (id(chat_private_load_streak) < 255) id(chat_private_load_streak)++;
+          if (id(chat_private_load_streak) >= 2) id(chat_private_skip_newest) = true;
+
           uint16_t next_limit = id(chat_private_render_limit) + 25;
           if (next_limit > id(chat_private_total_messages)) next_limit = id(chat_private_total_messages);
           id(chat_private_render_limit) = next_limit;
@@ -869,6 +1002,9 @@ script:
           id(chat_public_prev_content_height) =
               lv_obj_get_height(list) + lv_obj_get_scroll_top(list) + lv_obj_get_scroll_bottom(list);
 
+          if (id(chat_public_load_streak) < 255) id(chat_public_load_streak)++;
+          if (id(chat_public_load_streak) >= 2) id(chat_public_skip_newest) = true;
+
           uint16_t next_limit = id(chat_public_render_limit) + 25;
           if (next_limit > id(chat_public_total_messages)) next_limit = id(chat_public_total_messages);
           id(chat_public_render_limit) = next_limit;
@@ -886,6 +1022,16 @@ script:
           if (contact.empty()) return;
           lv_obj_t *list = id(list_message_friend);
           if (list == nullptr) return;
+
+          if (id(chat_private_skip_newest)) {
+            if (id(chat_private_total_messages) < 200) id(chat_private_total_messages)++;
+            return;
+          }
+
+          if (id(chat_private_empty_shown)) {
+            lv_obj_clean(list);
+            id(chat_private_empty_shown) = false;
+          }
 
           auto format_time = [](
               const std::string &time_str,
@@ -908,21 +1054,59 @@ script:
           bool is_self = from == id(uid);
           bool has_recolor = content.find('#') != std::string::npos;
           auto now = id(ntp_time).now();
+          std::string today_str = now.strftime("%Y-%m-%d");
+          std::string current_year = now.strftime("%Y");
+          std::string msg_date = time.size() >= 10 ? time.substr(0, 10) : "";
+          std::string short_time = time.size() >= 16 ? time.substr(11, 5) : time;
+
+          auto date_label_for = [&](const std::string &date_str) -> std::string {
+            if (date_str.empty()) return "";
+            if (date_str == today_str) return "今天";
+            auto yesterday = esphome::ESPTime::from_epoch_local(now.timestamp - 86400);
+            if (date_str == yesterday.strftime("%Y-%m-%d")) return "昨天";
+            if (date_str.size() >= 4 && date_str.compare(0, 4, current_year) == 0) {
+              return date_str.substr(5);
+            }
+            return date_str;
+          };
+
+          if (!msg_date.empty() && msg_date != id(chat_private_last_date)) {
+            id(chat_private_last_date) = msg_date;
+            lv_obj_t *sep_row = lv_obj_create(list);
+            lv_obj_set_width(sep_row, lv_pct(100));
+            lv_obj_set_height(sep_row, 22);
+            lv_obj_set_style_bg_opa(sep_row, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(sep_row, 0, 0);
+            lv_obj_set_style_pad_all(sep_row, 0, 0);
+            lv_obj_set_style_shadow_width(sep_row, 0, 0);
+            lv_obj_set_style_radius(sep_row, 0, 0);
+            lv_obj_clear_flag(sep_row, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_t *sep = lv_label_create(sep_row);
+            lv_label_set_text(sep, date_label_for(msg_date).c_str());
+            lv_obj_set_style_text_font(sep, chinese_font14, 0);
+            lv_obj_set_style_text_color(sep, lv_color_hex(0x8A9099), 0);
+            lv_obj_set_style_bg_color(sep, lv_color_hex(0xE7EAEE), 0);
+            lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, 0);
+            lv_obj_set_style_radius(sep, 9, 0);
+            lv_obj_set_style_pad_hor(sep, 8, 0);
+            lv_obj_set_style_pad_ver(sep, 2, 0);
+            lv_obj_align(sep, LV_ALIGN_CENTER, 0, 0);
+          }
+
           std::string sender = is_self ? "我" : (from.empty() ? contact : from);
-          std::string meta = sender + std::string(" · ") +
-                             format_time(time, now.strftime("%Y-%m-%d"), now.strftime("%Y"));
-          lv_text_flag_t text_flag = has_recolor ? LV_TEXT_FLAG_RECOLOR : LV_TEXT_FLAG_NONE;
-          lv_point_t meta_size;
-          lv_point_t content_size;
+          std::string meta = sender + " · " + short_time;
+          std::string time_color = (is_self && !has_recolor) ? "D8EEFF" : "8A9099";
+          std::string display = content + "  #" + time_color + " " + short_time + "#";
+
+          lv_point_t display_size;
           auto *bubble_font = chinese_font14->get_lv_font();
-          lv_txt_get_size(&meta_size, meta.c_str(), bubble_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-          lv_txt_get_size(&content_size, content.c_str(), bubble_font, 0, 0, LV_COORD_MAX, text_flag);
-          const lv_coord_t bubble_max_width = 224;
-          const lv_coord_t bubble_inner_max_width = bubble_max_width - 20;
-          lv_coord_t bubble_inner_width = meta_size.x > content_size.x ? meta_size.x : content_size.x;
-          if (bubble_inner_width < 28) bubble_inner_width = 28;
-          if (bubble_inner_width > bubble_inner_max_width) bubble_inner_width = bubble_inner_max_width;
-          lv_coord_t bubble_width = bubble_inner_width + 20;
+          lv_txt_get_size(&display_size, display.c_str(), bubble_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_RECOLOR);
+          const lv_coord_t bubble_max_width = 236;
+          const lv_coord_t pad_h = 8;
+          const lv_coord_t pad_v = 5;
+          lv_coord_t bubble_width = display_size.x + pad_h * 2;
+          if (bubble_width < 40) bubble_width = 40;
+          if (bubble_width > bubble_max_width) bubble_width = bubble_max_width;
 
           lv_obj_t * row = lv_obj_create(list);
           lv_obj_set_width(row, lv_pct(100));
@@ -940,15 +1124,16 @@ script:
           lv_obj_clear_flag(bubble, LV_OBJ_FLAG_SCROLLABLE);
           lv_obj_set_scrollbar_mode(bubble, LV_SCROLLBAR_MODE_OFF);
           lv_obj_set_scroll_dir(bubble, LV_DIR_NONE);
-          lv_obj_set_style_radius(bubble, 14, 0);
-          lv_obj_set_style_border_width(bubble, has_recolor ? 2 : 0, 0);
-          lv_obj_set_style_border_color(bubble, lv_color_hex(0x9098A1), 0);
-          lv_obj_set_style_pad_ver(bubble, 8, 0);
-          lv_obj_set_style_pad_hor(bubble, 10, 0);
+          lv_obj_set_style_radius(bubble, 12, 0);
+          bool outlined = has_recolor || !is_self;
+          lv_obj_set_style_border_width(bubble, outlined ? 1 : 0, 0);
+          lv_obj_set_style_border_color(bubble, lv_color_hex(0xE7E9EC), 0);
+          lv_obj_set_style_pad_ver(bubble, pad_v, 0);
+          lv_obj_set_style_pad_hor(bubble, pad_h, 0);
           lv_obj_set_style_shadow_width(bubble, 0, 0);
           lv_obj_set_style_bg_color(bubble,
                                     has_recolor ? lv_color_hex(0xFFFFFF)
-                                                : (is_self ? lv_color_hex(0x1F95F6) : lv_color_hex(0xEEF2F6)),
+                                                : (is_self ? lv_color_hex(0x1F95F6) : lv_color_hex(0xFFFFFF)),
                                     0);
           lv_obj_set_style_text_color(bubble,
                                       has_recolor ? lv_color_hex(0x111111)
@@ -956,20 +1141,15 @@ script:
                                       0);
           lv_obj_set_flex_flow(bubble, LV_FLEX_FLOW_COLUMN);
           lv_obj_set_flex_align(bubble, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-          lv_obj_align(bubble, is_self ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT, is_self ? -4 : 4, 0);
+          lv_obj_align(bubble, is_self ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT, is_self ? -8 : 8, 0);
 
           lv_obj_t * meta_label = lv_label_create(bubble);
-          lv_obj_set_width(meta_label, bubble_inner_width);
           lv_label_set_text(meta_label, meta.c_str());
-          lv_obj_set_style_text_font(meta_label, chinese_font14, 0);
-          lv_obj_set_style_text_color(meta_label,
-                                      has_recolor ? lv_color_hex(0x4F5964)
-                                                  : (is_self ? lv_color_hex(0xD8EEFF) : lv_color_hex(0x6E7781)),
-                                      0);
+          lv_obj_add_flag(meta_label, LV_OBJ_FLAG_HIDDEN);
 
           lv_obj_t * content_label = lv_label_create(bubble);
-          lv_obj_set_width(content_label, bubble_inner_width);
-          lv_label_set_text(content_label, content.c_str());
+          lv_obj_set_width(content_label, bubble_width - pad_h * 2);
+          lv_label_set_text(content_label, display.c_str());
           lv_label_set_long_mode(content_label, LV_LABEL_LONG_WRAP);
           lv_obj_set_style_text_font(content_label, chinese_font14, 0);
           lv_obj_set_style_text_color(content_label,
@@ -978,13 +1158,17 @@ script:
                                       0);
           lv_label_set_recolor(content_label, true);
 
+          lv_obj_t * raw_label = lv_label_create(bubble);
+          lv_label_set_text(raw_label, content.c_str());
+          lv_obj_add_flag(raw_label, LV_OBJ_FLAG_HIDDEN);
+
           lv_obj_add_event_cb(bubble, [](lv_event_t * e) {
             lv_obj_t * target = static_cast<lv_obj_t *>(lv_event_get_target(e));
-            if (target == nullptr || lv_obj_get_child_cnt(target) < 2) return;
+            if (target == nullptr || lv_obj_get_child_cnt(target) < 3) return;
             lv_obj_t * meta_obj = lv_obj_get_child(target, 0);
-            lv_obj_t * content_obj = lv_obj_get_child(target, 1);
+            lv_obj_t * raw_obj = lv_obj_get_child(target, 2);
             const char * meta_txt = meta_obj ? lv_label_get_text(meta_obj) : nullptr;
-            const char * content_txt = content_obj ? lv_label_get_text(content_obj) : nullptr;
+            const char * content_txt = raw_obj ? lv_label_get_text(raw_obj) : nullptr;
             if (content_txt == nullptr) return;
 
             std::string sender;
@@ -998,11 +1182,11 @@ script:
           }, LV_EVENT_LONG_PRESSED, nullptr);
 
           lv_obj_update_layout(row);
-          lv_obj_set_height(row, lv_obj_get_height(bubble) + 2);
+          lv_obj_set_height(row, lv_obj_get_height(bubble));
 
           if (id(chat_private_total_messages) < 200) id(chat_private_total_messages)++;
           if (id(chat_private_render_limit) < 25) id(chat_private_render_limit) = 25;
-          while (lv_obj_get_child_cnt(list) > (uint32_t)(id(chat_private_render_limit) + 1)) {
+          while (lv_obj_get_child_cnt(list) > (uint32_t)(id(chat_private_render_limit) + 30)) {
             lv_obj_t * oldest = lv_obj_get_child(list, 1);
             if (oldest == nullptr) break;
             lv_obj_del(oldest);
@@ -1026,6 +1210,15 @@ script:
           lv_obj_t *list = id(list_message_public);
           if (list == nullptr) return;
 
+          if (id(chat_public_skip_newest)) {
+            if (id(chat_public_total_messages) < 200) id(chat_public_total_messages)++;
+            return;
+          }
+          if (id(chat_public_empty_shown)) {
+            lv_obj_clean(list);
+            id(chat_public_empty_shown) = false;
+          }
+
           auto format_time = [](
               const std::string &time_str,
               const std::string &today_str,
@@ -1047,23 +1240,57 @@ script:
           bool is_self = from == id(uid);
           bool has_recolor = content.find('#') != std::string::npos;
           auto now = id(ntp_time).now();
-          std::string sender = is_self ? "我" : (from.empty() ? std::string("匿名用户") : from);
-          std::string meta = sender + std::string(" · ") +
-                             format_time(time, now.strftime("%Y-%m-%d"), now.strftime("%Y"));
-          lv_text_flag_t text_flag = has_recolor ? LV_TEXT_FLAG_RECOLOR : LV_TEXT_FLAG_NONE;
-          lv_point_t meta_size;
-          lv_point_t content_size;
-          auto *bubble_font = chinese_font14->get_lv_font();
-          lv_txt_get_size(&meta_size, meta.c_str(), bubble_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-          lv_txt_get_size(&content_size, content.c_str(), bubble_font, 0, 0, LV_COORD_MAX, text_flag);
-          const lv_coord_t bubble_max_width = 244;
-          const lv_coord_t bubble_inner_max_width = bubble_max_width - 20;
-          lv_coord_t bubble_inner_width = meta_size.x > content_size.x ? meta_size.x : content_size.x;
-          if (bubble_inner_width < 28) bubble_inner_width = 28;
-          if (bubble_inner_width > bubble_inner_max_width) bubble_inner_width = bubble_inner_max_width;
-          lv_coord_t bubble_width = bubble_inner_width + 20;
+          std::string today_str = now.strftime("%Y-%m-%d");
+          std::string current_year = now.strftime("%Y");
+          std::string msg_date = time.size() >= 10 ? time.substr(0, 10) : "";
+          std::string short_time = time.size() >= 16 ? time.substr(11, 5) : time;
 
-          lv_obj_t * row = lv_obj_create(list);
+          auto date_label_for = [&](const std::string &date_str) -> std::string {
+            if (date_str.empty()) return "";
+            if (date_str == today_str) return "今天";
+            auto yesterday = esphome::ESPTime::from_epoch_local(now.timestamp - 86400);
+            if (date_str == yesterday.strftime("%Y-%m-%d")) return "昨天";
+            if (date_str.size() >= 4 && date_str.compare(0, 4, current_year) == 0) return date_str.substr(5);
+            return date_str;
+          };
+          if (!msg_date.empty() && msg_date != id(chat_public_last_date)) {
+            id(chat_public_last_date) = msg_date;
+            lv_obj_t *sep_row = lv_obj_create(list);
+            lv_obj_set_width(sep_row, lv_pct(100));
+            lv_obj_set_height(sep_row, 22);
+            lv_obj_set_style_bg_opa(sep_row, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(sep_row, 0, 0);
+            lv_obj_set_style_pad_all(sep_row, 0, 0);
+            lv_obj_set_style_shadow_width(sep_row, 0, 0);
+            lv_obj_set_style_radius(sep_row, 0, 0);
+            lv_obj_clear_flag(sep_row, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_t *sep = lv_label_create(sep_row);
+            lv_label_set_text(sep, date_label_for(msg_date).c_str());
+            lv_obj_set_style_text_font(sep, chinese_font14, 0);
+            lv_obj_set_style_text_color(sep, lv_color_hex(0x8A9099), 0);
+            lv_obj_set_style_bg_color(sep, lv_color_hex(0xE7EAEE), 0);
+            lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, 0);
+            lv_obj_set_style_radius(sep, 9, 0);
+            lv_obj_set_style_pad_hor(sep, 8, 0);
+            lv_obj_set_style_pad_ver(sep, 2, 0);
+            lv_obj_align(sep, LV_ALIGN_CENTER, 0, 0);
+          }
+
+          std::string sender = is_self ? "我" : (from.empty() ? std::string("匿名用户") : from);
+          std::string meta = sender + " · " + short_time;
+          std::string time_color = (is_self && !has_recolor) ? "D8EEFF" : "8A9099";
+          std::string display = content + "  #" + time_color + " " + short_time + "#";
+          lv_point_t display_size;
+          auto *bubble_font = chinese_font14->get_lv_font();
+          lv_txt_get_size(&display_size, display.c_str(), bubble_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_RECOLOR);
+          const lv_coord_t bubble_max_width = 236;
+          const lv_coord_t pad_h = 8;
+          const lv_coord_t pad_v = 5;
+          lv_coord_t bubble_width = display_size.x + pad_h * 2;
+          if (bubble_width < 40) bubble_width = 40;
+          if (bubble_width > bubble_max_width) bubble_width = bubble_max_width;
+
+          lv_obj_t *row = lv_obj_create(list);
           lv_obj_set_width(row, lv_pct(100));
           lv_obj_set_height(row, LV_SIZE_CONTENT);
           lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
@@ -1071,7 +1298,21 @@ script:
           lv_obj_set_style_pad_all(row, 0, 0);
           lv_obj_set_style_shadow_width(row, 0, 0);
           lv_obj_set_style_radius(row, 0, 0);
+          lv_obj_set_style_pad_left(row, 8, 0);
+          lv_obj_set_style_pad_right(row, 8, 0);
+          lv_obj_set_style_pad_row(row, 2, 0);
           lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+          lv_obj_set_flex_flow(row, LV_FLEX_FLOW_COLUMN);
+          lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START,
+                                is_self ? LV_FLEX_ALIGN_END : LV_FLEX_ALIGN_START,
+                                LV_FLEX_ALIGN_START);
+
+          if (!is_self) {
+            lv_obj_t *sender_label = lv_label_create(row);
+            lv_label_set_text(sender_label, sender.c_str());
+            lv_obj_set_style_text_font(sender_label, chinese_font14, 0);
+            lv_obj_set_style_text_color(sender_label, lv_color_hex(0x8A9099), 0);
+          }
 
           lv_obj_t * bubble = lv_obj_create(row);
           lv_obj_set_width(bubble, bubble_width);
@@ -1079,15 +1320,16 @@ script:
           lv_obj_clear_flag(bubble, LV_OBJ_FLAG_SCROLLABLE);
           lv_obj_set_scrollbar_mode(bubble, LV_SCROLLBAR_MODE_OFF);
           lv_obj_set_scroll_dir(bubble, LV_DIR_NONE);
-          lv_obj_set_style_radius(bubble, 14, 0);
-          lv_obj_set_style_border_width(bubble, has_recolor ? 2 : 0, 0);
-          lv_obj_set_style_border_color(bubble, lv_color_hex(0x9098A1), 0);
-          lv_obj_set_style_pad_ver(bubble, 8, 0);
-          lv_obj_set_style_pad_hor(bubble, 10, 0);
+          lv_obj_set_style_radius(bubble, 12, 0);
+          bool outlined = has_recolor || !is_self;
+          lv_obj_set_style_border_width(bubble, outlined ? 1 : 0, 0);
+          lv_obj_set_style_border_color(bubble, lv_color_hex(0xE7E9EC), 0);
+          lv_obj_set_style_pad_ver(bubble, pad_v, 0);
+          lv_obj_set_style_pad_hor(bubble, pad_h, 0);
           lv_obj_set_style_shadow_width(bubble, 0, 0);
           lv_obj_set_style_bg_color(bubble,
                                     has_recolor ? lv_color_hex(0xFFFFFF)
-                                                : (is_self ? lv_color_hex(0x1F95F6) : lv_color_hex(0xEEF2F6)),
+                                                : (is_self ? lv_color_hex(0x1F95F6) : lv_color_hex(0xFFFFFF)),
                                     0);
           lv_obj_set_style_text_color(bubble,
                                       has_recolor ? lv_color_hex(0x111111)
@@ -1095,20 +1337,14 @@ script:
                                       0);
           lv_obj_set_flex_flow(bubble, LV_FLEX_FLOW_COLUMN);
           lv_obj_set_flex_align(bubble, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-          lv_obj_align(bubble, is_self ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT, is_self ? -4 : 4, 0);
 
           lv_obj_t * meta_label = lv_label_create(bubble);
-          lv_obj_set_width(meta_label, bubble_inner_width);
           lv_label_set_text(meta_label, meta.c_str());
-          lv_obj_set_style_text_font(meta_label, chinese_font14, 0);
-          lv_obj_set_style_text_color(meta_label,
-                                      has_recolor ? lv_color_hex(0x4F5964)
-                                                  : (is_self ? lv_color_hex(0xD8EEFF) : lv_color_hex(0x6E7781)),
-                                      0);
+          lv_obj_add_flag(meta_label, LV_OBJ_FLAG_HIDDEN);
 
           lv_obj_t * content_label = lv_label_create(bubble);
-          lv_obj_set_width(content_label, bubble_inner_width);
-          lv_label_set_text(content_label, content.c_str());
+          lv_obj_set_width(content_label, bubble_width - pad_h * 2);
+          lv_label_set_text(content_label, display.c_str());
           lv_label_set_long_mode(content_label, LV_LABEL_LONG_WRAP);
           lv_obj_set_style_text_font(content_label, chinese_font14, 0);
           lv_obj_set_style_text_color(content_label,
@@ -1117,13 +1353,17 @@ script:
                                       0);
           lv_label_set_recolor(content_label, true);
 
+          lv_obj_t * raw_label = lv_label_create(bubble);
+          lv_label_set_text(raw_label, content.c_str());
+          lv_obj_add_flag(raw_label, LV_OBJ_FLAG_HIDDEN);
+
           lv_obj_add_event_cb(bubble, [](lv_event_t * e) {
             lv_obj_t * target = static_cast<lv_obj_t *>(lv_event_get_target(e));
-            if (target == nullptr || lv_obj_get_child_cnt(target) < 2) return;
+            if (target == nullptr || lv_obj_get_child_cnt(target) < 3) return;
             lv_obj_t * meta_obj = lv_obj_get_child(target, 0);
-            lv_obj_t * content_obj = lv_obj_get_child(target, 1);
+            lv_obj_t * raw_obj = lv_obj_get_child(target, 2);
             const char * meta_txt = meta_obj ? lv_label_get_text(meta_obj) : nullptr;
-            const char * content_txt = content_obj ? lv_label_get_text(content_obj) : nullptr;
+            const char * content_txt = raw_obj ? lv_label_get_text(raw_obj) : nullptr;
             if (content_txt == nullptr) return;
 
             std::string sender;
@@ -1137,11 +1377,10 @@ script:
           }, LV_EVENT_LONG_PRESSED, nullptr);
 
           lv_obj_update_layout(row);
-          lv_obj_set_height(row, lv_obj_get_height(bubble) + 2);
 
           if (id(chat_public_total_messages) < 200) id(chat_public_total_messages)++;
           if (id(chat_public_render_limit) < 25) id(chat_public_render_limit) = 25;
-          while (lv_obj_get_child_cnt(list) > (uint32_t)(id(chat_public_render_limit) + 1)) {
+          while (lv_obj_get_child_cnt(list) > (uint32_t)(id(chat_public_render_limit) + 30)) {
             lv_obj_t * oldest = lv_obj_get_child(list, 1);
             if (oldest == nullptr) break;
             lv_obj_del(oldest);
@@ -1159,9 +1398,6 @@ script:
     then:
       - lambda: |
           bool any_private = false;
-          bool other_private = false;
-          bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
-          std::string active = id(current_contact_uid);
           bool global_dnd = id(message_dnd_switch).state;
           bool channel_dnd = id(message_channel_dnd_switch).state;
           bool only_favorite = id(message_only_favorite_switch).state;
@@ -1180,15 +1416,11 @@ script:
               JsonObject contacts = doc["contacts"].as<JsonObject>();
               if (!contacts.isNull()) {
                 for (JsonPair kv : contacts) {
-                  std::string contact = kv.key().c_str();
                   bool favorite = kv.value()["favorite"] | false;
                   uint8_t unread = kv.value()["unread"] | 0;
                   bool show_contact_unread = unread > 0 && !global_dnd && (!only_favorite || favorite);
                   if (show_contact_unread) {
                     any_private = true;
-                    if (!(chat_open && !active.empty() && contact == active)) {
-                      other_private = true;
-                    }
                   }
                 }
               }
@@ -1206,13 +1438,6 @@ script:
             lv_obj_clear_flag(id(dot_tab_public), LV_OBJ_FLAG_HIDDEN);
           } else {
             lv_obj_add_flag(id(dot_tab_public), LV_OBJ_FLAG_HIDDEN);
-          }
-
-          bool show_back = chat_open && (other_private || show_public);
-          if (show_back) {
-            lv_obj_clear_flag(id(dot_back_unread), LV_OBJ_FLAG_HIDDEN);
-          } else {
-            lv_obj_add_flag(id(dot_back_unread), LV_OBJ_FLAG_HIDDEN);
           }
 
   - id: chat_storage_init
@@ -1506,23 +1731,59 @@ script:
           bool keep_bottom = lv_obj_get_scroll_bottom(list) <= near_bottom_threshold(list);
 
           lv_obj_clean(list);
-          lv_obj_t * hint = lv_label_create(list);
-          lv_obj_set_width(hint, lv_pct(100));
-          lv_label_set_text(hint, "上滑加载更早消息，本地最多保存 200 条。");
-          lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
-          lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
-          lv_obj_set_style_text_color(hint, lv_color_hex(0x808080), 0);
+          id(chat_private_last_date) = "";
 
           auto now = id(ntp_time).now();
           std::string today_str = now.strftime("%Y-%m-%d");
           std::string current_year = now.strftime("%Y");
 
           size_t total = arr.size();
+          if (total == 0) {
+            lv_obj_t * empty = lv_label_create(list);
+            lv_obj_set_width(empty, lv_pct(100));
+            lv_label_set_text(empty, "还没有消息\n在下方输入第一条");
+            lv_label_set_long_mode(empty, LV_LABEL_LONG_WRAP);
+            lv_obj_set_style_text_align(empty, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_text_color(empty, lv_color_hex(0x8A9099), 0);
+            lv_obj_set_style_text_font(empty, chinese_font14, 0);
+            lv_obj_set_style_pad_top(empty, 50, 0);
+            id(chat_private_loading_more) = false;
+            id(chat_private_prepend_mode) = false;
+            id(chat_private_empty_shown) = true;
+            return;
+          }
+
+          id(chat_private_empty_shown) = false;
+          lv_obj_t * hint = lv_label_create(list);
+          lv_obj_set_width(hint, lv_pct(100));
+          lv_label_set_text(hint, "上滑加载更早消息，本地最多保存 200 条。");
+          lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
+          lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
+          lv_obj_set_style_text_color(hint, lv_color_hex(0x808080), 0);
+          lv_obj_set_style_text_font(hint, chinese_font14, 0);
+
+          auto date_label_for = [&](const std::string &date_str) -> std::string {
+            if (date_str.empty()) return "";
+            if (date_str == today_str) return "今天";
+            auto yesterday = esphome::ESPTime::from_epoch_local(now.timestamp - 86400);
+            if (date_str == yesterday.strftime("%Y-%m-%d")) return "昨天";
+            if (date_str.size() >= 4 && date_str.compare(0, 4, current_year) == 0) {
+              return date_str.substr(5);
+            }
+            return date_str;
+          };
+
+          std::string last_date;
+          size_t skip_newest = 0;
+          if (id(chat_private_skip_newest) && total > 35) skip_newest = 25;
+          if (skip_newest == 0) id(chat_private_skip_newest) = false;
+          size_t end_index = total - skip_newest;
           size_t render_limit = id(chat_private_render_limit);
-          size_t start_index = total > render_limit ? total - render_limit : 0;
+          size_t start_index = end_index > render_limit ? end_index - render_limit : 0;
           lv_obj_t * last_row = nullptr;
           size_t index = 0;
           for (JsonObject item : arr) {
+            if (index >= end_index) break;
             if (index++ < start_index) continue;
 
             std::string time_s = item["time"] | "";
@@ -1530,22 +1791,46 @@ script:
             std::string content_s = item["content"] | "";
             if (content_s.empty() && from_s.empty()) continue;
 
+            std::string msg_date = time_s.size() >= 10 ? time_s.substr(0, 10) : "";
+            std::string short_time = time_s.size() >= 16 ? time_s.substr(11, 5) : time_s;
+            if (!msg_date.empty() && msg_date != last_date) {
+              last_date = msg_date;
+              lv_obj_t *sep_row = lv_obj_create(list);
+              lv_obj_set_width(sep_row, lv_pct(100));
+              lv_obj_set_height(sep_row, 22);
+              lv_obj_set_style_bg_opa(sep_row, LV_OPA_TRANSP, 0);
+              lv_obj_set_style_border_width(sep_row, 0, 0);
+              lv_obj_set_style_pad_all(sep_row, 0, 0);
+              lv_obj_set_style_shadow_width(sep_row, 0, 0);
+              lv_obj_set_style_radius(sep_row, 0, 0);
+              lv_obj_clear_flag(sep_row, LV_OBJ_FLAG_SCROLLABLE);
+              lv_obj_t *sep = lv_label_create(sep_row);
+              lv_label_set_text(sep, date_label_for(msg_date).c_str());
+              lv_obj_set_style_text_font(sep, chinese_font14, 0);
+              lv_obj_set_style_text_color(sep, lv_color_hex(0x8A9099), 0);
+              lv_obj_set_style_bg_color(sep, lv_color_hex(0xE7EAEE), 0);
+              lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, 0);
+              lv_obj_set_style_radius(sep, 9, 0);
+              lv_obj_set_style_pad_hor(sep, 8, 0);
+              lv_obj_set_style_pad_ver(sep, 2, 0);
+              lv_obj_align(sep, LV_ALIGN_CENTER, 0, 0);
+            }
+
             bool is_self = from_s == id(uid);
             bool has_recolor = content_s.find('#') != std::string::npos;
             std::string sender = is_self ? "我" : (from_s.empty() ? contact : from_s);
-            std::string meta = sender + std::string(" · ") + format_time(time_s, today_str, current_year);
-            lv_text_flag_t text_flag = has_recolor ? LV_TEXT_FLAG_RECOLOR : LV_TEXT_FLAG_NONE;
-            lv_point_t meta_size;
-            lv_point_t content_size;
+            std::string meta = sender + " · " + short_time;
+            std::string time_color = (is_self && !has_recolor) ? "D8EEFF" : "8A9099";
+            std::string display = content_s + "  #" + time_color + " " + short_time + "#";
+            lv_point_t display_size;
             auto *bubble_font = chinese_font14->get_lv_font();
-            lv_txt_get_size(&meta_size, meta.c_str(), bubble_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-            lv_txt_get_size(&content_size, content_s.c_str(), bubble_font, 0, 0, LV_COORD_MAX, text_flag);
-            const lv_coord_t bubble_max_width = 224;
-            const lv_coord_t bubble_inner_max_width = bubble_max_width - 20;
-            lv_coord_t bubble_inner_width = meta_size.x > content_size.x ? meta_size.x : content_size.x;
-            if (bubble_inner_width < 28) bubble_inner_width = 28;
-            if (bubble_inner_width > bubble_inner_max_width) bubble_inner_width = bubble_inner_max_width;
-            lv_coord_t bubble_width = bubble_inner_width + 20;
+            lv_txt_get_size(&display_size, display.c_str(), bubble_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_RECOLOR);
+            const lv_coord_t bubble_max_width = 236;
+            const lv_coord_t pad_h = 8;
+            const lv_coord_t pad_v = 5;
+            lv_coord_t bubble_width = display_size.x + pad_h * 2;
+            if (bubble_width < 40) bubble_width = 40;
+            if (bubble_width > bubble_max_width) bubble_width = bubble_max_width;
 
             lv_obj_t * row = lv_obj_create(list);
             lv_obj_set_width(row, lv_pct(100));
@@ -1563,15 +1848,16 @@ script:
             lv_obj_clear_flag(bubble, LV_OBJ_FLAG_SCROLLABLE);
             lv_obj_set_scrollbar_mode(bubble, LV_SCROLLBAR_MODE_OFF);
             lv_obj_set_scroll_dir(bubble, LV_DIR_NONE);
-            lv_obj_set_style_radius(bubble, 14, 0);
-            lv_obj_set_style_border_width(bubble, has_recolor ? 2 : 0, 0);
-            lv_obj_set_style_border_color(bubble, lv_color_hex(0x9098A1), 0);
-            lv_obj_set_style_pad_ver(bubble, 8, 0);
-            lv_obj_set_style_pad_hor(bubble, 10, 0);
+            lv_obj_set_style_radius(bubble, 12, 0);
+            bool outlined = has_recolor || !is_self;
+            lv_obj_set_style_border_width(bubble, outlined ? 1 : 0, 0);
+            lv_obj_set_style_border_color(bubble, lv_color_hex(0xE7E9EC), 0);
+            lv_obj_set_style_pad_ver(bubble, pad_v, 0);
+            lv_obj_set_style_pad_hor(bubble, pad_h, 0);
             lv_obj_set_style_shadow_width(bubble, 0, 0);
             lv_obj_set_style_bg_color(bubble,
                                       has_recolor ? lv_color_hex(0xFFFFFF)
-                                                  : (is_self ? lv_color_hex(0x1F95F6) : lv_color_hex(0xEEF2F6)),
+                                                  : (is_self ? lv_color_hex(0x1F95F6) : lv_color_hex(0xFFFFFF)),
                                       0);
             lv_obj_set_style_text_color(bubble,
                                         has_recolor ? lv_color_hex(0x111111)
@@ -1579,20 +1865,15 @@ script:
                                         0);
             lv_obj_set_flex_flow(bubble, LV_FLEX_FLOW_COLUMN);
             lv_obj_set_flex_align(bubble, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-            lv_obj_align(bubble, is_self ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT, is_self ? -4 : 4, 0);
+            lv_obj_align(bubble, is_self ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT, is_self ? -8 : 8, 0);
 
             lv_obj_t * meta_label = lv_label_create(bubble);
-            lv_obj_set_width(meta_label, bubble_inner_width);
             lv_label_set_text(meta_label, meta.c_str());
-            lv_obj_set_style_text_font(meta_label, chinese_font14, 0);
-            lv_obj_set_style_text_color(meta_label,
-                                        has_recolor ? lv_color_hex(0x4F5964)
-                                                    : (is_self ? lv_color_hex(0xD8EEFF) : lv_color_hex(0x6E7781)),
-                                        0);
+            lv_obj_add_flag(meta_label, LV_OBJ_FLAG_HIDDEN);
 
             lv_obj_t * content_label = lv_label_create(bubble);
-            lv_obj_set_width(content_label, bubble_inner_width);
-            lv_label_set_text(content_label, content_s.c_str());
+            lv_obj_set_width(content_label, bubble_width - pad_h * 2);
+            lv_label_set_text(content_label, display.c_str());
             lv_label_set_long_mode(content_label, LV_LABEL_LONG_WRAP);
             lv_obj_set_style_text_font(content_label, chinese_font14, 0);
             lv_obj_set_style_text_color(content_label,
@@ -1601,13 +1882,17 @@ script:
                                         0);
             lv_label_set_recolor(content_label, true);
 
+            lv_obj_t * raw_label = lv_label_create(bubble);
+            lv_label_set_text(raw_label, content_s.c_str());
+            lv_obj_add_flag(raw_label, LV_OBJ_FLAG_HIDDEN);
+
             lv_obj_add_event_cb(bubble, [](lv_event_t * e) {
               lv_obj_t * target = static_cast<lv_obj_t *>(lv_event_get_target(e));
-              if (target == nullptr || lv_obj_get_child_cnt(target) < 2) return;
+              if (target == nullptr || lv_obj_get_child_cnt(target) < 3) return;
               lv_obj_t * meta_obj = lv_obj_get_child(target, 0);
-              lv_obj_t * content_obj = lv_obj_get_child(target, 1);
+              lv_obj_t * raw_obj = lv_obj_get_child(target, 2);
               const char * meta_txt = meta_obj ? lv_label_get_text(meta_obj) : nullptr;
-              const char * content_txt = content_obj ? lv_label_get_text(content_obj) : nullptr;
+              const char * content_txt = raw_obj ? lv_label_get_text(raw_obj) : nullptr;
               if (content_txt == nullptr) return;
 
               std::string sender;
@@ -1621,8 +1906,18 @@ script:
             }, LV_EVENT_LONG_PRESSED, nullptr);
 
             lv_obj_update_layout(row);
-            lv_obj_set_height(row, lv_obj_get_height(bubble) + 2);
+            lv_obj_set_height(row, lv_obj_get_height(bubble));
             last_row = row;
+          }
+
+          if (skip_newest > 0) {
+            lv_obj_t *more = lv_label_create(list);
+            lv_obj_set_width(more, lv_pct(100));
+            lv_label_set_text(more, "下滑加载最新消息");
+            lv_obj_set_style_text_align(more, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_text_color(more, lv_color_hex(0x8A9099), 0);
+            lv_obj_set_style_text_font(more, chinese_font14, 0);
+            lv_obj_set_style_pad_ver(more, 4, 0);
           }
 
           if (modified) {
@@ -1649,6 +1944,7 @@ script:
 
           id(chat_private_prepend_mode) = false;
           id(chat_private_loading_more) = false;
+          id(chat_private_last_date) = last_date;
 
   - id: chat_public_load
     mode: queued
@@ -1709,23 +2005,57 @@ script:
           bool keep_bottom = lv_obj_get_scroll_bottom(list) <= near_bottom_threshold(list);
 
           lv_obj_clean(list);
-          lv_obj_t * hint = lv_label_create(list);
-          lv_obj_set_width(hint, lv_pct(100));
-          lv_label_set_text(hint, "上滑加载更早消息，本地最多保存 200 条。");
-          lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
-          lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
-          lv_obj_set_style_text_color(hint, lv_color_hex(0x808080), 0);
+          id(chat_public_last_date) = "";
 
           auto now = id(ntp_time).now();
           std::string today_str = now.strftime("%Y-%m-%d");
           std::string current_year = now.strftime("%Y");
 
           size_t total = arr.size();
+          if (total == 0) {
+            lv_obj_t * empty = lv_label_create(list);
+            lv_obj_set_width(empty, lv_pct(100));
+            lv_label_set_text(empty, "广场还没有消息\n在下方输入第一条");
+            lv_label_set_long_mode(empty, LV_LABEL_LONG_WRAP);
+            lv_obj_set_style_text_align(empty, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_text_color(empty, lv_color_hex(0x8A9099), 0);
+            lv_obj_set_style_text_font(empty, chinese_font14, 0);
+            lv_obj_set_style_pad_top(empty, 40, 0);
+            id(chat_public_empty_shown) = true;
+            id(chat_public_loading_more) = false;
+            id(chat_public_prepend_mode) = false;
+            return;
+          }
+          id(chat_public_empty_shown) = false;
+
+          lv_obj_t * hint = lv_label_create(list);
+          lv_obj_set_width(hint, lv_pct(100));
+          lv_label_set_text(hint, "上滑加载更早消息，本地最多保存 200 条。");
+          lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
+          lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
+          lv_obj_set_style_text_color(hint, lv_color_hex(0x808080), 0);
+          lv_obj_set_style_text_font(hint, chinese_font14, 0);
+
+          auto date_label_for = [&](const std::string &date_str) -> std::string {
+            if (date_str.empty()) return "";
+            if (date_str == today_str) return "今天";
+            auto yesterday = esphome::ESPTime::from_epoch_local(now.timestamp - 86400);
+            if (date_str == yesterday.strftime("%Y-%m-%d")) return "昨天";
+            if (date_str.size() >= 4 && date_str.compare(0, 4, current_year) == 0) return date_str.substr(5);
+            return date_str;
+          };
+
+          std::string last_date;
+          size_t skip_newest = 0;
+          if (id(chat_public_skip_newest) && total > 35) skip_newest = 25;
+          if (skip_newest == 0) id(chat_public_skip_newest) = false;
+          size_t end_index = total - skip_newest;
           size_t render_limit = id(chat_public_render_limit);
-          size_t start_index = total > render_limit ? total - render_limit : 0;
+          size_t start_index = end_index > render_limit ? end_index - render_limit : 0;
           lv_obj_t * last_row = nullptr;
           size_t index = 0;
           for (JsonObject item : arr) {
+            if (index >= end_index) break;
             if (index++ < start_index) continue;
 
             std::string time_s = item["time"] | "";
@@ -1733,25 +2063,48 @@ script:
             std::string content_s = item["content"] | "";
             if (time_s.empty() && from_s.empty() && content_s.empty()) continue;
 
+            std::string msg_date = time_s.size() >= 10 ? time_s.substr(0, 10) : "";
+            std::string short_time = time_s.size() >= 16 ? time_s.substr(11, 5) : time_s;
+            if (!msg_date.empty() && msg_date != last_date) {
+              last_date = msg_date;
+              lv_obj_t *sep_row = lv_obj_create(list);
+              lv_obj_set_width(sep_row, lv_pct(100));
+              lv_obj_set_height(sep_row, 22);
+              lv_obj_set_style_bg_opa(sep_row, LV_OPA_TRANSP, 0);
+              lv_obj_set_style_border_width(sep_row, 0, 0);
+              lv_obj_set_style_pad_all(sep_row, 0, 0);
+              lv_obj_set_style_shadow_width(sep_row, 0, 0);
+              lv_obj_set_style_radius(sep_row, 0, 0);
+              lv_obj_clear_flag(sep_row, LV_OBJ_FLAG_SCROLLABLE);
+              lv_obj_t *sep = lv_label_create(sep_row);
+              lv_label_set_text(sep, date_label_for(msg_date).c_str());
+              lv_obj_set_style_text_font(sep, chinese_font14, 0);
+              lv_obj_set_style_text_color(sep, lv_color_hex(0x8A9099), 0);
+              lv_obj_set_style_bg_color(sep, lv_color_hex(0xE7EAEE), 0);
+              lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, 0);
+              lv_obj_set_style_radius(sep, 9, 0);
+              lv_obj_set_style_pad_hor(sep, 8, 0);
+              lv_obj_set_style_pad_ver(sep, 2, 0);
+              lv_obj_align(sep, LV_ALIGN_CENTER, 0, 0);
+            }
+
             bool is_self = from_s == id(uid);
             bool has_recolor = content_s.find('#') != std::string::npos;
             std::string sender = is_self ? "我" : (from_s.empty() ? std::string("匿名用户") : from_s);
-            std::string meta = sender +
-                               std::string(" · ") + format_time(time_s, today_str, current_year);
-            lv_text_flag_t text_flag = has_recolor ? LV_TEXT_FLAG_RECOLOR : LV_TEXT_FLAG_NONE;
-            lv_point_t meta_size;
-            lv_point_t content_size;
+            std::string meta = sender + " · " + short_time;
+            std::string time_color = (is_self && !has_recolor) ? "D8EEFF" : "8A9099";
+            std::string display = content_s + "  #" + time_color + " " + short_time + "#";
+            lv_point_t display_size;
             auto *bubble_font = chinese_font14->get_lv_font();
-            lv_txt_get_size(&meta_size, meta.c_str(), bubble_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
-            lv_txt_get_size(&content_size, content_s.c_str(), bubble_font, 0, 0, LV_COORD_MAX, text_flag);
-            const lv_coord_t bubble_max_width = 244;
-            const lv_coord_t bubble_inner_max_width = bubble_max_width - 20;
-            lv_coord_t bubble_inner_width = meta_size.x > content_size.x ? meta_size.x : content_size.x;
-            if (bubble_inner_width < 28) bubble_inner_width = 28;
-            if (bubble_inner_width > bubble_inner_max_width) bubble_inner_width = bubble_inner_max_width;
-            lv_coord_t bubble_width = bubble_inner_width + 20;
+            lv_txt_get_size(&display_size, display.c_str(), bubble_font, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_RECOLOR);
+            const lv_coord_t bubble_max_width = 236;
+            const lv_coord_t pad_h = 8;
+            const lv_coord_t pad_v = 5;
+            lv_coord_t bubble_width = display_size.x + pad_h * 2;
+            if (bubble_width < 40) bubble_width = 40;
+            if (bubble_width > bubble_max_width) bubble_width = bubble_max_width;
 
-            lv_obj_t * row = lv_obj_create(list);
+            lv_obj_t *row = lv_obj_create(list);
             lv_obj_set_width(row, lv_pct(100));
             lv_obj_set_height(row, LV_SIZE_CONTENT);
             lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
@@ -1759,7 +2112,21 @@ script:
             lv_obj_set_style_pad_all(row, 0, 0);
             lv_obj_set_style_shadow_width(row, 0, 0);
             lv_obj_set_style_radius(row, 0, 0);
+            lv_obj_set_style_pad_left(row, 8, 0);
+            lv_obj_set_style_pad_right(row, 8, 0);
+            lv_obj_set_style_pad_row(row, 2, 0);
             lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_flex_flow(row, LV_FLEX_FLOW_COLUMN);
+            lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START,
+                                  is_self ? LV_FLEX_ALIGN_END : LV_FLEX_ALIGN_START,
+                                  LV_FLEX_ALIGN_START);
+
+            if (!is_self) {
+              lv_obj_t *sender_label = lv_label_create(row);
+              lv_label_set_text(sender_label, sender.c_str());
+              lv_obj_set_style_text_font(sender_label, chinese_font14, 0);
+              lv_obj_set_style_text_color(sender_label, lv_color_hex(0x8A9099), 0);
+            }
 
             lv_obj_t * bubble = lv_obj_create(row);
             lv_obj_set_width(bubble, bubble_width);
@@ -1767,15 +2134,16 @@ script:
             lv_obj_clear_flag(bubble, LV_OBJ_FLAG_SCROLLABLE);
             lv_obj_set_scrollbar_mode(bubble, LV_SCROLLBAR_MODE_OFF);
             lv_obj_set_scroll_dir(bubble, LV_DIR_NONE);
-            lv_obj_set_style_radius(bubble, 14, 0);
-            lv_obj_set_style_border_width(bubble, has_recolor ? 2 : 0, 0);
-            lv_obj_set_style_border_color(bubble, lv_color_hex(0x9098A1), 0);
-            lv_obj_set_style_pad_ver(bubble, 8, 0);
-            lv_obj_set_style_pad_hor(bubble, 10, 0);
+            lv_obj_set_style_radius(bubble, 12, 0);
+            bool outlined = has_recolor || !is_self;
+            lv_obj_set_style_border_width(bubble, outlined ? 1 : 0, 0);
+            lv_obj_set_style_border_color(bubble, lv_color_hex(0xE7E9EC), 0);
+            lv_obj_set_style_pad_ver(bubble, pad_v, 0);
+            lv_obj_set_style_pad_hor(bubble, pad_h, 0);
             lv_obj_set_style_shadow_width(bubble, 0, 0);
             lv_obj_set_style_bg_color(bubble,
                                       has_recolor ? lv_color_hex(0xFFFFFF)
-                                                  : (is_self ? lv_color_hex(0x1F95F6) : lv_color_hex(0xEEF2F6)),
+                                                  : (is_self ? lv_color_hex(0x1F95F6) : lv_color_hex(0xFFFFFF)),
                                       0);
             lv_obj_set_style_text_color(bubble,
                                         has_recolor ? lv_color_hex(0x111111)
@@ -1783,20 +2151,14 @@ script:
                                         0);
             lv_obj_set_flex_flow(bubble, LV_FLEX_FLOW_COLUMN);
             lv_obj_set_flex_align(bubble, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
-            lv_obj_align(bubble, is_self ? LV_ALIGN_TOP_RIGHT : LV_ALIGN_TOP_LEFT, is_self ? -4 : 4, 0);
 
             lv_obj_t * meta_label = lv_label_create(bubble);
-            lv_obj_set_width(meta_label, bubble_inner_width);
             lv_label_set_text(meta_label, meta.c_str());
-            lv_obj_set_style_text_font(meta_label, chinese_font14, 0);
-            lv_obj_set_style_text_color(meta_label,
-                                        has_recolor ? lv_color_hex(0x4F5964)
-                                                    : (is_self ? lv_color_hex(0xD8EEFF) : lv_color_hex(0x6E7781)),
-                                        0);
+            lv_obj_add_flag(meta_label, LV_OBJ_FLAG_HIDDEN);
 
             lv_obj_t * content_label = lv_label_create(bubble);
-            lv_obj_set_width(content_label, bubble_inner_width);
-            lv_label_set_text(content_label, content_s.c_str());
+            lv_obj_set_width(content_label, bubble_width - pad_h * 2);
+            lv_label_set_text(content_label, display.c_str());
             lv_label_set_long_mode(content_label, LV_LABEL_LONG_WRAP);
             lv_obj_set_style_text_font(content_label, chinese_font14, 0);
             lv_obj_set_style_text_color(content_label,
@@ -1805,13 +2167,17 @@ script:
                                         0);
             lv_label_set_recolor(content_label, true);
 
+            lv_obj_t * raw_label = lv_label_create(bubble);
+            lv_label_set_text(raw_label, content_s.c_str());
+            lv_obj_add_flag(raw_label, LV_OBJ_FLAG_HIDDEN);
+
             lv_obj_add_event_cb(bubble, [](lv_event_t * e) {
               lv_obj_t * target = static_cast<lv_obj_t *>(lv_event_get_target(e));
-              if (target == nullptr || lv_obj_get_child_cnt(target) < 2) return;
+              if (target == nullptr || lv_obj_get_child_cnt(target) < 3) return;
               lv_obj_t * meta_obj = lv_obj_get_child(target, 0);
-              lv_obj_t * content_obj = lv_obj_get_child(target, 1);
+              lv_obj_t * raw_obj = lv_obj_get_child(target, 2);
               const char * meta_txt = meta_obj ? lv_label_get_text(meta_obj) : nullptr;
-              const char * content_txt = content_obj ? lv_label_get_text(content_obj) : nullptr;
+              const char * content_txt = raw_obj ? lv_label_get_text(raw_obj) : nullptr;
               if (content_txt == nullptr) return;
 
               std::string sender;
@@ -1825,8 +2191,17 @@ script:
             }, LV_EVENT_LONG_PRESSED, nullptr);
 
             lv_obj_update_layout(row);
-            lv_obj_set_height(row, lv_obj_get_height(bubble) + 2);
             last_row = row;
+          }
+
+          if (skip_newest > 0) {
+            lv_obj_t *more = lv_label_create(list);
+            lv_obj_set_width(more, lv_pct(100));
+            lv_label_set_text(more, "下滑加载最新消息");
+            lv_obj_set_style_text_align(more, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_text_color(more, lv_color_hex(0x8A9099), 0);
+            lv_obj_set_style_text_font(more, chinese_font14, 0);
+            lv_obj_set_style_pad_ver(more, 4, 0);
           }
 
           if (modified) {
@@ -1853,6 +2228,7 @@ script:
 
           id(chat_public_prepend_mode) = false;
           id(chat_public_loading_more) = false;
+          id(chat_public_last_date) = last_date;
 
   - id: send_message
     then:
@@ -1869,7 +2245,6 @@ script:
             }
             std::string message_content = lv_textarea_get_text(textarea_message_friend_input);
             if (message_content.empty()) return;
-            std::string time_str = t.strftime("%Y-%m-%d %H:%M:%S");
             ESP_LOGD("Chat", "Target UID: %s", targetuid.c_str());
 
             id(mqtt_client).publish_json((std::string("chat/") +
@@ -1883,9 +2258,7 @@ script:
             });
 
             lv_textarea_set_text(textarea_message_friend_input, "");
-            lv_textarea_set_placeholder_text(textarea_message_friend_input,
-                            (time_str + std::string(" 发送中……")).c_str()
-                          );
+            lv_textarea_set_placeholder_text(textarea_message_friend_input, "发送中…");
             ESP_LOGD("Chat", "Sent message to %s", targetuid.c_str());
             return;
           }

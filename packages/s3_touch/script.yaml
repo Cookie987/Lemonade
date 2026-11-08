@@ -257,74 +257,6 @@ script:
             lambda: 'return !id(is_sleeping);'
           then:
             - lvgl.label.update:
-                id: lbl_topbar_time
-                text: !lambda |-
-                  int x = id(rssi).state;
-                  std::string icon;
-                  auto ssid_val = id(ssid).state;
-                  if (x >= -50) {
-                    icon = "\U000F0928"; // mdi-wifi-strength-4
-                  } else if (x >= -65) {
-                    icon = "\U000F0925"; // mdi-wifi-strength-3
-                  } else if (x >= -80) {
-                    icon = "\U000F0922"; // mdi-wifi-strength-2
-                  } else if (x >= -95) {
-                    icon = "\U000F091F"; // mdi-wifi-strength-1
-                  } else {
-                    icon = "\U000F092E"; // mdi-wifi-strength-off-outline
-                  }
-                  if (!id(wifi_switch).state) {
-                    icon = "\U000F092E"; // mdi-wifi-strength-off-outline
-                  }
-                  if (ssid_val == "") {
-                    icon = "\U000F092F"; // mdi-wifi-strength-outline
-                  }
-                  float percent = id(battery_soc);
-                  if (percent > 100.0f) percent = 100.0f;
-                  if (percent < 0.0f) percent = 0.0f;
-                  int pct = (int)(percent + 0.5f);
-                  // 根据电量百分比选择 MDI 图标
-                  std::string iconbat;
-                  iconbat = "mdi-battery";
-                  if (id(charge).state) {
-                      iconbat = "mdi-battery-charging";
-                  }
-                  if (percent == 100.0f)
-                      iconbat += "";
-                  else if (percent > 90)
-                      iconbat += "-90";
-                  else if (percent > 80)
-                      iconbat += "-80";
-                  else if (percent > 70)
-                      iconbat += "-70";
-                  else if (percent > 60)
-                      iconbat += "-60";
-                  else if (percent > 50)
-                      iconbat += "-50";
-                  else if (percent > 40)
-                      iconbat += "-40";
-                  else if (percent > 30)
-                      iconbat += "-30";
-                  else if (percent > 20)
-                      iconbat += "-20";
-                  else if (percent > 10)
-                      iconbat += "-10";
-                  else if (percent >= 0)
-                      iconbat += "-outline";
-                  else
-                      iconbat += "-unknow" ; // mdi-battery-unknown
-                  iconbat = id(mdi_icon_map)[iconbat];
-                  // 格式化电量字符串
-                  char bufbat[8];
-                  sprintf(bufbat, "%d", pct);
-                  // 低电量红色警告
-                  std::string batstr;
-                  if (percent < 20.0f)
-                      batstr = "#FF0000 " + iconbat + " " + bufbat + "%#";
-                  else
-                      batstr = iconbat + " " + bufbat + "%";
-                  return icon + " " + batstr;
-            - lvgl.label.update:
                 id: lbl_battery_status
                 text: !lambda |-
                   float percent = id(battery_soc);
@@ -390,23 +322,12 @@ script:
                         t.year, t.month, t.day_of_month, weekday_buf);
                 lv_label_set_text(id(date_label), date_buf);
                 lv_label_set_text(id(lbl_lock_date), date_buf);
-            - lvgl.label.update:
-                id: lbl_topbar_date
-                text: !lambda |-
-                  // 00:00 格式
-                  auto t = id(ntp_time).now();
-                  char buf1[6];
-                  snprintf(buf1, sizeof(buf1), "%02d:%02d", t.hour, t.minute);
-                  static const char * const day_names[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-                  char buf[20];
-                  auto a = day_names[id(ntp_time).now().day_of_week - 1]; // Adjust for 0-based index
-                  snprintf(buf, sizeof(buf), "%02d.%02d %s", t.month, t.day_of_month, a);
-                  return std::string(buf1) + " " + std::string(buf);
             - lambda: |
                 const char *battery_text = lv_label_get_text(id(lbl_battery_status));
                 if (battery_text != nullptr) {
                   lv_label_set_text(id(lbl_lock_battery_status), battery_text);
                 }
+            - script.execute: statusbar_update_status
 
   - id: update_time
     then:
@@ -1427,12 +1348,8 @@ script:
                       icon_main_ran[idx] = false;
                     }
                   }
-                  lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);
-                  lv_obj_clear_flag(id(lbl_topbar_date), LV_OBJ_FLAG_HIDDEN);
-                  lv_obj_clear_flag(id(lbl_topbar_time), LV_OBJ_FLAG_HIDDEN);
-                  if (icon->title != nullptr) {
-                    lv_label_set_text(id(lbl_topbar_title), icon->title);
-                  }
+                  id(statusbar_compat)->execute(
+                      std::string(icon->title != nullptr ? icon->title : ""));
                   lv_scr_load_anim(icon->page, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
                   lv_event_stop_bubbling(e);
                   lv_event_stop_processing(e);

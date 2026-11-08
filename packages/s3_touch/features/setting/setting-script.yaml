@@ -32,42 +32,8 @@ globals:
 
 script:
   # ------------------------------------------------------------------
-  # 设置页公共行为
+  # 设置页公共行为（状态栏/返回见 statusbar.yaml）
   # ------------------------------------------------------------------
-
-  # 进入设置页：显示返回箭头与标题，隐藏顶栏日期/时间
-  - id: setting_page_enter
-    then:
-      - lvgl.widget.show: [btn_topbar_back, lbl_topbar_title]
-      - lvgl.widget.hide: [lbl_topbar_date, lbl_topbar_time]
-
-  # 离开设置页：恢复顶栏
-  - id: setting_page_leave
-    then:
-      - lvgl.widget.hide: btn_topbar_back
-      - lvgl.widget.show: [lbl_topbar_date, lbl_topbar_time]
-
-  # 顶栏返回箭头：按当前屏幕回到上一级
-  - id: setting_back
-    then:
-      - lambda: |
-          lv_obj_t *active = lv_screen_active();
-          auto show = [&](int index) {
-            id(lvgl_1)->show_page(index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
-          };
-          if (active == id(page_setting_menu)->obj) {
-            show(id(page_main)->index);
-          } else if (active == id(system_setting_wifi_config_page)->obj) {
-            show(id(system_setting_network_page)->index);
-          } else if (active == id(system_setting_new_wifi_page)->obj) {
-            show(id(system_setting_wifi_config_page)->index);
-          } else if (active == id(system_setting_iot_page)->obj) {
-            show(id(system_setting_network_page)->index);
-          } else if (active == id(system_setting_previous_error_page)->obj) {
-            show(id(system_setting_system_page)->index);
-          } else {
-            show(id(page_setting_menu)->index);
-          }
 
   # 瓶中之海：进入页面时同步滑块与数值
   - id: sync_bottle_ocean

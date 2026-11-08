@@ -13,4 +13,4 @@ image:
     - file: "imgs/logo.png"
       transparency: alpha_channel
       id: lemonadeos_logo
-      resize: 160x110
+      resize: 140x140

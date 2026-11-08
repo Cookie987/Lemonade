@@ -23,25 +23,54 @@ script:
     mode: restart
     then:
       - lambda: |
-          auto update_item = [&](size_t slot, lv_obj_t *btn, lv_obj_t *title, lv_obj_t *meta) {
+          auto first_utf8 = [](const std::string &text) -> std::string {
+            if (text.empty()) {
+              return std::string();
+            }
+            unsigned char c = static_cast<unsigned char>(text[0]);
+            size_t len = 1;
+            if ((c & 0xE0) == 0xC0) {
+              len = 2;
+            } else if ((c & 0xF0) == 0xE0) {
+              len = 3;
+            } else if ((c & 0xF8) == 0xF0) {
+              len = 4;
+            }
+            if (len > text.size()) {
+              len = 1;
+            }
+            return text.substr(0, len);
+          };
+
+          auto update_item = [&](size_t slot, lv_obj_t *btn, lv_obj_t *title, lv_obj_t *meta,
+                                 lv_obj_t *icon, lv_obj_t *tile) {
             size_t index = static_cast<size_t>(id(app_store_list_offset) + static_cast<int>(slot));
             if (!id(app_store_component).has_entry(index)) {
               lv_obj_add_flag(btn, LV_OBJ_FLAG_HIDDEN);
               return;
             }
             lv_obj_clear_flag(btn, LV_OBJ_FLAG_HIDDEN);
-            lv_label_set_text(title, id(app_store_component).get_entry_name(index).c_str());
+            std::string name = id(app_store_component).get_entry_name(index);
+            lv_label_set_text(title, name.c_str());
             lv_label_set_text(meta, id(app_store_component).get_entry_meta(index).c_str());
+            lv_label_set_text(icon, first_utf8(name).c_str());
+            static const uint32_t colors[] = {0x5B8FF9, 0xE8A33D, 0x35A16B, 0x9B7BD8, 0xE35D5D};
+            lv_obj_set_style_bg_color(tile, lv_color_hex(colors[index % 5]), 0);
           };
 
           if (id(app_store_list_offset) < 0) {
             id(app_store_list_offset) = 0;
           }
 
-          update_item(0, id(btn_app_store_item_0), id(lbl_app_store_item_0_title), id(lbl_app_store_item_0_meta));
-          update_item(1, id(btn_app_store_item_1), id(lbl_app_store_item_1_title), id(lbl_app_store_item_1_meta));
-          update_item(2, id(btn_app_store_item_2), id(lbl_app_store_item_2_title), id(lbl_app_store_item_2_meta));
-          lv_obj_add_flag(id(btn_app_store_item_3), LV_OBJ_FLAG_HIDDEN);
+          update_item(0, id(btn_app_store_item_0), id(lbl_app_store_item_0_title),
+                      id(lbl_app_store_item_0_meta), id(lbl_app_store_item_0_icon),
+                      id(obj_app_store_item_0_icon));
+          update_item(1, id(btn_app_store_item_1), id(lbl_app_store_item_1_title),
+                      id(lbl_app_store_item_1_meta), id(lbl_app_store_item_1_icon),
+                      id(obj_app_store_item_1_icon));
+          update_item(2, id(btn_app_store_item_2), id(lbl_app_store_item_2_title),
+                      id(lbl_app_store_item_2_meta), id(lbl_app_store_item_2_icon),
+                      id(obj_app_store_item_2_icon));
 
           if (id(app_store_list_offset) <= 0) {
             lv_obj_add_flag(id(btn_app_store_prev), LV_OBJ_FLAG_HIDDEN);
@@ -118,56 +147,80 @@ lvgl:
                                     id: page_app_store
                                     animation: FADE_IN
                                     time: 200ms
+
+    # 应用商店列表：白卡 + 图标块 + 标题/副标题 + 箭头
     - id: page_app_store
       skip: true
       on_load:
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "应用商店"
+        - script.execute:
+            id: statusbar_enter
+            title: "应用商店"
+            back: false
+            action: 1
         - lambda: |
             id(app_store_component).request_refresh_if_empty();
             id(refresh_app_store_widgets)->execute();
       widgets:
-        - button:
-            id: btn_app_store_refresh
-            x: 258
-            y: 22
-            width: 52
-            height: 28
-            bg_color: !lambda return lv_color_hex(0x1f95f6);
-            widgets:
-              - label:
-                  align: CENTER
-                  text: "刷新"
-                  text_font: chinese_font14
-            on_click:
-              then:
-                - lambda: |
-                    id(app_store_component).request_refresh();
-                    id(refresh_app_store_widgets)->execute();
+        - obj:
+            x: 0
+            y: 0
+            width: 320
+            height: 240
+            styles: [setting_page]
+
+        # ── 条目 0 ──
         - button:
             id: btn_app_store_item_0
             x: 8
-            y: 24
-            width: 244
-            height: 58
+            y: 26
+            width: 304
+            height: 56
             hidden: true
-            bg_color: 0x1f1f1f
+            styles: [setting_card]
+            pressed:
+              bg_color: 0xeef1f4
             widgets:
+              - obj:
+                  id: obj_app_store_item_0_icon
+                  x: 10
+                  y: 10
+                  width: 36
+                  height: 36
+                  radius: 9
+                  bg_color: 0x5b8ff9
+                  border_width: 0
+                  pad_all: 0
+                  scrollable: false
+                  scrollbar_mode: "OFF"
+                  widgets:
+                    - label:
+                        id: lbl_app_store_item_0_icon
+                        align: CENTER
+                        text: "A"
+                        text_color: 0xffffff
+                        text_font: chinese_font14
+                        transform_scale: 1.3
               - label:
                   id: lbl_app_store_item_0_title
-                  align: TOP_LEFT
-                  x: 8
-                  y: 7
+                  x: 58
+                  y: 8
+                  width: 220
+                  long_mode: DOT
+                  styles: [setting_title]
                   text: ""
-                  text_font: chinese_font14
               - label:
                   id: lbl_app_store_item_0_meta
-                  align: TOP_LEFT
-                  x: 8
-                  y: 28
+                  x: 58
+                  y: 29
+                  width: 220
+                  long_mode: DOT
+                  styles: [setting_hint]
                   text: ""
-                  text_font: chinese_font14
+              - label:
+                  styles: [setting_chevron]
+                  align: RIGHT_MID
+                  x: -10
+                  text: "\uF105"
             on_click:
               then:
                 - lambda: |
@@ -180,29 +233,60 @@ lvgl:
                     id: page_app_store_detail
                     animation: MOVE_LEFT
                     time: 200ms
+
+        # ── 条目 1 ──
         - button:
             id: btn_app_store_item_1
             x: 8
             y: 88
-            width: 244
-            height: 58
+            width: 304
+            height: 56
             hidden: true
-            bg_color: 0x1f1f1f
+            styles: [setting_card]
+            pressed:
+              bg_color: 0xeef1f4
             widgets:
+              - obj:
+                  id: obj_app_store_item_1_icon
+                  x: 10
+                  y: 10
+                  width: 36
+                  height: 36
+                  radius: 9
+                  bg_color: 0xe8a33d
+                  border_width: 0
+                  pad_all: 0
+                  scrollable: false
+                  scrollbar_mode: "OFF"
+                  widgets:
+                    - label:
+                        id: lbl_app_store_item_1_icon
+                        align: CENTER
+                        text: "B"
+                        text_color: 0xffffff
+                        text_font: chinese_font14
+                        transform_scale: 1.3
               - label:
                   id: lbl_app_store_item_1_title
-                  align: TOP_LEFT
-                  x: 8
-                  y: 7
+                  x: 58
+                  y: 8
+                  width: 220
+                  long_mode: DOT
+                  styles: [setting_title]
                   text: ""
-                  text_font: chinese_font14
               - label:
                   id: lbl_app_store_item_1_meta
-                  align: TOP_LEFT
-                  x: 8
-                  y: 28
+                  x: 58
+                  y: 29
+                  width: 220
+                  long_mode: DOT
+                  styles: [setting_hint]
                   text: ""
-                  text_font: chinese_font14
+              - label:
+                  styles: [setting_chevron]
+                  align: RIGHT_MID
+                  x: -10
+                  text: "\uF105"
             on_click:
               then:
                 - lambda: |
@@ -215,29 +299,60 @@ lvgl:
                     id: page_app_store_detail
                     animation: MOVE_LEFT
                     time: 200ms
+
+        # ── 条目 2 ──
         - button:
             id: btn_app_store_item_2
             x: 8
-            y: 152
-            width: 244
-            height: 58
+            y: 150
+            width: 304
+            height: 56
             hidden: true
-            bg_color: 0x1f1f1f
+            styles: [setting_card]
+            pressed:
+              bg_color: 0xeef1f4
             widgets:
+              - obj:
+                  id: obj_app_store_item_2_icon
+                  x: 10
+                  y: 10
+                  width: 36
+                  height: 36
+                  radius: 9
+                  bg_color: 0x35a16b
+                  border_width: 0
+                  pad_all: 0
+                  scrollable: false
+                  scrollbar_mode: "OFF"
+                  widgets:
+                    - label:
+                        id: lbl_app_store_item_2_icon
+                        align: CENTER
+                        text: "C"
+                        text_color: 0xffffff
+                        text_font: chinese_font14
+                        transform_scale: 1.3
               - label:
                   id: lbl_app_store_item_2_title
-                  align: TOP_LEFT
-                  x: 8
-                  y: 7
+                  x: 58
+                  y: 8
+                  width: 220
+                  long_mode: DOT
+                  styles: [setting_title]
                   text: ""
-                  text_font: chinese_font14
               - label:
                   id: lbl_app_store_item_2_meta
-                  align: TOP_LEFT
-                  x: 8
-                  y: 28
+                  x: 58
+                  y: 29
+                  width: 220
+                  long_mode: DOT
+                  styles: [setting_hint]
                   text: ""
-                  text_font: chinese_font14
+              - label:
+                  styles: [setting_chevron]
+                  align: RIGHT_MID
+                  x: -10
+                  text: "\uF105"
             on_click:
               then:
                 - lambda: |
@@ -250,53 +365,27 @@ lvgl:
                     id: page_app_store_detail
                     animation: MOVE_LEFT
                     time: 200ms
-        - button:
-            id: btn_app_store_item_3
-            x: 8
-            y: 168
-            width: 244
-            height: 46
-            hidden: true
-            bg_color: 0x1f1f1f
-            widgets:
-              - label:
-                  id: lbl_app_store_item_3_title
-                  align: TOP_LEFT
-                  x: 8
-                  y: 5
-                  text: ""
-                  text_font: chinese_font14
-              - label:
-                  id: lbl_app_store_item_3_meta
-                  align: TOP_LEFT
-                  x: 8
-                  y: 23
-                  text: ""
-                  text_font: chinese_font14
-            on_click:
-              then:
-                - lambda: |
-                    int index = id(app_store_list_offset) + 3;
-                    if (id(app_store_component).has_entry(index)) {
-                      id(app_store_component).set_selected_index(index);
-                      id(refresh_app_store_widgets)->execute();
-                    }
-                - lvgl.page.show:
-                    id: page_app_store_detail
-                    animation: MOVE_LEFT
-                    time: 200ms
+
+        # ── 分页 + 状态 ──
         - button:
             id: btn_app_store_prev
-            x: 258
-            y: 88
+            x: 8
+            y: 210
             width: 52
-            height: 58
+            height: 24
             hidden: true
-            bg_color: 0x5a5a5a
+            bg_opa: TRANSP
+            border_width: 0
+            shadow_width: 0
+            pad_all: 0
+            pressed:
+              bg_color: 0xe7e9ec
+              bg_opa: COVER
             widgets:
               - label:
                   align: CENTER
                   text: "上页"
+                  text_color: 0x1f95f6
                   text_font: chinese_font14
             on_click:
               then:
@@ -308,16 +397,23 @@ lvgl:
                     id(refresh_app_store_widgets)->execute();
         - button:
             id: btn_app_store_next
-            x: 258
-            y: 152
+            x: 260
+            y: 210
             width: 52
-            height: 58
+            height: 24
             hidden: true
-            bg_color: 0x5a5a5a
+            bg_opa: TRANSP
+            border_width: 0
+            shadow_width: 0
+            pad_all: 0
+            pressed:
+              bg_color: 0xe7e9ec
+              bg_opa: COVER
             widgets:
               - label:
                   align: CENTER
                   text: "下页"
+                  text_color: 0x1f95f6
                   text_font: chinese_font14
             on_click:
               then:
@@ -326,42 +422,64 @@ lvgl:
                     id(refresh_app_store_widgets)->execute();
         - label:
             id: lbl_app_store_status
-            x: 8
+            x: 64
             y: 210
-            width: 304
+            width: 192
             height: 24
+            text_align: CENTER
             long_mode: DOT
+            styles: [setting_hint]
             text: "应用商店未加载"
-            text_font: chinese_font14
+
+    # 应用详情
     - id: page_app_store_detail
       skip: true
       on_load:
+        - script.execute:
+            id: statusbar_enter
+            title: "应用"
+            back: true
+            action: 0
         - lambda: |
-            lv_label_set_text(id(lbl_topbar_title), id(app_store_component).get_selected_name().c_str());
+            id(statusbar_title)->execute(id(app_store_component).get_selected_name());
             id(refresh_app_store_widgets)->execute();
       widgets:
-        - label:
-            id: lbl_app_store_detail_body
+        - obj:
+            x: 0
+            y: 0
+            width: 320
+            height: 240
+            styles: [setting_page]
+        - obj:
             x: 8
-            y: 24
+            y: 26
             width: 304
-            height: 150
-            long_mode: WRAP
-            text: "请选择一个应用。"
-            text_font: chinese_font14
+            height: 156
+            styles: [setting_card]
+            scrollable: false
+            widgets:
+              - label:
+                  id: lbl_app_store_detail_body
+                  x: 12
+                  y: 12
+                  width: 280
+                  height: 132
+                  long_mode: WRAP
+                  styles: [setting_title]
+                  text: "请选择一个应用。"
         - button:
             id: btn_app_store_action_install
             x: 8
-            y: 186
-            width: 146
-            height: 38
-            bg_color: !lambda return lv_color_hex(0x1f95f6);
+            y: 190
+            width: 148
+            height: 34
+            styles: [setting_primary_btn]
             widgets:
               - label:
                   id: lbl_app_store_action_install
                   align: CENTER
+                  styles: [setting_primary_text]
                   text: "安装"
-                  text_font: chinese_font14
             on_click:
               then:
                 - lambda: |
@@ -369,17 +487,18 @@ lvgl:
                     id(refresh_app_store_widgets)->execute();
         - button:
             id: btn_app_store_action_uninstall
-            x: 166
-            y: 186
-            width: 146
-            height: 38
+            x: 164
+            y: 190
+            width: 148
+            height: 34
             hidden: true
-            bg_color: 0xaa3333
+            styles: [setting_primary_btn]
+            bg_color: 0xe5484d
             widgets:
               - label:
                   align: CENTER
+                  styles: [setting_primary_text]
                   text: "卸载"
-                  text_font: chinese_font14
             on_click:
               then:
                 - lambda: |

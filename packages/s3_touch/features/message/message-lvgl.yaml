@@ -104,16 +104,20 @@ lvgl:
       skip: true
       scrollable: false
       on_load:
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "消息"
+        - script.execute:
+            id: statusbar_enter
+            title: "消息"
+            back: false
+            action: 2
         - lambda: id(unread_messages_amount_private) = 0;
         - lambda: id(unread_messages_amount_private_favorite) = 0;
         - lambda: id(unread_messages_amount_public) = 0;
         - lambda: lv_obj_add_flag(id(message_unread_messages_amount_indicator), LV_OBJ_FLAG_HIDDEN);
         - lambda: |
             bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
-            if (chat_open) lv_label_set_text(lbl_topbar_title, id(current_contact_uid).c_str());
+            if (chat_open) {
+              id(statusbar_enter)->execute(id(current_contact_uid), true, 0);
+            }
         - lambda: |
             std::string active_contact = id(current_contact_uid);
             bool chat_open = !lv_obj_has_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
@@ -144,15 +148,41 @@ lvgl:
             id: tabview_message
             anim_duration: 0.5s
             x: 0
-            y: 18
+            y: 22
             width: 320
-            height: 222
+            height: 218
+            tab_style:
+              bg_color: 0xffffff
+              border_width: 0
+              pad_all: 0
+              items:
+                bg_opa: TRANSP
+                text_color: 0x8a9099
+                text_font: chinese_font14
+                checked:
+                  text_color: 0x1f95f6
+            content_style:
+              bg_color: 0xf2f3f5
+              pad_all: 0
             on_value:
               then:
                 - script.execute: keyboard_message_hide
                 - lambda: |
                     lv_keyboard_reset_ime(keyboard_message_input->obj);
                     uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
+                    if (tab_act == 0) {
+                      id(statusbar_enter)->execute(std::string("消息"), false, 2);
+                    } else if (tab_act == 1) {
+                      id(statusbar_enter)->execute(std::string("广场"), false, 0);
+                    } else {
+                      id(statusbar_enter)->execute(std::string("消息"), false, 0);
+                    }
+                    lv_obj_t *tab_btns = lv_tabview_get_tab_btns(tabview_message);
+                    if (tab_btns != nullptr) {
+                      lv_coord_t tab_w = lv_obj_get_width(tab_btns) / 3;
+                      lv_obj_align(id(obj_message_tab_indicator), LV_ALIGN_TOP_LEFT,
+                                   tab_w * tab_act + tab_w / 2 - 16, 30);
+                    }
                     if (tab_act == 1) {
                       id(unread_messages_public_badge) = 0;
                       id(chat_public_load)->execute();
@@ -164,39 +194,66 @@ lvgl:
             tabs:
               - name: 联系人
                 scrollable: false
+                scroll_dir: "VER"
+                pad_all: 0
                 widgets:
                   - list:
                       id: list_message_contacts
                       align: TOP_MID
-                      y: -15
+                      y: 0
                       width: 320
-                      height: 195
+                      height: 185
+                      scroll_dir: "VER"
               - name: 广场
                 scrollable: false
+                scroll_dir: "VER"
+                pad_all: 0
                 widgets:
                   - list:
                       id: list_message_public
                       align: TOP_MID
-                      y: -15
+                      y: 0
                       width: 320
-                      height: 155
+                      height: 145
+                      pad_all: 0
+                      scroll_dir: "VER"
                       items:
-                        - text: "系统消息"
-                          list_text: {}
-                        - text: "[系统] 聊天记录将保存至云端。"
-                          list_button: {}
-                  - textarea:
-                      id: textarea_message_public_input
-                      x: 0
-                      y: 15
+                  - obj:
+                      id: obj_message_public_input_bg
                       align: BOTTOM_MID
+                      y: 0
                       width: 320
                       height: 40
-                      placeholder_text: "单击输入消息，长按进入全屏输入"
+                      bg_color: 0xffffff
+                      bg_opa: COVER
+                      border_width: 1
+                      border_side: TOP
+                      border_color: 0xe7e9ec
+                      radius: 0
+                      pad_all: 0
+                      scrollable: false
+                  - textarea:
+                      id: textarea_message_public_input
+                      align: BOTTOM_LEFT
+                      x: 8
+                      y: -5
+                      width: 304
+                      height: 30
+                      bg_color: 0xf5f6f8
+                      border_width: 1
+                      border_color: 0xe3e7ec
+                      radius: 15
+                      pad_all: 0
+                      pad_left: 12
+                      pad_right: 12
+                      pad_top: 5
+                      text_font: chinese_font14
+                      text_color: 0x1f1f1f
+                      placeholder_text: "发送消息…"
                       on_long_press:
                         then:
                           - lambda: |
-                              lv_obj_set_size(id(textarea_message_public_input), 320, 95);
+                              lv_obj_set_size(id(textarea_message_public_input), 304, 100);
                               lv_textarea_set_placeholder_text(textarea_message_public_input, "收起键盘退出全屏输入");
                           - script.execute: keyboard_message_show
                           - lambda: |
@@ -215,115 +272,157 @@ lvgl:
               - name: 设置
                 scrollable: true
                 scroll_dir: "VER"
+                pad_all: 0
                 widgets:
                   - obj:
                       align: TOP_MID
-                      y: -15
-                      scroll_dir: "VER"
-                      width: 320
-                      height: 335
-                      border_width: 0
-                      pad_all: 0
+                      y: 8
+                      width: 304
+                      height: 224
+                      styles: [setting_card]
                       widgets:
                         - label:
                             text: "勿扰模式"
-                            text_font: chinese_font14
-                            x: 14
-                            y: 18
+                            x: 12
+                            y: 8
+                            styles: [setting_title]
+                        - label:
+                            text: "屏蔽全部消息提醒"
+                            x: 12
+                            y: 28
+                            styles: [setting_hint]
                         - switch:
                             id: switch_message_dnd
                             x: 246
-                            y: 15
+                            y: 16
+                            styles: [setting_switch]
                             on_change:
                               then:
                                 - script.execute: message_settings_refresh
-                        - label:
-                            text: "屏蔽全部消息提醒"
-                            text_font: chinese_font14
-                            text_color: 0x666666
-                            x: 14
-                            y: 38
+                        - obj:
+                            x: 12
+                            y: 56
+                            width: 280
+                            height: 1
+                            bg_color: 0xedeff2
+                            border_width: 0
                         - label:
                             text: "频道勿扰"
-                            text_font: chinese_font14
-                            x: 14
-                            y: 70
+                            x: 12
+                            y: 64
+                            styles: [setting_title]
+                        - label:
+                            text: "仅屏蔽频道消息提醒"
+                            x: 12
+                            y: 84
+                            styles: [setting_hint]
                         - switch:
                             id: switch_message_channel_dnd
                             x: 246
-                            y: 67
+                            y: 72
+                            styles: [setting_switch]
                             on_change:
                               then:
                                 - script.execute: message_settings_refresh
-                        - label:
-                            text: "仅屏蔽频道消息提醒"
-                            text_font: chinese_font14
-                            text_color: 0x666666
-                            x: 14
-                            y: 90
+                        - obj:
+                            x: 12
+                            y: 112
+                            width: 280
+                            height: 1
+                            bg_color: 0xedeff2
+                            border_width: 0
                         - label:
                             text: "仅提示特别关心"
-                            text_font: chinese_font14
-                            x: 14
-                            y: 122
+                            x: 12
+                            y: 120
+                            styles: [setting_title]
+                        - label:
+                            text: "仅特别关心私聊显示通知和红点"
+                            x: 12
+                            y: 140
+                            styles: [setting_hint]
                         - switch:
                             id: switch_message_only_favorite
                             x: 246
-                            y: 119
+                            y: 128
+                            styles: [setting_switch]
                             on_change:
                               then:
                                 - script.execute: message_settings_refresh
-                        - label:
-                            text: "仅特别关心私聊显示通知和红点"
-                            text_font: chinese_font14
-                            text_color: 0x666666
-                            x: 14
-                            y: 142
+                        - obj:
+                            x: 12
+                            y: 168
+                            width: 280
+                            height: 1
+                            bg_color: 0xedeff2
+                            border_width: 0
                         - label:
                             text: "特别关心全局通知"
-                            text_font: chinese_font14
-                            x: 14
-                            y: 174
+                            x: 12
+                            y: 176
+                            styles: [setting_title]
+                        - label:
+                            text: "位于特别关心页面外时都显示通知"
+                            x: 12
+                            y: 196
+                            styles: [setting_hint]
                         - switch:
                             id: switch_message_favorite_global
                             x: 246
-                            y: 171
+                            y: 184
+                            styles: [setting_switch]
                             on_change:
                               then:
                                 - script.execute: message_settings_refresh
-                        - label:
-                            text: "位于特别关心页面外时都显示通知"
-                            text_font: chinese_font14
-                            text_color: 0x666666
-                            x: 14
-                            y: 194
+                  - obj:
+                      align: TOP_MID
+                      y: 240
+                      width: 304
+                      height: 96
+                      styles: [setting_card]
+                      widgets:
                         - button:
                             id: btn_message_clear_public_local
-                            x: 14
-                            y: 248
-                            width: 292
-                            height: 34
-                            bg_color: !lambda return lv_color_hex(0xD96C3F);
+                            x: 0
+                            y: 0
+                            width: 304
+                            height: 48
+                            bg_opa: TRANSP
+                            border_width: 0
+                            shadow_width: 0
+                            pad_all: 0
                             widgets:
                               - label:
-                                  align: CENTER
+                                  align: LEFT_MID
+                                  x: 12
                                   text: "清空本地频道聊天记录"
-                                  text_font: chinese_font14
+                                  styles: [setting_danger_text]
                             on_click:
                               then:
                                 - lvgl.widget.show: msgbox_clear_public_history
+                        - obj:
+                            x: 12
+                            y: 48
+                            width: 280
+                            height: 1
+                            bg_color: 0xedeff2
+                            border_width: 0
                         - button:
                             id: btn_message_clear_private_local
-                            x: 14
-                            y: 290
-                            width: 292
-                            height: 34
-                            bg_color: !lambda return lv_color_hex(0xC94C4C);
+                            x: 0
+                            y: 48
+                            width: 304
+                            height: 48
+                            bg_opa: TRANSP
+                            border_width: 0
+                            shadow_width: 0
+                            pad_all: 0
                             widgets:
                               - label:
-                                  align: CENTER
+                                  align: LEFT_MID
+                                  x: 12
                                   text: "清空本地私聊聊天记录"
-                                  text_font: chinese_font14
+                                  styles: [setting_danger_text]
                             on_click:
                               then:
                                 - lvgl.widget.show: msgbox_clear_private_history
@@ -344,45 +443,72 @@ lvgl:
             border_width: 0
             radius: 8
         - obj:
+            id: obj_message_tab_indicator
+            width: 32
+            height: 2
+            hidden: true
+            bg_color: 0x1F95F6
+            border_width: 0
+            radius: 1
+        - obj:
             id: obj_message_private_container
             hidden: true
             scrollable: false
             x: 0
-            y: 18
+            y: 22
             width: 320
-            height: 222
+            height: 218
+            bg_color: 0xf2f3f5
+            bg_opa: COVER
+            border_width: 0
+            radius: 0
+            pad_all: 0
             widgets:
               - list:
                   id: list_message_friend
                   align: TOP_MID
                   y: 0
                   width: 320
-                  height: 168
+                  height: 178
+                  pad_all: 0
+                  scroll_dir: "VER"
                   items:
-              # 聊天期间"其他会话有未读"红点（原挂在返回按钮上，返回已改为边缘手势）
               - obj:
-                  id: dot_back_unread
-                  width: 8
-                  height: 8
-                  align: TOP_LEFT
-                  x: 6
-                  y: 4
-                  hidden: true
-                  bg_color: 0xFF0000
-                  border_width: 0
-                  radius: 8
-              - textarea:
-                  id: textarea_message_friend_input
-                  x: 0
-                  y: 15
+                  id: obj_message_friend_input_bg
                   align: BOTTOM_MID
+                  y: 0
                   width: 320
                   height: 40
-                  placeholder_text: "单击输入消息，长按进入全屏输入"
+                  bg_color: 0xffffff
+                  bg_opa: COVER
+                  border_width: 1
+                  border_side: TOP
+                  border_color: 0xe7e9ec
+                  radius: 0
+                  pad_all: 0
+                  scrollable: false
+              - textarea:
+                  id: textarea_message_friend_input
+                  align: BOTTOM_LEFT
+                  x: 8
+                  y: -5
+                  width: 304
+                  height: 30
+                  bg_color: 0xf5f6f8
+                  border_width: 1
+                  border_color: 0xe3e7ec
+                  radius: 15
+                  pad_all: 0
+                  pad_left: 12
+                  pad_right: 12
+                  pad_top: 5
+                  text_font: chinese_font14
+                  text_color: 0x1f1f1f
+                  placeholder_text: "发送消息…"
                   on_long_press:
                     then:
                       - lambda: |
-                          lv_obj_set_size(id(textarea_message_friend_input), 320, 120);
+                          lv_obj_set_size(id(textarea_message_friend_input), 304, 100);
                           lv_textarea_set_placeholder_text(textarea_message_friend_input, "收起键盘退出全屏输入");
                       - script.execute: keyboard_message_show
                       - lambda: |
@@ -411,12 +537,12 @@ lvgl:
             widgets:
               - obj:
                   id: obj_contact_add_dialog
-                  width: 260
-                  height: 150
+                  width: 280
+                  height: 160
                   align: CENTER
                   bg_color: 0xFFFFFF
-                  radius: 8
-                  pad_all: 8
+                  radius: 12
+                  pad_all: 12
                   widgets:
                     - label:
                         align: TOP_MID
@@ -490,12 +616,12 @@ lvgl:
             widgets:
               - obj:
                   id: obj_contact_action_dialog
-                  width: 260
-                  height: 170
+                  width: 280
+                  height: 180
                   align: CENTER
                   bg_color: 0xFFFFFF
-                  radius: 8
-                  pad_all: 10
+                  radius: 12
+                  pad_all: 12
                   widgets:
                     - label:
                         align: TOP_MID
@@ -578,12 +704,12 @@ lvgl:
             widgets:
               - obj:
                   id: obj_message_action_dialog
-                  width: 260
-                  height: 180
+                  width: 280
+                  height: 190
                   align: CENTER
                   bg_color: 0xFFFFFF
-                  radius: 8
-                  pad_all: 10
+                  radius: 12
+                  pad_all: 12
                   widgets:
                     - label:
                         align: TOP_MID
@@ -679,8 +805,10 @@ script:
           auto kb = id(keyboard_message_input)->obj;
           auto pub_input = id(textarea_message_public_input);
           auto pub_list = id(list_message_public);
+          auto pub_bg = id(obj_message_public_input_bg);
           auto fri_input = id(textarea_message_friend_input);
           auto fri_list = id(list_message_friend);
+          auto fri_bg = id(obj_message_friend_input_bg);
 
           // 1. 预处理：强制清理这些对象上所有正在运行的动画，确保状态可控
           lv_anim_del(kb, nullptr);
@@ -706,10 +834,12 @@ script:
           lv_anim_start(&a);
 
           // 直接调整消息列表和输入框，避免布局动画把滚动位置冲回顶部
-          lv_obj_set_y(pub_input, -80);
-          lv_obj_set_height(pub_list, 60);
-          lv_obj_set_y(fri_input, -80);
-          lv_obj_set_height(fri_list, 73);
+          lv_obj_set_y(pub_input, -105);
+          lv_obj_set_height(pub_list, 50);
+          lv_obj_add_flag(pub_bg, LV_OBJ_FLAG_HIDDEN);
+          lv_obj_set_y(fri_input, -105);
+          lv_obj_set_height(fri_list, 83);
+          lv_obj_add_flag(fri_bg, LV_OBJ_FLAG_HIDDEN);
           lv_obj_update_layout(pub_list);
           lv_obj_update_layout(fri_list);
           id(keyboard_showing) = true;
@@ -721,8 +851,10 @@ script:
           auto kb = id(keyboard_message_input)->obj;
           auto pub_input = id(textarea_message_public_input);
           auto pub_list = id(list_message_public);
+          auto pub_bg = id(obj_message_public_input_bg);
           auto fri_input = id(textarea_message_friend_input);
           auto fri_list = id(list_message_friend);
+          auto fri_bg = id(obj_message_friend_input_bg);
           auto contact_input = id(textarea_contact_add_input);
 
           // 1. 立即停止所有动画，回归静止状态
@@ -747,19 +879,21 @@ script:
 
           // 3. 【回归原始】输入框和列表直接设置位置，不走动画
           // 这部分代码完全照搬你以前“没问题”的版本
-          lv_obj_set_y(pub_input, 15);
-          lv_obj_set_height(pub_list, 155);
-          lv_obj_set_size(pub_input, 320, 40);
+          lv_obj_set_y(pub_input, -5);
+          lv_obj_set_size(pub_input, 304, 30);
+          lv_obj_set_height(pub_list, 145);
+          lv_obj_clear_flag(pub_bg, LV_OBJ_FLAG_HIDDEN);
 
-          lv_obj_set_y(fri_input, 15);
-          lv_obj_set_height(fri_list, 168);
-          lv_obj_set_size(fri_input, 320, 40);
+          lv_obj_set_y(fri_input, -5);
+          lv_obj_set_size(fri_input, 304, 30);
+          lv_obj_set_height(fri_list, 178);
+          lv_obj_clear_flag(fri_bg, LV_OBJ_FLAG_HIDDEN);
 
           // 4. 重置其他属性
           lv_keyboard_reset_ime(kb);
           lv_keyboard_set_textarea(kb, nullptr);
-          lv_textarea_set_placeholder_text(pub_input, "单击输入消息，长按进入全屏输入");
-          lv_textarea_set_placeholder_text(fri_input, "单击输入消息，长按进入全屏输入");
+          lv_textarea_set_placeholder_text(pub_input, "发送消息…");
+          lv_textarea_set_placeholder_text(fri_input, "发送消息…");
           lv_obj_clear_state(pub_input, LV_STATE_FOCUSED);
           lv_obj_clear_state(fri_input, LV_STATE_FOCUSED);
           lv_obj_clear_state(contact_input, LV_STATE_FOCUSED);

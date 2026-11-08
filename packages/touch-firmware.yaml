@@ -29,6 +29,8 @@ substitutions:
 packages:
   # 核心组件
   - !include s3_touch/lemonade.yaml
+  # 系统状态栏（top_layer + 返回/标题/时间/电量脚本）
+  - !include s3_touch/statusbar.yaml
   - !include s3_touch/lvgl.yaml
   - !include s3_touch/script.yaml
   - !include s3_touch/interval.yaml

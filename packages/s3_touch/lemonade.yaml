@@ -154,6 +154,8 @@ esp32:
   board: ${lemonade_board}
   cpu_frequency: 240MHz
   flash_size: 16MB
+  flash_mode: qio
+  flash_frequency: 120Mhz
   partitions: partitions_16M.csv
   toolchain: esp-idf
   framework:
@@ -170,8 +172,11 @@ esp32:
       disable_vfs_support_select: false
       disable_vfs_support_dir: false
       disable_fatfs: false
+      enable_idf_experimental_features: true
       loop_task_stack_size: 16384
     sdkconfig_options:
+      CONFIG_ESPTOOLPY_FLASHFREQ: '120m'
+      CONFIG_ESPTOOLPY_FLASHMODE: 'qio'
       CONFIG_PM_ENABLE: y
       CONFIG_PM_DFS_INIT_AUTO: y
       CONFIG_FATFS_LFN_HEAP: y
@@ -189,10 +194,11 @@ esp32:
       CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM: '6'
       CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM: '6'
       CONFIG_ESP_WIFI_RX_BA_WIN: '12'
+      CONFIG_SPIRAM_TIMING_TUNING_POINT_VIA_TEMPERATURE_SENSOR: n
 
 psram:
   mode: octal
-  speed: 80MHz
+  speed: 120MHz
   ignore_not_found: false
 
 preferences:
@@ -347,9 +353,8 @@ ota:
             value: !lambda "return (int)x;"
         - lvgl.label.update:
             id: lbl_ota_percent
-            text:
-              format: "%d%%"
-              args: ['x']
+            text: !lambda |-
+              return std::to_string((int) x) + "%";
         - lambda: "id(lvgl_1).loop();"
     on_error:
       then:
@@ -384,9 +389,8 @@ ota:
             value: !lambda "return (int)x;"
         - lvgl.label.update:
             id: lbl_ota_percent
-            text:
-              format: "%d%%"
-              args: ['x']
+            text: !lambda |-
+              return std::to_string((int) x) + "%";
         - lambda: "id(lvgl_1).loop();"
     on_error:
       then:

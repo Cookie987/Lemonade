@@ -129,13 +129,12 @@ lvgl:
     # ════════════════════════════════════════════════════════════════════
     - id: page_setting_menu
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "设置"
+        - script.execute:
+            id: statusbar_enter
+            title: "设置"
+            back: false
+            action: 0
         - script.execute: render_setting_menu
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -530,13 +529,12 @@ lvgl:
     - id: system_setting_power_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "电源与电池"
+        - script.execute:
+            id: statusbar_enter
+            title: "电源与电池"
+            back: true
+            action: 0
         - script.execute: render_power_page
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -658,10 +656,11 @@ lvgl:
     - id: system_setting_display_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "显示与亮度"
+        - script.execute:
+            id: statusbar_enter
+            title: "显示与亮度"
+            back: true
+            action: 0
         - lambda: |-
             float brightness = id(backlight).current_values.get_brightness();
             int pct = (int)(brightness * 100.0f + 0.5f);
@@ -671,8 +670,6 @@ lvgl:
             char buf[8];
             snprintf(buf, sizeof(buf), "%d%%", pct);
             lv_label_set_text(id(lbl_brightness_value), buf);
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -840,10 +837,11 @@ lvgl:
     - id: system_setting_sound_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "声音"
+        - script.execute:
+            id: statusbar_enter
+            title: "声音"
+            back: true
+            action: 0
         - if:
             condition:
               lambda: 'return id(buzzer_switch).state;'
@@ -851,8 +849,6 @@ lvgl:
               - lvgl.widget.enable: [switch_buzzer_startup, switch_buzzer_notification, switch_buzzer_alarm]
             else:
               - lvgl.widget.disable: [switch_buzzer_startup, switch_buzzer_notification, switch_buzzer_alarm]
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -971,13 +967,12 @@ lvgl:
     - id: system_setting_iot_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "Cookie IoT"
+        - script.execute:
+            id: statusbar_enter
+            title: "Cookie IoT"
+            back: true
+            action: 0
         - script.execute: get_iot_info
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -1139,13 +1134,12 @@ lvgl:
     - id: system_setting_network_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "网络与连接"
+        - script.execute:
+            id: statusbar_enter
+            title: "网络与连接"
+            back: true
+            action: 0
         - script.execute: refresh_info_page
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -1317,13 +1311,12 @@ lvgl:
     - id: system_setting_system_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "关于"
+        - script.execute:
+            id: statusbar_enter
+            title: "关于"
+            back: true
+            action: 0
         - script.execute: refresh_info_page
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -1355,8 +1348,8 @@ lvgl:
                         x: 16
                         y: 15
                         width: 45
-                        height: 31
-                        scale: 0.28
+                        height: 45
+                        scale: 0.3
                     - label:
                         styles: [setting_title]
                         x: 72
@@ -1610,13 +1603,12 @@ lvgl:
     - id: system_setting_bottle_ocean_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "瓶中之海"
+        - script.execute:
+            id: statusbar_enter
+            title: "瓶中之海"
+            back: true
+            action: 0
         - script.execute: sync_bottle_ocean
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -1877,12 +1869,11 @@ lvgl:
     - id: system_setting_previous_error_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "上次错误日志"
-      on_unload:
-        - script.execute: setting_page_leave
+        - script.execute:
+            id: statusbar_enter
+            title: "上次错误日志"
+            back: true
+            action: 0
       widgets:
         - obj:
             x: 0
@@ -1917,14 +1908,13 @@ lvgl:
     - id: system_setting_update_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "系统更新"
+        - script.execute:
+            id: statusbar_enter
+            title: "系统更新"
+            back: true
+            action: 0
         - script.execute: render_system_update_page
         - script.execute: check_system_update
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -2043,10 +2033,11 @@ lvgl:
     - id: system_setting_storage_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "存储"
+        - script.execute:
+            id: statusbar_enter
+            title: "存储"
+            back: true
+            action: 0
         - lambda: |
             size_t total = 0, used = 0;
             esp_err_t ret = esp_littlefs_info("littlefs", &total, &used);
@@ -2090,8 +2081,6 @@ lvgl:
               lv_label_set_text(id(lbl_sd_free), buf);
               lv_bar_set_value(id(bar_sd), pct, LV_ANIM_OFF);
             }
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -2194,17 +2183,16 @@ lvgl:
     - id: system_setting_wifi_config_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "Wi-Fi 配置"
+        - script.execute:
+            id: statusbar_enter
+            title: "Wi-Fi 配置"
+            back: true
+            action: 0
         - script.execute: refresh_wifi_list
         - lambda: |
             if (wifi::global_wifi_component != nullptr) {
               wifi::global_wifi_component->start_scanning();
             }
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -2268,14 +2256,13 @@ lvgl:
     - id: system_setting_new_wifi_page
       skip: true
       on_load:
-        - script.execute: setting_page_enter
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "添加 Wi-Fi"
+        - script.execute:
+            id: statusbar_enter
+            title: "添加 Wi-Fi"
+            back: true
+            action: 0
         - lambda: |
             lv_textarea_set_text(txt_new_wifi_password, "");
-      on_unload:
-        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
@@ -2336,7 +2323,8 @@ lvgl:
     - id: page_ota
       skip: true
       on_load:
-        - lvgl.widget.hide: [btn_topbar_back, lbl_wifi_status, lbl_battery_status, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - script.execute: statusbar_immersive
+        - lvgl.widget.hide: [lbl_wifi_status, lbl_battery_status]
         - lvgl.widget.show: lbl_ota_prompt
         - lvgl.canvas.fill:
             id: ota_canvas
@@ -2346,7 +2334,7 @@ lvgl:
             id: lbl_ota_prompt
             text: "#ffffff Lemonade OS 系统更新#\n #ffffff 更新中，请勿断电。#"
       on_unload:
-        - lvgl.widget.show: [lbl_topbar_title, lbl_wifi_status, lbl_battery_status, lbl_topbar_date, lbl_topbar_time]
+        - lvgl.widget.show: [lbl_wifi_status, lbl_battery_status]
       widgets:
         - canvas:
             id: ota_canvas

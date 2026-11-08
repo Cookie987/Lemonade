@@ -24,9 +24,11 @@ lvgl:
   pages:
     - id: page_game_menu
       on_load:
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "例程"
+        - script.execute:
+            id: statusbar_enter
+            title: "例程"
+            back: false
+            action: 0
       widgets: 
         - tileview:
             id: tile_view_game_menu
@@ -122,9 +124,11 @@ lvgl:
       skip: true
       on_load:
         - lvgl.widget.hide: [btn_page_prev, btn_page_next]
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "游戏"
+        - script.execute:
+            id: statusbar_enter
+            title: "游戏"
+            back: false
+            action: 0
       on_unload:
         - lvgl_game_runner.pause:
             id: game_runner1

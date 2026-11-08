@@ -38,17 +38,19 @@ lvgl:
     - id: page_weather_forecast
       skip: true
       on_load:
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "天气"
+        - script.execute:
+            id: statusbar_enter
+            title: "天气"
+            back: false
+            action: 0
       widgets:
         - tabview:
             id: tabview_weather
             anim_duration: 0.5s
             x: 0
-            y: 18
+            y: 22
             width: 320
-            height: 222
+            height: 218
             size: 15%
             tab_style:
               bg_color: !lambda return lv_color_hex(0xf6f6f6);

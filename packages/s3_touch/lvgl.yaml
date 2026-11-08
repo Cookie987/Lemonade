@@ -16,30 +16,6 @@ lvgl:
   resume_on_input: false
   top_layer:
     widgets:
-      - label:
-          id: lbl_topbar_title
-          y: 2
-          align: TOP_MID
-          height: 18
-          text: "系统设置"
-          recolor: true
-          text_font: chinese_font14
-      - label:
-          id: lbl_topbar_date
-          x: 8
-          align: TOP_LEFT
-          height: 14
-          text: "01.01 Thu"
-          recolor: true
-          text_font: chinese_font14
-      - label:
-          id: lbl_topbar_time
-          align: TOP_RIGHT
-          x: -8
-          height: 14
-          text: "00:00"
-          recolor: true
-          text_font: chinese_font14
       - button:
           id: btn_edit_done
           align: TOP_RIGHT
@@ -54,32 +30,6 @@ lvgl:
                 align: CENTER
                 text_font: chinese_font14
                 text: "完成"
-
-      # 设置页返回箭头：默认隐藏，由 setting_page_enter / setting_page_leave 控制
-      - button:
-          id: btn_topbar_back
-          align: TOP_LEFT
-          x: 0
-          y: 0
-          width: 32
-          height: 22
-          hidden: true
-          bg_opa: TRANSP
-          border_width: 0
-          shadow_width: 0
-          pad_all: 0
-          pressed:
-            bg_color: 0xe7e9ec
-            bg_opa: COVER
-          widgets:
-            - label:
-                align: CENTER
-                text: "\uF104"  # angle-left
-                text_color: !lambda return lv_color_hex(0x1f1f1f);
-                text_font: chinese_font14
-          on_click:
-            then:
-              - script.execute: setting_back
 
       - obj:
           id: boot_screen
@@ -215,9 +165,7 @@ lvgl:
   pages:
     - id: page_main
       on_load:
-        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time, btn_topbar_back]
-      on_unload:
-        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - script.execute: statusbar_immersive
       widgets:
         - image:
             id: background_image
@@ -315,7 +263,7 @@ lvgl:
 
     - id: page_temperature_high
       on_load:
-        - lvgl.widget.hide: [btn_topbar_back, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
+        - script.execute: statusbar_overlay_hide
         - if:
             condition:
               lambda: 'return id(is_sleeping);'
@@ -333,8 +281,6 @@ lvgl:
                   color: !lambda return lv_color_hex(0xF64D4D);
               - lambda: |
                   lv_label_set_text(id(lbl_temp_high), "#ffffff 请立即断开充电器。#");
-      on_unload:
-        - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
       widgets:
         - canvas:
             id: high_temp_canvas

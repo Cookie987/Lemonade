@@ -3,9 +3,11 @@ lvgl:
     - id: page_timer
       skip: true
       on_load:
-        - lvgl.label.update:
-            id: lbl_topbar_title
-            text: "计时器"
+        - script.execute:
+            id: statusbar_enter
+            title: "计时器"
+            back: false
+            action: 0
         - script.execute:
             id: close_notification
             notification_message: "倒计时已结束"
@@ -14,9 +16,9 @@ lvgl:
             id: tabview_timer
             anim_duration: 0s
             x: 0
-            y: 18
+            y: 22
             width: 320
-            height: 220
+            height: 218
             size: 15%
             tab_style:
               scrollbar_mode: "OFF"

@@ -8,9 +8,6 @@
 #include "hal/efuse_hal.h"
 #include "soc/gpio_struct.h"
 #include "esp_efuse.h"
-#include "esp_efuse_table.h"
-#include "esp_secure_boot.h"
-#include "esp_flash_encrypt.h"
 #include "bootloader_flash.h"
 
 #include "bl_lcd.h"
@@ -181,32 +178,24 @@ static void bootloader_show_hw_info(uint32_t mv) {
     buf[n] = '\0';
     lcd_show_string(10, 130, buf, 0xFFFF, 0x0000);
 
-    // MAC: XX:XX:XX:XX:XX:XX
-    // 注意：esp_efuse_mac_get_default() 在 bootloader 构建里未链接（mac_addr.c 被排除），
-    // 这里直接用 esp_efuse_read_field_blob 读 MAC_FACTORY eFuse 字段（48 bit）。
-    uint8_t mac[6];
-    if (esp_efuse_read_field_blob(ESP_EFUSE_MAC, mac, 48) == ESP_OK) {
-        n = append_str(buf, "MAC: ");
-        for (int i = 0; i < 6; i++) {
-            n += append_hex_byte(&buf[n], mac[i]);
-            if (i < 5) {
-                buf[n++] = ':';
-            }
-        }
-        buf[n] = '\0';
-    } else {
-        n = append_str(buf, "MAC: N/A");
-        buf[n] = '\0';
-    }
-    lcd_show_string(10, 150, buf, 0xFFFF, 0x0000);
-
-    // Secure boot / flash encryption
-    n = append_str(buf, "Secure: ");
-    n += append_str(&buf[n], esp_secure_boot_enabled() ? "ON" : "OFF");
-    n += append_str(&buf[n], "  Encrypt: ");
-    n += append_str(&buf[n], esp_flash_encryption_enabled() ? "ON" : "OFF");
-    buf[n] = '\0';
-    lcd_show_string(10, 170, buf, 0xFFFF, 0x0000);
+    // // MAC: XX:XX:XX:XX:XX:XX
+    // // 注意：esp_efuse_mac_get_default() 在 bootloader 构建里未链接（mac_addr.c 被排除），
+    // // 这里直接用 esp_efuse_read_field_blob 读 MAC_FACTORY eFuse 字段（48 bit）。
+    // uint8_t mac[6];
+    // if (esp_efuse_read_field_blob(ESP_EFUSE_MAC, mac, 48) == ESP_OK) {
+    //     n = append_str(buf, "MAC: ");
+    //     for (int i = 0; i < 6; i++) {
+    //         n += append_hex_byte(&buf[n], mac[i]);
+    //         if (i < 5) {
+    //             buf[n++] = ':';
+    //         }
+    //     }
+    //     buf[n] = '\0';
+    // } else {
+    //     n = append_str(buf, "MAC: N/A");
+    //     buf[n] = '\0';
+    // }
+    // lcd_show_string(10, 150, buf, 0xFFFF, 0x0000);
 
     // 电池电压（低电量警告在同一行）
     char bat_str[16];

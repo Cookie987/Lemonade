@@ -58,7 +58,7 @@ usb_cdc_rx:
 switch:
   - platform: usb_mode
     id: switch_usb_mode
-    restore_mode: RESTORE_DEFAULT_OFF
+    restore_mode: ALWAYS_OFF
     # 主机模式下组件自己持有 APB + NO_LIGHT_SLEEP 锁：light sleep 会让
     # 挂起的 USB 传输以 USB_TRANSFER_STATUS_ERROR 失败、设备掉线重枚举。
     # 界面上的 APB 开关和这个锁是两回事。真要省电就设成 true（USB 会失效）。
