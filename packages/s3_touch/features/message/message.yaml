@@ -407,6 +407,7 @@ script:
               lv_obj_t *preview_label = lv_label_create(row);
               lv_obj_set_pos(preview_label, 54, 27);
               lv_obj_set_width(preview_label, 210);
+              lv_obj_set_height(preview_label, 18);
               lv_label_set_text(preview_label, preview.c_str());
               lv_label_set_long_mode(preview_label, LV_LABEL_LONG_DOT);
               lv_obj_set_style_text_font(preview_label, chinese_font14, 0);
@@ -660,6 +661,7 @@ script:
           id(current_contact_uid) = name;
           id(statusbar_enter)->execute(name, true, 0);
           id(contacts_clear_unread)->execute(name);
+          id(contacts_refresh_later)->execute();
 
           lv_obj_add_flag(id(tabview_message), LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(id(obj_message_private_container), LV_OBJ_FLAG_HIDDEN);
@@ -680,6 +682,18 @@ script:
           lv_textarea_set_placeholder_text(id(textarea_message_friend_input),
                               "发送消息…");
           id(chat_private_load)->execute(name);
+      - script.execute:
+          id: close_notification
+          notification_message: "消息"
+      - script.execute:
+          id: close_notification
+          notification_message: "条新消息"
+      - script.execute:
+          id: close_notification
+          notification_message: "条私聊消息"
+      - script.execute:
+          id: close_notification
+          notification_message: "条私聊消息（特别关心）"
 
   - id: contacts_close_chat
     mode: queued
@@ -887,6 +901,14 @@ script:
           id(contacts_refresh_list)->execute();
           id(message_update_unread_indicators)->execute();
           id(message_refresh_alert_indicator)->execute();
+
+  # 打开聊天后清完未读，稍后再刷一次列表，避免读到旧 unread
+  - id: contacts_refresh_later
+    mode: restart
+    then:
+      - delay: 100ms
+      - script.execute: contacts_refresh_list
+      - script.execute: message_update_unread_indicators
 
   - id: message_init_unread_dots
     then:

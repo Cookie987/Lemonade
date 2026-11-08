@@ -13,6 +13,10 @@ interval:
                     - lvgl.page.is_showing: system_setting_system_page
                 then:
                   - script.execute: refresh_info_page
+  
+  - interval: 5s
+    then:
+      - script.execute: statusbar_update
 
   # - interval: 5s
   #   then:

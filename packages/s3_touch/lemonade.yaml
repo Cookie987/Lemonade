@@ -659,6 +659,9 @@ sensor:
   - platform: wifi_signal
     id: rssi
     update_interval: 10s
+    on_value:
+      then:
+        - script.execute: statusbar_update
 
   - platform: internal_temperature
     id: internal_temp

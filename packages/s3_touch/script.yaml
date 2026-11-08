@@ -489,6 +489,10 @@ script:
                 const char *wifi_text = lv_label_get_text(id(lbl_wifi_status));
                 if (wifi_text != nullptr) {
                   lv_label_set_text(id(lbl_lock_wifi_status), wifi_text);
+                  std::string wt = wifi_text;
+                  size_t sp = wt.find(' ');
+                  std::string icon = sp == std::string::npos ? wt : wt.substr(0, sp);
+                  lv_label_set_text(id(lbl_bar_wifi), icon.c_str());
                 }
 
   - id: get_iot_info

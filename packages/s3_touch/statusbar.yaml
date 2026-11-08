@@ -108,6 +108,14 @@ lvgl:
                 text: "--:--"
 
             - label:
+                id: lbl_bar_wifi
+                x: 52
+                y: 2
+                height: 18
+                styles: [bar_status_style]
+                text: "\U000F092E"
+
+            - label:
                 id: lbl_topbar_title
                 align: TOP_MID
                 y: 2
@@ -224,6 +232,8 @@ script:
           id(bar_saved_back) = back;
           id(bar_saved_action) = action;
           lv_obj_set_x(id(lbl_bar_time), back ? 36 : 12);
+          lv_obj_set_x(id(lbl_bar_wifi), back ? 76 : 52);
+          lv_obj_clear_flag(id(lbl_bar_wifi), LV_OBJ_FLAG_HIDDEN);
           if (back) {
             lv_obj_clear_flag(id(btn_topbar_back), LV_OBJ_FLAG_HIDDEN);
           } else {
@@ -250,7 +260,7 @@ script:
             lv_obj_set_width(id(lbl_topbar_title), 105);
           } else {
             lv_obj_set_x(id(lbl_bar_battery), -4);
-            lv_obj_set_width(id(lbl_topbar_title), 150);
+            lv_obj_set_width(id(lbl_topbar_title), back ? 140 : 150);
           }
       - script.execute: statusbar_update_status
 
@@ -271,6 +281,7 @@ script:
           lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);
           lv_obj_set_x(id(lbl_bar_time), 12);
           lv_obj_set_x(id(lbl_bar_battery), -4);
+          lv_obj_add_flag(id(lbl_bar_wifi), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(btn_message_add), LV_OBJ_FLAG_HIDDEN);
           lv_obj_set_width(id(lbl_topbar_title), 150);
           lv_label_set_text(id(lbl_topbar_title), title.c_str());
