@@ -211,93 +211,181 @@ script:
               }
               subscribed_topic = topic;
               id(mqtt_client).subscribe_json(topic, [=](const std::string &topic, JsonObject root) {
-                if (root["error"]){
-                  int icon = 999;
-                  std::string text = "N/A";
-                  lv_img_set_src(id(img_current_weather_icon), id(weather_icon_2x)[icon]);
-                  lv_label_set_text(id(lbl_current_weather_max_min_temp), text.c_str());
-                  lv_label_set_text(id(lbl_current_weather_wind), text.c_str());
-                  lv_label_set_text(id(lbl_lock_weather), text.c_str());
+                if (root["error"]) {
+                  lv_img_set_src(id(img_current_weather_icon), id(weather_icon_2x)[999]);
+                  lv_label_set_text(id(lbl_weather_temp), "N/A");
+                  lv_label_set_text(id(lbl_weather_text), "N/A");
+                  lv_label_set_text(id(lbl_weather_feels), "体感 N/A");
+                  lv_label_set_text(id(lbl_current_weather_text_main), "N/A");
+                  lv_label_set_text(id(lbl_lock_weather), "N/A");
+                  lv_obj_add_flag(id(obj_weather_alert), LV_OBJ_FLAG_HIDDEN);
+                  lv_obj_add_flag(id(obj_weather_alert_detail), LV_OBJ_FLAG_HIDDEN);
+                  return;
                 }
-                if (root["now"]) {
-                  std::string text = root["now"]["text"].as<std::string>();
-                  text += " " + root["now"]["temp"].as<std::string>() + "℃";
-                  int icon = root["now"]["icon"].as<int>();
-                  lv_img_set_src(id(img_current_weather_icon), id(weather_icon_2x)[icon]);
-                  lv_label_set_text(id(lbl_current_weather_text), text.c_str());
-                  lv_label_set_text(id(lbl_current_weather_text_main), text.c_str());
-                  lv_label_set_text(id(lbl_lock_weather), text.c_str());
-                  std::string windDir = root["now"]["windDir"].as<std::string>();
 
-                  // km/h转换成m/s，保留1位小数
-                  char windSpeed_text[10];
-                  float windSpeed = root["now"]["windSpeed"].as<float>() / 3.6;
-                  sprintf(windSpeed_text, "%.1f", windSpeed);
-                  std::string wind_text = windDir + " " + windSpeed_text + "m/s";
+                // ── 当前 ──────────────────────────────────────────
+                std::string now_text = root["now"]["text"] | "";
+                std::string now_temp = root["now"]["temp"] | "--";
+                std::string feels = root["now"]["feelsLike"] | "--";
+                int now_icon = root["now"]["icon"].isNull() ? 999 : root["now"]["icon"].as<int>();
+                std::string humidity = root["now"]["humidity"] | "--";
+                std::string wind_dir = root["now"]["windDir"] | "--";
+                std::string wind_scale = root["now"]["windScale"] | "--";
+                std::string precip = root["now"]["precip"] | "--";
+                std::string vis = root["now"]["vis"] | "--";
+                std::string obs = root["now"]["obsTime"] | "";
+                std::string obs_time = obs.size() >= 16 ? obs.substr(11, 5) : "--:--";
+                std::string obs_full = obs.size() >= 16 ? (obs.substr(5, 5) + " " + obs.substr(11, 5)) : "--";
 
-                  std::string obs_time = root["now"]["obsTime"].as<std::string>();
-                  // 把2025-11-13T23:00+08:00转换成11.13 23:00
-                  obs_time = "更新于 " + obs_time.substr(5, 5) + " " + obs_time.substr(11, 5);
-                  std::string update_text = obs_time;
-                  lv_label_set_text(id(lbl_update_time), update_text.c_str());
-                  lv_label_set_text(id(lbl_current_weather_wind), wind_text.c_str());
+                lv_img_set_src(id(img_current_weather_icon), id(weather_icon_2x)[now_icon]);
+                lv_label_set_text(id(lbl_weather_temp), (now_temp + "℃").c_str());
+                lv_label_set_text(id(lbl_weather_text), now_text.c_str());
+                lv_label_set_text(id(lbl_weather_feels), ("体感 " + feels + "℃").c_str());
+                lv_label_set_text(id(lbl_weather_humidity), ("湿度 " + humidity + "%").c_str());
+                lv_label_set_text(id(lbl_weather_wind), (wind_dir + " " + wind_scale + "级").c_str());
+                lv_label_set_text(id(lbl_weather_update), ("更新 " + obs_time).c_str());
+                lv_label_set_text(id(lbl_weather_update_detail), ("更新 " + obs_full).c_str());
+                lv_label_set_text(id(lbl_current_weather_text_main), (now_text + " " + now_temp + "℃").c_str());
+                lv_label_set_text(id(lbl_lock_weather), (now_text + " " + now_temp + "℃").c_str());
+                lv_label_set_text(id(lbl_weather_precip), ("降水 " + precip + "mm").c_str());
+                lv_label_set_text(id(lbl_weather_vis), ("能见度 " + vis + "km").c_str());
+
+                // ── 预报 ──────────────────────────────────────────
+                JsonArray daily = root["forecast"]["daily"].as<JsonArray>();
+                int day_count = daily.size();
+                auto day_get = [&](const char *key) -> std::string {
+                  if (daily.size() == 0) return "--";
+                  return daily[0][key] | "--";
+                };
+                if (daily.size() > 0) {
+                  std::string tmax = daily[0]["tempMax"] | "--";
+                  std::string tmin = daily[0]["tempMin"] | "--";
+                  lv_label_set_text(id(lbl_weather_highlow), (tmax + "℃ / " + tmin + "℃").c_str());
+                } else {
+                  lv_label_set_text(id(lbl_weather_highlow), "N/A");
                 }
-                if (root["forecast"]) {
-                  std::string tempMax = root["forecast"]["daily"][0]["tempMax"].as<std::string>();
-                  std::string tempMin = root["forecast"]["daily"][0]["tempMin"].as<std::string>();
-                  std::string humidity = root["now"]["humidity"].as<std::string>();
-                  std::string temp_text = tempMax + "℃/" + tempMin + "℃" + " " + humidity + "%";
+                lv_label_set_text(id(lbl_weather_uv), ("紫外线 " + day_get("uvIndex")).c_str());
+                lv_label_set_text(id(lbl_weather_pressure), ("气压 " + day_get("pressure") + "hPa").c_str());
 
-                  int icon1 = root["forecast"]["daily"][1]["iconDay"].as<int>();
-                  int icon2 = root["forecast"]["daily"][2]["iconDay"].as<int>();
-                  int icon3 = root["forecast"]["daily"][3]["iconDay"].as<int>();
-                  lv_img_set_src(id(img_forecast_day1_weather_icon), id(weather_icon_1x)[icon1]);
-                  lv_img_set_src(id(img_forecast_day2_weather_icon), id(weather_icon_1x)[icon2]);
-                  lv_img_set_src(id(img_forecast_day3_weather_icon), id(weather_icon_1x)[icon3]);
+                // ── 详情 ──────────────────────────────────────────
+                lv_label_set_text(id(lbl_weather_sunrise), ("日出 " + day_get("sunrise")).c_str());
+                lv_label_set_text(id(lbl_weather_sunset), ("日落 " + day_get("sunset")).c_str());
+                lv_label_set_text(id(lbl_weather_moonrise), ("月出 " + day_get("moonrise")).c_str());
+                lv_label_set_text(id(lbl_weather_moonset), ("月落 " + day_get("moonset")).c_str());
+                lv_label_set_text(id(lbl_weather_moonphase), ("月相 " + day_get("moonPhase")).c_str());
+                lv_label_set_text(id(lbl_weather_pressure_detail), ("气压 " + day_get("pressure") + "hPa").c_str());
+                lv_label_set_text(id(lbl_weather_uv_detail), ("紫外线 " + day_get("uvIndex")).c_str());
+                lv_label_set_text(id(lbl_weather_cloud), ("云量 " + day_get("cloud") + "%").c_str());
+                lv_label_set_text(id(lbl_weather_vis_detail), ("能见度 " + day_get("vis") + "km").c_str());
+                lv_label_set_text(id(lbl_weather_wind_day),
+                                  ("白天 " + day_get("windDirDay") + " " + day_get("windScaleDay") + "级").c_str());
+                lv_label_set_text(id(lbl_weather_wind_night),
+                                  ("夜间 " + day_get("windDirNight") + " " + day_get("windScaleNight") + "级").c_str());
+                lv_label_set_text(id(lbl_weather_humidity_detail), ("湿度 " + day_get("humidity") + "%").c_str());
+                lv_label_set_text(id(lbl_weather_precip_detail), ("降水 " + day_get("precip") + "mm").c_str());
 
-                  std::string tempMax1 = root["forecast"]["daily"][1]["tempMax"].as<std::string>();
-                  std::string tempMin1 = root["forecast"]["daily"][1]["tempMin"].as<std::string>();
-                  std::string fxDate1 = root["forecast"]["daily"][1]["fxDate"].as<std::string>();
-                  // 把2025-11-13转换成11.13
-                  fxDate1 = fxDate1.substr(5, 5);
-                  std::string day1_text = fxDate1 + " | " + tempMax1 + "℃/" + tempMin1 + "℃ " + root["forecast"]["daily"][1]["textDay"].as<std::string>();
-                  if (root["forecast"]["daily"][1]["textDay"].as<std::string>() != root["forecast"]["daily"][1]["textNight"].as<std::string>())
-                  {
-                    day1_text += "转" + root["forecast"]["daily"][1]["textNight"].as<std::string>();
-                  }
-                  lv_label_set_text(id(lbl_forecast_day1_weather), day1_text.c_str());
-
-                  std::string tempMax2 = root["forecast"]["daily"][2]["tempMax"].as<std::string>();
-                  std::string tempMin2 = root["forecast"]["daily"][2]["tempMin"].as<std::string>();
-                  std::string fxDate2 = root["forecast"]["daily"][2]["fxDate"].as<std::string>();
-                  fxDate2 = fxDate2.substr(5, 5);
-                  std::string day2_text = fxDate2 + " | " + tempMax2 + "℃/" + tempMin2 + "℃ " + root["forecast"]["daily"][2]["textDay"].as<std::string>();
-                  if (root["forecast"]["daily"][2]["textDay"].as<std::string>() != root["forecast"]["daily"][2]["textNight"].as<std::string>())
-                  {
-                    day2_text += "转" + root["forecast"]["daily"][2]["textNight"].as<std::string>();
-                  }
-                  lv_label_set_text(id(lbl_forecast_day2_weather), day2_text.c_str());
-                  std::string tempMax3 = root["forecast"]["daily"][3]["tempMax"].as<std::string>();
-                  std::string tempMin3 = root["forecast"]["daily"][3]["tempMin"].as<std::string>();
-                  std::string fxDate3 = root["forecast"]["daily"][3]["fxDate"].as<std::string>();
-                  fxDate3 = fxDate3.substr(5, 5);
-                  std::string day3_text = fxDate3 + " | " + tempMax3 + "℃/" + tempMin3 + "℃ " + root["forecast"]["daily"][3]["textDay"].as<std::string>();
-                  if (root["forecast"]["daily"][3]["textDay"].as<std::string>() != root["forecast"]["daily"][3]["textNight"].as<std::string>())
-                  {
-                    day3_text += "转" + root["forecast"]["daily"][3]["textNight"].as<std::string>();
-                  }
-                  lv_label_set_text(id(lbl_forecast_day3_weather), day3_text.c_str());
-                  lv_label_set_text(id(lbl_current_weather_max_min_temp), temp_text.c_str());
+                // ── 预警 ──────────────────────────────────────────
+                JsonObject alert = root["alert"].as<JsonObject>();
+                std::string headline = alert.isNull() ? "" : (alert["headline"] | "");
+                bool has_alert = !alert.isNull() && !(alert["zeroResult"] | false) && !headline.empty();
+                if (has_alert) {
+                  lv_obj_clear_flag(id(obj_weather_alert), LV_OBJ_FLAG_HIDDEN);
+                  lv_obj_clear_flag(id(obj_weather_alert_detail), LV_OBJ_FLAG_HIDDEN);
+                  lv_label_set_text(id(lbl_weather_alert), headline.c_str());
+                  lv_label_set_text(id(lbl_weather_alert_detail), headline.c_str());
+                } else {
+                  lv_obj_add_flag(id(obj_weather_alert), LV_OBJ_FLAG_HIDDEN);
+                  lv_obj_add_flag(id(obj_weather_alert_detail), LV_OBJ_FLAG_HIDDEN);
                 }
-                std::string alert_text;
-                if (root["alert"]) {
-                  if(!root["alert"]["zeroResult"]){
-                    alert_text = "  " + root["alert"]["headline"].as<std::string>();
+                lv_obj_set_y(id(obj_weather_minutely), has_alert ? 124 : 90);
+                lv_obj_set_y(id(obj_weather_today), has_alert ? 226 : 192);
+                lv_obj_set_y(id(lbl_weather_source), has_alert ? 310 : 276);
+
+                // ── 分钟级降水 ────────────────────────────────────
+                JsonObject minutely = root["minutely"].as<JsonObject>();
+                JsonArray detail = minutely.isNull() ? JsonArray() : minutely["detail"].as<JsonArray>();
+                bool has_minutely = !detail.isNull() && detail.size() > 0;
+                if (has_minutely) {
+                  std::string summary = minutely["summary"] | "";
+                  lv_label_set_text(id(lbl_weather_minutely_summary), summary.c_str());
+                  lv_obj_clear_flag(id(obj_weather_minutely_bars), LV_OBJ_FLAG_HIDDEN);
+                  static lv_obj_t *bars[24] = {nullptr};
+                  if (bars[0] == nullptr) {
+                    for (int i = 0; i < 24; i++) {
+                      bars[i] = lv_obj_create(id(obj_weather_minutely_bars));
+                      lv_obj_set_size(bars[i], 5, 3);
+                      lv_obj_set_pos(bars[i], 8 + i * 11, 21);
+                      lv_obj_set_style_bg_color(bars[i], lv_color_hex(0xD6E9FF), 0);
+                      lv_obj_set_style_bg_opa(bars[i], LV_OPA_COVER, 0);
+                      lv_obj_set_style_border_width(bars[i], 0, 0);
+                      lv_obj_set_style_radius(bars[i], 2, 0);
+                      lv_obj_clear_flag(bars[i], LV_OBJ_FLAG_SCROLLABLE);
+                    }
                   }
+                  float vals[24];
+                  float mx = 0;
+                  for (int i = 0; i < 24; i++) {
+                    std::string p = i < (int) detail.size() ? (detail[i]["precip"] | "0") : "0";
+                    vals[i] = atof(p.c_str());
+                    if (vals[i] > mx) mx = vals[i];
+                  }
+                  for (int i = 0; i < 24; i++) {
+                    int h = vals[i] <= 0 ? 3 : (int) (3 + (vals[i] / (mx > 0 ? mx : 1)) * 21);
+                    lv_obj_set_height(bars[i], h);
+                    lv_obj_set_y(bars[i], 24 - h);
+                    lv_obj_set_style_bg_color(bars[i],
+                                              vals[i] <= 0 ? lv_color_hex(0xD6E9FF) : lv_color_hex(0x1F95F6),
+                                              0);
+                  }
+                } else {
+                  lv_label_set_text(id(lbl_weather_minutely_summary), "暂无分钟级降水");
+                  lv_obj_add_flag(id(obj_weather_minutely_bars), LV_OBJ_FLAG_HIDDEN);
                 }
-                if (root["minutely"]) {
-                  std::string rain_summary = root["minutely"]["summary"].as<std::string>() + alert_text;
-                  lv_label_set_text(id(lbl_current_weather_rain_summary), rain_summary.c_str());
+
+                // ── 7 日 ──────────────────────────────────────────
+                lv_obj_t *day_dates[7] = {id(lbl_weather_day_date_0), id(lbl_weather_day_date_1),
+                                          id(lbl_weather_day_date_2), id(lbl_weather_day_date_3),
+                                          id(lbl_weather_day_date_4), id(lbl_weather_day_date_5),
+                                          id(lbl_weather_day_date_6)};
+                lv_obj_t *day_icons[7] = {id(img_weather_day_icon_0), id(img_weather_day_icon_1),
+                                          id(img_weather_day_icon_2), id(img_weather_day_icon_3),
+                                          id(img_weather_day_icon_4), id(img_weather_day_icon_5),
+                                          id(img_weather_day_icon_6)};
+                lv_obj_t *day_texts[7] = {id(lbl_weather_day_text_0), id(lbl_weather_day_text_1),
+                                          id(lbl_weather_day_text_2), id(lbl_weather_day_text_3),
+                                          id(lbl_weather_day_text_4), id(lbl_weather_day_text_5),
+                                          id(lbl_weather_day_text_6)};
+                lv_obj_t *day_temps[7] = {id(lbl_weather_day_temp_0), id(lbl_weather_day_temp_1),
+                                          id(lbl_weather_day_temp_2), id(lbl_weather_day_temp_3),
+                                          id(lbl_weather_day_temp_4), id(lbl_weather_day_temp_5),
+                                          id(lbl_weather_day_temp_6)};
+                for (int i = 0; i < 7; i++) {
+                  if (i < day_count) {
+                    lv_obj_clear_flag(day_dates[i], LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(day_icons[i], LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(day_texts[i], LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(day_temps[i], LV_OBJ_FLAG_HIDDEN);
+                    std::string fxDate = daily[i]["fxDate"] | "";
+                    std::string date_text = i == 0 ? "今天" : (i == 1 ? "明天" : (fxDate.size() >= 10 ? fxDate.substr(5, 5) : fxDate));
+                    lv_label_set_text(day_dates[i], date_text.c_str());
+                    lv_obj_set_style_text_color(day_dates[i],
+                                                i == 0 ? lv_color_hex(0x1F95F6) : lv_color_hex(0x1F1F1F), 0);
+                    int di = daily[i]["iconDay"].isNull() ? 999 : daily[i]["iconDay"].as<int>();
+                    lv_img_set_src(day_icons[i], id(weather_icon_1x)[di]);
+                    std::string td = daily[i]["textDay"] | "";
+                    std::string tn = daily[i]["textNight"] | "";
+                    std::string wt = td;
+                    if (!tn.empty() && tn != td) wt += "转" + tn;
+                    lv_label_set_text(day_texts[i], wt.c_str());
+                    std::string tmax = daily[i]["tempMax"] | "--";
+                    std::string tmin = daily[i]["tempMin"] | "--";
+                    lv_label_set_text(day_temps[i], (tmax + "℃ / " + tmin + "℃").c_str());
+                  } else {
+                    lv_obj_add_flag(day_dates[i], LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_add_flag(day_icons[i], LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_add_flag(day_texts[i], LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_add_flag(day_temps[i], LV_OBJ_FLAG_HIDDEN);
+                  }
                 }
               });
               return;

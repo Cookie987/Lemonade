@@ -38,7 +38,7 @@ usb_uart:
     channels:
       - id: usb_cdc_ch0
         # 收到的数据直接以十六进制打到日志里（主机模式下串口日志不可用，走 API/MQTT 看）
-        debug: true
+        debug: false
 
 # 异步接收：消费 usb_cdc_ch0 的数据。它同时负责"喂"这个通道 —— usb_uart 只有在
 # read_array() 被调用时才会重启一次失败的 IN 传输，没有消费者的话一次瞬时错误

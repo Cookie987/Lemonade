@@ -42,130 +42,665 @@ lvgl:
             id: statusbar_enter
             title: "天气"
             back: false
-            action: 0
+            action: 3
+        - lambda: |
+            lv_obj_t *btns = lv_tabview_get_tab_btns(tabview_weather);
+            if (btns != nullptr) {
+              lv_obj_set_parent(id(obj_weather_tab_indicator), btns);
+              lv_obj_add_flag(id(obj_weather_tab_indicator), LV_OBJ_FLAG_IGNORE_LAYOUT);
+              lv_obj_add_flag(id(obj_weather_tab_indicator), LV_OBJ_FLAG_FLOATING);
+              lv_coord_t tw = lv_obj_get_width(btns) / 3;
+              uint16_t act = lv_tabview_get_tab_act(tabview_weather);
+              lv_obj_align(id(obj_weather_tab_indicator), LV_ALIGN_TOP_LEFT, tw * act + tw / 2 - 16, 30);
+              lv_obj_clear_flag(id(obj_weather_tab_indicator), LV_OBJ_FLAG_HIDDEN);
+              lv_obj_move_foreground(id(obj_weather_tab_indicator));
+            }
       widgets:
+        - obj:
+            id: obj_weather_tab_indicator
+            width: 32
+            height: 2
+            hidden: true
+            bg_color: 0x1f95f6
+            border_width: 0
+            radius: 1
+
         - tabview:
             id: tabview_weather
-            anim_duration: 0.5s
+            anim_duration: 0.3s
             x: 0
             y: 22
             width: 320
             height: 218
             size: 15%
             tab_style:
-              bg_color: !lambda return lv_color_hex(0xf6f6f6);
+              bg_color: 0xffffff
+              border_width: 0
+              pad_all: 0
+              items:
+                bg_opa: TRANSP
+                text_color: 0x8a9099
+                text_font: chinese_font14
+                checked:
+                  text_color: 0x1f95f6
             content_style:
-              bg_color: !lambda return lv_color_hex(0xffffff);
+              bg_color: 0xf2f3f5
+              pad_all: 0
+            on_value:
+              then:
+                - lambda: |
+                    lv_obj_t *btns = lv_tabview_get_tab_btns(tabview_weather);
+                    if (btns != nullptr) {
+                      uint16_t act = lv_tabview_get_tab_act(tabview_weather);
+                      lv_coord_t tw = lv_obj_get_width(btns) / 3;
+                      lv_obj_align(id(obj_weather_tab_indicator), LV_ALIGN_TOP_LEFT,
+                                   tw * act + tw / 2 - 16, 30);
+                    }
             tabs:
-              # 当前天气标签页
-              - name: 当前天气
+              # ── 现在 ─────────────────────────────────────────────
+              - name: 现在
                 text_font: chinese_font14
-                scrollbar_mode: "OFF"
+                scrollable: true
                 scroll_dir: "VER"
+                scrollbar_mode: "ON"
+                pad_all: 0
                 widgets:
-                  - image:
-                      id: img_current_weather_icon
-                      src: c999_2x_black
-                      x: 10
-                      y: -20
-                      align: LEFT_MID
-                  - label:
-                      id: lbl_current_weather_text
-                      x: -5
-                      y: -45
-                      align: RIGHT_MID
-                      text_font: chinese_font36
-                      text: "N/A"
-                  - label:
-                      id: lbl_current_weather_max_min_temp
-                      x: -5
-                      y: -10
-                      align: RIGHT_MID
-                      text_font: chinese_font18
-                      text: "N/A"
-                  - label:
-                      id: lbl_current_weather_wind
-                      x: -5
-                      y: 15
-                      align: RIGHT_MID
-                      text_font: chinese_font18
-                      text: "N/A"
-                  - label:
-                      id: lbl_current_weather_rain_summary
-                      align: BOTTOM_MID
-                      text_align: CENTER
-                      y: -10
-                      x: 0
-                      width: 250
-                      recolor: true
-                      long_mode: SCROLL_CIRCULAR
-                      text_font: chinese_font14
-                      text: "N/A"
-                  - label:
-                      id: lbl_update_time
-                      align: BOTTOM_LEFT
-                      # #c4c4c4ff
-                      text_color: !lambda return lv_color_hex(0xc4c4c4);
-                      x: -8
-                      y: 10
-                      text: "N/A"
-                  - label:
-                      id: lbl_data_source
-                      align: BOTTOM_RIGHT
-                      # #f6f6f6
-                      text_color: !lambda return lv_color_hex(0xc4c4c4);
+                  - obj:
+                      id: obj_weather_hero
                       x: 8
-                      y: 10
-                      text: "来自和风天气"
+                      y: 6
+                      width: 304
+                      height: 78
+                      styles: [setting_card]
+                      widgets:
+                        - image:
+                            id: img_current_weather_icon
+                            x: 16
+                            y: 14
+                            width: 48
+                            height: 48
+                            src: c999_2x_black
+                        - label:
+                            id: lbl_weather_temp
+                            x: 72
+                            y: 8
+                            text_font: chinese_font36
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_text
+                            x: 72
+                            y: 52
+                            text_font: chinese_font18
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_feels
+                            x: 132
+                            y: 56
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "体感 N/A"
+                        - label:
+                            id: lbl_weather_highlow
+                            align: TOP_RIGHT
+                            x: -8
+                            y: 12
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_humidity
+                            align: TOP_RIGHT
+                            x: -8
+                            y: 32
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "湿度 N/A"
+                        - label:
+                            id: lbl_weather_wind
+                            align: TOP_RIGHT
+                            x: -8
+                            y: 52
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "N/A"
 
-              - name: 3日预报
+                  - obj:
+                      id: obj_weather_alert
+                      x: 8
+                      y: 90
+                      width: 304
+                      height: 28
+                      hidden: true
+                      bg_color: 0xfff4e5
+                      bg_opa: COVER
+                      border_width: 0
+                      radius: 8
+                      pad_all: 0
+                      scrollable: false
+                      widgets:
+                        - obj:
+                            x: 0
+                            y: 0
+                            width: 3
+                            height: 28
+                            bg_color: 0xe8a33d
+                            bg_opa: COVER
+                            border_width: 0
+                            radius: 2
+                        - label:
+                            id: lbl_weather_alert
+                            x: 12
+                            y: 5
+                            width: 280
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text_color: 0xa86400
+                            text: ""
+
+                  - obj:
+                      id: obj_weather_minutely
+                      x: 8
+                      y: 124
+                      width: 304
+                      height: 96
+                      styles: [setting_card]
+                      widgets:
+                        - label:
+                            x: 12
+                            y: 10
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "未来 2 小时"
+                        - label:
+                            id: lbl_weather_update
+                            align: TOP_RIGHT
+                            x: -12
+                            y: 10
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "更新 --:--"
+                        - label:
+                            id: lbl_weather_minutely_summary
+                            x: 12
+                            y: 28
+                            width: 280
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text: "暂无分钟级降水"
+                        - obj:
+                            id: obj_weather_minutely_bars
+                            x: 12
+                            y: 48
+                            width: 280
+                            height: 24
+                            bg_opa: TRANSP
+                            border_width: 0
+                            pad_all: 0
+                            scrollable: false
+                        - label:
+                            x: 12
+                            y: 76
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "现在"
+                        - label:
+                            x: 70
+                            y: 76
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "30分"
+                        - label:
+                            x: 128
+                            y: 76
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "60分"
+                        - label:
+                            x: 186
+                            y: 76
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "90分"
+                        - label:
+                            x: 244
+                            y: 76
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "120分"
+
+                  - obj:
+                      id: obj_weather_today
+                      x: 8
+                      y: 226
+                      width: 304
+                      height: 76
+                      styles: [setting_card]
+                      widgets:
+                        - label:
+                            x: 12
+                            y: 8
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "今日"
+                        - label:
+                            id: lbl_weather_precip
+                            x: 12
+                            y: 30
+                            text_font: chinese_font14
+                            text: "降水 N/A"
+                        - label:
+                            id: lbl_weather_vis
+                            x: 160
+                            y: 30
+                            text_font: chinese_font14
+                            text: "能见度 N/A"
+                        - label:
+                            id: lbl_weather_uv
+                            x: 12
+                            y: 52
+                            text_font: chinese_font14
+                            text: "紫外线 N/A"
+                        - label:
+                            id: lbl_weather_pressure
+                            x: 160
+                            y: 52
+                            text_font: chinese_font14
+                            text: "气压 N/A"
+
+                  - label:
+                      id: lbl_weather_source
+                      x: 12
+                      y: 310
+                      text_font: chinese_font14
+                      text_color: 0x8a9099
+                      text: "天气数据来自和风天气"
+
+              # ── 7 日 ─────────────────────────────────────────────
+              - name: 7日
                 text_font: chinese_font14
-                scrollbar_mode: "OFF"
+                scrollable: true
                 scroll_dir: "VER"
-                bg_color: !lambda return lv_color_hex(0xffffff);
+                scrollbar_mode: "ON"
+                pad_all: 0
                 widgets:
-                  - image:
-                      id: img_forecast_day1_weather_icon
-                      x: -120
-                      y: -50
-                      align: CENTER
-                      src: c999_1x_black
-                  - image:
-                      id: img_forecast_day2_weather_icon
-                      x: -120
-                      y: 0
-                      align: CENTER
-                      src: c999_1x_black
-                  - image:
-                      id: img_forecast_day3_weather_icon
-                      x: -120
-                      y: 50
-                      align: CENTER
-                      src: c999_1x_black
+                  - obj:
+                      id: obj_weather_week
+                      x: 8
+                      y: 6
+                      width: 304
+                      height: 182
+                      styles: [setting_card]
+                      widgets:
+                        - obj:
+                            id: obj_weather_today_bar
+                            x: 0
+                            y: 0
+                            width: 3
+                            height: 26
+                            bg_color: 0x1f95f6
+                            bg_opa: COVER
+                            border_width: 0
+                            radius: 2
+                        - label:
+                            id: lbl_weather_day_date_0
+                            x: 12
+                            y: 5
+                            text_font: chinese_font14
+                            text_color: 0x1f95f6
+                            text: "今天"
+                        - image:
+                            id: img_weather_day_icon_0
+                            x: 64
+                            y: 3
+                            width: 20
+                            height: 20
+                            src: c999_1x_black
+                        - label:
+                            id: lbl_weather_day_text_0
+                            x: 90
+                            y: 5
+                            width: 100
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_temp_0
+                            x: 196
+                            y: 5
+                            width: 100
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_date_1
+                            x: 12
+                            y: 31
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - image:
+                            id: img_weather_day_icon_1
+                            x: 64
+                            y: 29
+                            width: 20
+                            height: 20
+                            src: c999_1x_black
+                        - label:
+                            id: lbl_weather_day_text_1
+                            x: 90
+                            y: 31
+                            width: 100
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_temp_1
+                            x: 196
+                            y: 31
+                            width: 100
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_date_2
+                            x: 12
+                            y: 57
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - image:
+                            id: img_weather_day_icon_2
+                            x: 64
+                            y: 55
+                            width: 20
+                            height: 20
+                            src: c999_1x_black
+                        - label:
+                            id: lbl_weather_day_text_2
+                            x: 90
+                            y: 57
+                            width: 100
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_temp_2
+                            x: 196
+                            y: 57
+                            width: 100
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_date_3
+                            x: 12
+                            y: 83
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - image:
+                            id: img_weather_day_icon_3
+                            x: 64
+                            y: 81
+                            width: 20
+                            height: 20
+                            src: c999_1x_black
+                        - label:
+                            id: lbl_weather_day_text_3
+                            x: 90
+                            y: 83
+                            width: 100
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_temp_3
+                            x: 196
+                            y: 83
+                            width: 100
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_date_4
+                            x: 12
+                            y: 109
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - image:
+                            id: img_weather_day_icon_4
+                            x: 64
+                            y: 107
+                            width: 20
+                            height: 20
+                            src: c999_1x_black
+                        - label:
+                            id: lbl_weather_day_text_4
+                            x: 90
+                            y: 109
+                            width: 100
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_temp_4
+                            x: 196
+                            y: 109
+                            width: 100
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_date_5
+                            x: 12
+                            y: 135
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - image:
+                            id: img_weather_day_icon_5
+                            x: 64
+                            y: 133
+                            width: 20
+                            height: 20
+                            src: c999_1x_black
+                        - label:
+                            id: lbl_weather_day_text_5
+                            x: 90
+                            y: 135
+                            width: 100
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_temp_5
+                            x: 196
+                            y: 135
+                            width: 100
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_date_6
+                            x: 12
+                            y: 161
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - image:
+                            id: img_weather_day_icon_6
+                            x: 64
+                            y: 159
+                            width: 20
+                            height: 20
+                            src: c999_1x_black
+                        - label:
+                            id: lbl_weather_day_text_6
+                            x: 90
+                            y: 161
+                            width: 100
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text: "N/A"
+                        - label:
+                            id: lbl_weather_day_temp_6
+                            x: 196
+                            y: 161
+                            width: 100
+                            text_font: chinese_font14
+                            text: "N/A"
+
+              # ── 详情 ─────────────────────────────────────────────
+              - name: 详情
+                text_font: chinese_font14
+                scrollable: true
+                scroll_dir: "VER"
+                scrollbar_mode: "ON"
+                pad_all: 0
+                widgets:
+                  - obj:
+                      id: obj_weather_astro
+                      x: 8
+                      y: 6
+                      width: 304
+                      height: 68
+                      styles: [setting_card]
+                      widgets:
+                        - label:
+                            x: 12
+                            y: 8
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "天文"
+                        - label:
+                            id: lbl_weather_moonphase
+                            align: TOP_RIGHT
+                            x: -12
+                            y: 8
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "月相 N/A"
+                        - label:
+                            id: lbl_weather_sunrise
+                            x: 12
+                            y: 28
+                            text_font: chinese_font14
+                            text: "日出 N/A"
+                        - label:
+                            id: lbl_weather_sunset
+                            x: 160
+                            y: 28
+                            text_font: chinese_font14
+                            text: "日落 N/A"
+                        - label:
+                            id: lbl_weather_moonrise
+                            x: 12
+                            y: 48
+                            text_font: chinese_font14
+                            text: "月出 N/A"
+                        - label:
+                            id: lbl_weather_moonset
+                            x: 160
+                            y: 48
+                            text_font: chinese_font14
+                            text: "月落 N/A"
+                  - obj:
+                      id: obj_weather_env
+                      x: 8
+                      y: 80
+                      width: 304
+                      height: 60
+                      styles: [setting_card]
+                      widgets:
+                        - label:
+                            x: 12
+                            y: 8
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "环境"
+                        - label:
+                            id: lbl_weather_pressure_detail
+                            x: 12
+                            y: 26
+                            text_font: chinese_font14
+                            text: "气压 N/A"
+                        - label:
+                            id: lbl_weather_uv_detail
+                            x: 160
+                            y: 26
+                            text_font: chinese_font14
+                            text: "紫外线 N/A"
+                        - label:
+                            id: lbl_weather_cloud
+                            x: 12
+                            y: 42
+                            text_font: chinese_font14
+                            text: "云量 N/A"
+                        - label:
+                            id: lbl_weather_vis_detail
+                            x: 160
+                            y: 42
+                            text_font: chinese_font14
+                            text: "能见度 N/A"
+                  - obj:
+                      id: obj_weather_wind
+                      x: 8
+                      y: 146
+                      width: 304
+                      height: 60
+                      styles: [setting_card]
+                      widgets:
+                        - label:
+                            x: 12
+                            y: 8
+                            text_font: chinese_font14
+                            text_color: 0x8a9099
+                            text: "风与湿度"
+                        - label:
+                            id: lbl_weather_wind_day
+                            x: 12
+                            y: 26
+                            text_font: chinese_font14
+                            text: "白天 N/A"
+                        - label:
+                            id: lbl_weather_humidity_detail
+                            x: 160
+                            y: 26
+                            text_font: chinese_font14
+                            text: "湿度 N/A"
+                        - label:
+                            id: lbl_weather_wind_night
+                            x: 12
+                            y: 42
+                            text_font: chinese_font14
+                            text: "夜间 N/A"
+                        - label:
+                            id: lbl_weather_precip_detail
+                            x: 160
+                            y: 42
+                            text_font: chinese_font14
+                            text: "降水 N/A"
+                  - obj:
+                      id: obj_weather_alert_detail
+                      x: 8
+                      y: 212
+                      width: 304
+                      height: 40
+                      hidden: true
+                      bg_color: 0xfff4e5
+                      bg_opa: COVER
+                      border_width: 0
+                      radius: 8
+                      pad_all: 0
+                      scrollable: false
+                      widgets:
+                        - label:
+                            id: lbl_weather_alert_detail
+                            x: 12
+                            y: 10
+                            width: 280
+                            long_mode: DOT
+                            text_font: chinese_font14
+                            text_color: 0xa86400
+                            text: ""
                   - label:
-                      id: lbl_forecast_day1_weather
-                      x: 35
-                      y: -50
-                      width: 220
-                      align: CENTER
-                      text_align: LEFT
-                      text_font: chinese_font18
-                      text: "N/A℃~N/A℃  N/A"
+                      id: lbl_weather_update_detail
+                      x: 12
+                      y: 262
+                      text_font: chinese_font14
+                      text_color: 0x8a9099
+                      text: "更新 --:--"
                   - label:
-                      id: lbl_forecast_day2_weather
-                      x: 35
-                      y: 0
-                      width: 220
-                      align: CENTER
-                      text_align: LEFT
-                      text_font: chinese_font18
-                      text: "N/A℃~N/A℃  N/A"
-                  - label:
-                      id: lbl_forecast_day3_weather
-                      x: 35
-                      y: 50
-                      width: 220
-                      align: CENTER
-                      text_align: LEFT
-                      text_font: chinese_font18
-                      text: "N/A℃~N/A℃  N/A"
+                      x: 160
+                      y: 262
+                      text_font: chinese_font14
+                      text_color: 0x8a9099
+                      text: "数据来自和风天气"
