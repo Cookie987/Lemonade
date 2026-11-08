@@ -3,7 +3,7 @@ lvgl:
     - id: page_lock_screen
       skip: true
       on_load:
-        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time, btn_back_setting]
+        - lvgl.widget.hide: [btn_topbar_back, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
         - script.execute: security_render_lock_screen
       on_unload:
         - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
@@ -85,141 +85,177 @@ lvgl:
     - id: system_setting_security_page
       skip: true
       on_load:
-        - lvgl.widget.show: btn_back_setting
+        - script.execute: setting_page_enter
         - lvgl.label.update:
             id: lbl_topbar_title
-            text: "安全和隐私"
+            text: "安全与隐私"
         - script.execute: security_render_settings_page
       on_unload:
-        - lvgl.widget.hide: btn_back_setting
+        - script.execute: setting_page_leave
       widgets:
         - obj:
             x: 0
             y: 0
-            align: CENTER
-            border_width: 0
             width: 320
-            height: 200
+            height: 240
+            styles: [setting_page]
+        - obj:
+            x: 8
+            y: 26
+            width: 304
+            height: 176
+            styles: [setting_card]
+            widgets:
+              - obj:
+                  styles: [setting_row]
+                  x: 0
+                  y: 0
+                  border_side: BOTTOM
+                  border_width: 1
+                  border_color: 0xedeff2
+                  widgets:
+                    - label:
+                        styles: [setting_title]
+                        align: LEFT_MID
+                        x: 14
+                        text: "锁屏方式"
+                    - dropdown:
+                        id: dropdown_security_lock_type
+                        align: RIGHT_MID
+                        x: -12
+                        width: 130
+                        height: 32
+                        symbol: "\uF107"
+                        text_font: chinese_font14
+                        options:
+                          - 关闭
+                          - 数字密码
+                          - 九点连线
+                        on_click:
+                          then:
+                            - script.execute: security_register_activity
+                        on_change:
+                          then:
+                            - script.execute: security_apply_lock_type_dropdown
+              - obj:
+                  styles: [setting_row]
+                  x: 0
+                  y: 44
+                  border_side: BOTTOM
+                  border_width: 1
+                  border_color: 0xedeff2
+                  widgets:
+                    - label:
+                        styles: [setting_title]
+                        align: LEFT_MID
+                        x: 14
+                        text: "锁屏密码"
+                    - button:
+                        id: btn_security_change_password
+                        align: RIGHT_MID
+                        x: -12
+                        width: 130
+                        height: 30
+                        styles: [setting_secondary_btn]
+                        on_click:
+                          then:
+                            - script.execute: security_register_activity
+                            - script.execute: security_open_password_editor
+                        widgets:
+                          - label:
+                              id: lbl_security_password_action
+                              align: CENTER
+                              styles: [setting_title]
+                              text: "设置密码"
+              - obj:
+                  styles: [setting_row]
+                  x: 0
+                  y: 88
+                  border_side: BOTTOM
+                  border_width: 1
+                  border_color: 0xedeff2
+                  widgets:
+                    - label:
+                        styles: [setting_title]
+                        align: LEFT_MID
+                        x: 14
+                        text: "息屏后锁定"
+                    - dropdown:
+                        id: dropdown_security_auto_lock
+                        align: RIGHT_MID
+                        x: -12
+                        width: 130
+                        height: 32
+                        symbol: "\uF107"
+                        text_font: chinese_font14
+                        options:
+                          - 立即
+                          - 永不
+                          - 15 秒
+                          - 30 秒
+                          - 1 分钟
+                          - 2 分钟
+                          - 5 分钟
+                          - 10 分钟
+                        on_click:
+                          then:
+                            - script.execute: security_register_activity
+                        on_change:
+                          then:
+                            - script.execute: security_apply_auto_lock_dropdown
+              - obj:
+                  styles: [setting_row]
+                  x: 0
+                  y: 132
+                  widgets:
+                    - label:
+                        styles: [setting_title]
+                        align: LEFT_MID
+                        x: 14
+                        text: "自动息屏"
+                    - dropdown:
+                        id: dropdown_security_auto_sleep
+                        align: RIGHT_MID
+                        x: -12
+                        width: 130
+                        height: 32
+                        symbol: "\uF107"
+                        text_font: chinese_font14
+                        options:
+                          - 永不
+                          - 15 秒
+                          - 30 秒
+                          - 1 分钟
+                          - 2 分钟
+                          - 5 分钟
+                          - 10 分钟
+                        on_click:
+                          then:
+                            - script.execute: security_register_activity
+                        on_change:
+                          then:
+                            - script.execute: security_apply_auto_sleep_dropdown
+        - button:
+            id: btn_security_lock_now
+            x: 8
+            y: 208
+            width: 304
+            height: 28
+            styles: [setting_primary_btn]
+            on_click:
+              then:
+                - script.execute: security_register_activity
+                - script.execute: security_lock_now
             widgets:
               - label:
-                  text: "锁屏方式"
-                  text_font: chinese_font14
-                  x: 10
-                  y: 24
-              - dropdown:
-                  id: dropdown_security_lock_type
-                  x: 154
-                  y: 18
-                  width: 130
-                  height: 34
-                  symbol: "\uF107"
-                  text_font: chinese_font14
-                  options:
-                    - 关闭
-                    - 数字密码
-                    - 九点连线
-                  on_click:
-                    then:
-                      - script.execute: security_register_activity
-                  on_change:
-                    then:
-                      - script.execute: security_apply_lock_type_dropdown
-              - label:
-                  text: "锁屏密码"
-                  text_font: chinese_font14
-                  x: 10
-                  y: 64
-              - button:
-                  id: btn_security_change_password
-                  x: 154
-                  y: 58
-                  width: 130
-                  height: 34
-                  on_click:
-                    then:
-                      - script.execute: security_register_activity
-                      - script.execute: security_open_password_editor
-                  widgets:
-                    - label:
-                        id: lbl_security_password_action
-                        align: CENTER
-                        text_font: chinese_font14
-                        text: "设置密码"
-              - label:
-                  text: "息屏后锁定"
-                  text_font: chinese_font14
-                  x: 10
-                  y: 104
-              - dropdown:
-                  id: dropdown_security_auto_lock
-                  x: 154
-                  y: 98
-                  width: 130
-                  height: 34
-                  symbol: "\uF107"
-                  text_font: chinese_font14
-                  options:
-                    - 立即
-                    - 永不
-                    - 15 秒
-                    - 30 秒
-                    - 1 分钟
-                    - 2 分钟
-                    - 5 分钟
-                    - 10 分钟
-                  on_click:
-                    then:
-                      - script.execute: security_register_activity
-                  on_change:
-                    then:
-                      - script.execute: security_apply_auto_lock_dropdown
-              - label:
-                  text: "自动息屏"
-                  text_font: chinese_font14
-                  x: 10
-                  y: 144
-              - dropdown:
-                  id: dropdown_security_auto_sleep
-                  x: 154
-                  y: 138
-                  width: 130
-                  height: 34
-                  symbol: "\uF107"
-                  text_font: chinese_font14
-                  options:
-                    - 永不
-                    - 15 秒
-                    - 30 秒
-                    - 1 分钟
-                    - 2 分钟
-                    - 5 分钟
-                    - 10 分钟
-                  on_click:
-                    then:
-                      - script.execute: security_register_activity
-                  on_change:
-                    then:
-                      - script.execute: security_apply_auto_sleep_dropdown
-              - button:
-                  id: btn_security_lock_now
                   align: CENTER
-                  y: 120
-                  width: 280
-                  height: 34
-                  on_click:
-                    then:
-                      - script.execute: security_register_activity
-                      - script.execute: security_lock_now
-                  widgets:
-                    - label:
-                        align: CENTER
-                        text_font: chinese_font14
-                        text: "立即锁屏"
+                  styles: [setting_primary_text]
+                  text: "立即锁屏"
 
     - id: page_security_pin
       skip: true
       on_load:
-        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time, btn_back_setting]
+        - lvgl.widget.hide: [btn_topbar_back, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
         - script.execute: security_render_pin_page
       on_unload:
         - lvgl.widget.show: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
@@ -232,22 +268,6 @@ lvgl:
             bg_color: !lambda return lv_color_hex(0x101820);
             border_width: 0
             radius: 0
-        - button:
-            x: 12
-            y: 14
-            width: 58
-            height: 26
-            bg_color: !lambda return lv_color_hex(0x2f343a);
-            border_width: 0
-            on_click:
-              then:
-                - script.execute: security_back_from_pin
-            widgets:
-              - label:
-                  align: CENTER
-                  text_font: chinese_font14
-                  text_color: !lambda return lv_color_hex(0xffffff);
-                  text: "返回"
         - label:
             id: lbl_security_pin_title
             align: TOP_MID
@@ -494,7 +514,7 @@ lvgl:
     - id: page_security_pattern
       skip: true
       on_load:
-        - lvgl.widget.hide: [lbl_topbar_title, lbl_topbar_date, lbl_topbar_time, btn_back_setting]
+        - lvgl.widget.hide: [btn_topbar_back, lbl_topbar_title, lbl_topbar_date, lbl_topbar_time]
         - lambda: |
             if (!id(security_pattern_handler_bound)) {
               auto *canvas = id(canvas_security_pattern);
@@ -717,19 +737,3 @@ lvgl:
             y: 64
             width: 160
             height: 160
-        - button:
-            x: 12
-            y: 14
-            width: 58
-            height: 26
-            bg_color: !lambda return lv_color_hex(0x2f343a);
-            border_width: 0
-            on_click:
-              then:
-                - script.execute: security_back_from_pattern
-            widgets:
-              - label:
-                  align: CENTER
-                  text_font: chinese_font14
-                  text_color: !lambda return lv_color_hex(0xffffff);
-                  text: "返回"

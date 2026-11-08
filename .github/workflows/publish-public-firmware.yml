@@ -10,7 +10,42 @@ permissions:
   contents: write
 
 jobs:
+  # 发布前置校验：共享配置改动不能只在 T 上成立，T_3.2 也必须能完整编译。
+  # 只编译、不发布；失败则阻塞后面的 Release。
+  build-t32:
+    name: 编译 T_3.2 Canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+
+      - name: 安装 ESPHome
+        run: pip install git+https://github.com/cookie987/esphome.git@release
+
+      - name: 生成 secrets.yaml
+        env:
+          RAW_SECRETS: ${{ secrets.ESPHOME_SECRETS }}
+        run: |
+          echo "$RAW_SECRETS" > secrets.yaml
+
+      - name: 修复 ESPHome git_commit_sha 错误
+        run: |
+          # 创建一个本地临时分支，让 .git/HEAD 包含 "ref: " 格式
+          git checkout -b build-temp-branch
+
+      - name: 编译 T_3.2 Canary
+        run: esphome compile touch3.2_canary.yaml
+
   build-and-release:
+    needs: build-t32
     runs-on: ubuntu-latest
 
     steps:

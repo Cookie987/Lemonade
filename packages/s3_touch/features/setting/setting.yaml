@@ -1,4 +1,5 @@
 packages:
+  - !include setting-style.yaml
   - !include setting-lvgl.yaml
   - !include setting-script.yaml
   - !include setting-bottle.yaml

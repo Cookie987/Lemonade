@@ -345,6 +345,11 @@ ota:
         - lvgl.bar.update:
             id: bar_ota_progress
             value: !lambda "return (int)x;"
+        - lvgl.label.update:
+            id: lbl_ota_percent
+            text:
+              format: "%d%%"
+              args: ['x']
         - lambda: "id(lvgl_1).loop();"
     on_error:
       then:
@@ -377,6 +382,11 @@ ota:
         - lvgl.bar.update:
             id: bar_ota_progress
             value: !lambda "return (int)x;"
+        - lvgl.label.update:
+            id: lbl_ota_percent
+            text:
+              format: "%d%%"
+              args: ['x']
         - lambda: "id(lvgl_1).loop();"
     on_error:
       then:

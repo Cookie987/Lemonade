@@ -37,11 +37,28 @@ touchscreen:
     on_touch:
       then:
         - script.execute: security_register_activity
+        - script.execute:
+            id: back_gesture_touch
+            x: !lambda 'return touch.x;'
+            y: !lambda 'return touch.y;'
         - if:
             condition:
               lambda: 'return !id(is_sleeping);'
             then:
               - switch.turn_on: switch_powermanage_lock_apb
+    on_update:
+      then:
+        - if:
+            condition:
+              lambda: 'return !touches.empty();'
+            then:
+              - script.execute:
+                  id: back_gesture_update
+                  x: !lambda 'return touches[0].x;'
+                  y: !lambda 'return touches[0].y;'
+    on_release:
+      then:
+        - script.execute: back_gesture_release
 
 i2c:
   sda: GPIO11
@@ -206,13 +223,10 @@ sensor:
                 condition:
                   lvgl.page.is_showing: system_setting_power_page
                 then:
-                  - lvgl.indicator.update:
-                      id: usb_voltage_indicator
-                      value: !lambda 'return id(usb_input_voltage).state * 10;'
                   - lvgl.label.update:
                       id: usb_voltage_text
                       text:
-                        format: "%.2fV"
+                        format: "%.2f V"
                         args: ['x']
 
   - platform: adc
@@ -233,13 +247,10 @@ sensor:
                 condition:
                   lvgl.page.is_showing: system_setting_power_page
                 then:
-                  - lvgl.indicator.update:
-                      id: battery_voltage_indicator
-                      value: !lambda 'return id(battery_voltage).state * 10;'
                   - lvgl.label.update:
                       id: battery_voltage_text
                       text:
-                        format: "%.2fV"
+                        format: "%.2f V"
                         args: ['x']
 
   # - platform: ntc

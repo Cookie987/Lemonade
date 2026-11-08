@@ -21,9 +21,8 @@ esp32:
 logger:
   # usb_mode 依赖日志走 USB-Serial-JTAG（S3 的默认值，这里显式写出来）
   hardware_uart: USB_SERIAL_JTAG
-  logs:
-    # 切模式的两行日志是 INFO 级；即使换到 log_level: WARN 的设备文件里也看得到
-    usb_mode: INFO
+  # 不再单独指定 usb_mode 的日志级别：ESPHome 不允许按 tag 设成比全局更低的级别
+  # （WARN 设备上设 INFO 会直接校验失败），因此跟随各机型的 log_level。
 
 usb_host:
   max_transfer_requests: 16

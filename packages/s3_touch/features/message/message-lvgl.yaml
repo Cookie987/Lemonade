@@ -359,37 +359,18 @@ lvgl:
                   width: 320
                   height: 168
                   items:
-              - button:
-                  id: btn_message_private_back
-                  width: 48
-                  height: 24
-                  x: -6
-                  y: -8
+              # 聊天期间"其他会话有未读"红点（原挂在返回按钮上，返回已改为边缘手势）
+              - obj:
+                  id: dot_back_unread
+                  width: 8
+                  height: 8
                   align: TOP_LEFT
-                  bg_color: !lambda return lv_color_hex(0x1f95f6);
-                  widgets:
-                    - label:
-                        align: CENTER
-                        y: 0
-                        text: "\uF2EA"  # rotate-left
-                    - obj:
-                        id: dot_back_unread
-                        width: 8
-                        height: 8
-                        align: TOP_RIGHT
-                        x: -2
-                        y: 2
-                        hidden: true
-                        bg_color: 0xFF0000
-                        border_width: 0
-                        radius: 8
-                  on_click:
-                    then:
-                      - script.execute: contacts_close_chat
-                      - lambda: |
-                          lv_obj_t * list = id(list_message_friend);
-                          if (list == nullptr) return;
-                          lv_obj_clean(list);
+                  x: 6
+                  y: 4
+                  hidden: true
+                  bg_color: 0xFF0000
+                  border_width: 0
+                  radius: 8
               - textarea:
                   id: textarea_message_friend_input
                   x: 0

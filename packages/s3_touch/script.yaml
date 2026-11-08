@@ -486,6 +486,7 @@ script:
             id(battery_soc) = 100.0f;
             id(battery_raw_percent) = 100.0f;
             id(battery_soc_initialized) = true;
+            id(render_power_page)->execute();
             return;
           }
 
@@ -508,6 +509,7 @@ script:
             float max_s = charging ? 0.5f : 0.1f;
             id(battery_soc) += std::max(-max_s, std::min(max_s, delta));
           }
+          id(render_power_page)->execute();
 
   - id: statusbar_update
     then:
@@ -616,15 +618,12 @@ script:
               id(uid)= root["uid"].as<std::string>();
               return true;
           });
-          // 更新标签
-          std::string info_text = "${lemonade_version}\n";
-          info_text += "用户名：" + id(uid) + "\n";
-          info_text += "API版本：2\n";
-          info_text += "WiFi数量：" + std::to_string(wifi_sum) + "\n";
-          info_text += "设备描述：" + desc + "\n";
-          info_text += "获取时间：" + id(iot_last_status);
-          ESP_LOGD("987IoT", "Info text: '%s'", info_text.c_str());
-          lv_label_set_text(id(lbl_iot_info), info_text.c_str());
+          // 更新标签（结构化字段）
+          lv_label_set_text(id(lbl_iot_uid), id(uid).c_str());
+          lv_label_set_text(id(lbl_iot_api), "2");
+          lv_label_set_text(id(lbl_iot_wifi), std::to_string(wifi_sum).c_str());
+          lv_label_set_text(id(lbl_iot_desc), desc.empty() ? "-" : desc.c_str());
+          lv_label_set_text(id(lbl_iot_time), id(iot_last_status).c_str());
       - lambda: global_preferences->sync();
 
   - id: refresh_info_page
@@ -636,13 +635,6 @@ script:
           auto wifi = wifi::global_wifi_component;
           if (wifi == nullptr) return;
 
-          std::string ip = "N/A";
-          auto ip_list = wifi->get_ip_addresses();
-          if (!ip_list.empty()) {
-            char buf[64]; // 源码中 IP_ADDRESS_BUFFER_SIZE 通常为 64
-            ip = ip_list[0].str_to(buf);
-          }
-
           std::string mac = "none";
           std::string commit = "fffffff";
 
@@ -653,22 +645,7 @@ script:
           commit = id(lemonade_git_commit_sha).state.substr(0, 7);
 
           auto esphome_ver = id(esphome_version).state;
-          auto ssid_val = id(ssid).state;
-          auto rssi_val = id(rssi).state;
           auto pending_ssid = id(wifi_pending_ssid);
-          std::string rssi_str = std::to_string((int)rssi_val);
-          if (!id(wifi_switch).state) {
-            ssid_val = "(已关闭)";
-            rssi_str = "-∞";
-          } else if (!pending_ssid.empty()) {
-            ssid_val = "(连接中)";
-            rssi_str = "-∞";
-          }
-
-          if (ssid_val == "") {
-            ssid_val = "(未连接)";
-            rssi_str = "-∞";
-          }
 
           if (mac.empty()) {
             mac = "未知";
@@ -682,30 +659,19 @@ script:
             esphome_ver = "未知";
           }
 
-          char buf_wifi_info[256];
-          snprintf(buf_wifi_info, sizeof(buf_wifi_info),
-                  "SSID: %s   "
-                  "RSSI: %s dBm\n"
-                  "IP: %s  "
-                  "MAC: %s\n",
-                  ssid_val.c_str(),
-                  rssi_str.c_str(),
-                  ip.c_str(),
-                  mac.c_str()
-                  );
-          lv_label_set_text(id(lbl_wifi_info), buf_wifi_info);
           if (!id(wifi_switch).state) {
             lv_label_set_text(id(lbl_wifi_get_info), "Wi-Fi 已关闭");
           } else if (!pending_ssid.empty()) {
             lv_label_set_text(id(lbl_wifi_get_info), (std::string("正在连接：") + pending_ssid).c_str());
           } else if (!id(ssid).state.empty()) {
-            lv_label_set_text(id(lbl_wifi_get_info), (std::string("已连接：") + id(ssid).state).c_str());
+            lv_label_set_text(id(lbl_wifi_get_info), id(ssid).state.c_str());
           } else {
             lv_label_set_text(id(lbl_wifi_get_info), "Wi-Fi 未连接");
           }
+          lv_label_set_text(id(lbl_about_hero_meta),
+                            (std::string("${lemonade_version}") + " · ESPHome " + esphome_ver).c_str());
           lv_label_set_text(id(lbl_about_device_model_value), "${lemonade_device_model}");
           lv_label_set_text(id(lbl_about_cpu_temp_value), cpu_temp.c_str());
-          lv_label_set_text(id(lbl_about_esphome_version_value), esphome_ver.c_str());
           lv_label_set_text(id(lbl_about_lemonadeos_version_value), "${lemonade_version}");
           lv_label_set_text(id(lbl_about_uptime_value), id(uptime_text).state.c_str());
           lv_label_set_text(id(lbl_about_mac_value), mac.c_str());

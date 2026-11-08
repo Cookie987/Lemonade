@@ -33,6 +33,17 @@ font:
           "\uF1CD",  # life-ring
           "\uF2F1",  # rotate
           "\uF492",  # vial
+          "\uF1EB",  # wifi
+          "\uF1DE",  # sliders
+          "\uF042",  # circle-half-stroke (颜色反转)
+          "\uF0A0",  # hard-drive (内部存储)
+          "\uF2C9",  # temperature-half
+          "\uF2DB",  # microchip
+          "\uF02B",  # tag
+          "\uF15C",  # file-lines
+          "\uF0C2",  # cloud
+          "\uF0E7",  # bolt
+          "\uF017",  # clock
         ]   # arrow-left, arrow-right, rotate-left
       - file: "fonts/materialdesignicons-webfont.ttf"
         glyphs: [

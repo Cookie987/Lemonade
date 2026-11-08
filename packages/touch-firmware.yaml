@@ -1,0 +1,52 @@
+# ============================================================================
+# 触摸系列（T / T_3.2 / 自定义机型）共用的固件包清单。
+#
+# 顶层 yaml 只需要做三件事：
+#   1. 覆盖机型相关的 substitutions（设备名、型号、版本、更新地址、平台等）；
+#   2. 选一块板级硬件包：
+#        packages/s3_touch/hardware.yaml
+#        packages/s3_touch_3.2/hardware.yaml
+#   3. 放机型独有的顶层配置（api / ota 等）。
+#
+# 新增页面或功能时只改这个文件，不要再往各个顶层 yaml 里抄包清单。
+# ============================================================================
+
+substitutions:
+  # 机型无关的默认值。顶层 yaml 里的同名 substitutions 优先级更高。
+  lemonade_board: "um_pros3"
+  lemonade_device_friendly_name: "Lemonade"
+  lemonade_ota_password: !secret ota_password
+  lemonade_ibeacon_uuid: "c2c77f58-9876-4a2a-a43d-dcb5ab317fae"
+  lemonade_ibeacon_major: "987"
+  lemonade_ibeacon_minor: "114"
+  lemonade_ibeacon_measured_power: "-59"
+  c987_mqtt_server: !secret mqtt_server
+  c987_mqtt_register_url: !secret mqtt_register_url
+  log_level: WARN
+  battery_warning_temp: 50.0
+  battery_low_temp: 45.0
+
+packages:
+  # 核心组件
+  - !include s3_touch/lemonade.yaml
+  - !include s3_touch/lvgl.yaml
+  - !include s3_touch/script.yaml
+  - !include s3_touch/interval.yaml
+  - !include resources.yaml
+  - !include s3_touch/networks.yaml
+  - !include s3_touch/features/mqtt_handler.yaml
+  - !include s3_touch/features/mqtt_credentials.yaml
+  # USB 角色切换（设备日志 <-> 主机读 CDC 设备）
+  - !include s3_touch/usb_mode.yaml
+  # 设置
+  - !include s3_touch/features/setting/setting.yaml
+  - !include s3_touch/features/security/security.yaml
+  # 返回手势
+  - !include s3_touch/features/back_gesture/back_gesture.yaml
+  - !include s3_touch/features/app_store/app_store.yaml
+  # 秒表
+  - !include s3_touch/features/timer/timer.yaml
+  # 天气与日历
+  - !include s3_touch/features/weather/weather.yaml
+  # 聊天
+  - !include s3_touch/features/message/message.yaml

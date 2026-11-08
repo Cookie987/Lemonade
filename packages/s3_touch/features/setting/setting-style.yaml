@@ -1,0 +1,135 @@
+# ============================================================================
+# 设置页设计令牌（320×240 触摸屏）
+#
+# 所有设置页共用这些样式：页面底色、白色卡片、44px 行、标题/值/图标/箭头、
+# 主按钮/次按钮。页面骨架只负责坐标，颜色/圆角/字号不写在页面里。
+#
+# 用法：
+#   - 卡片：obj + styles: [setting_card]
+#   - 行：  button/obj + styles: [setting_row]
+#   - 文字：label + styles: [setting_title] / [setting_value] / ...
+# ============================================================================
+
+lvgl:
+  style_definitions:
+    # 页面内容底色（顶栏 22px 留给页面默认白底）
+    - id: setting_page
+      bg_color: 0xf2f3f5
+      bg_opa: COVER
+      border_width: 1
+      border_side: TOP
+      border_color: 0xe7e9ec
+      radius: 0
+      pad_all: 0
+
+    # 白色卡片：圆角 12，子控件按圆角裁切
+    - id: setting_card
+      bg_color: 0xffffff
+      bg_opa: COVER
+      border_width: 0
+      radius: 12
+      pad_all: 0
+      shadow_width: 0
+      clip_corner: true
+
+    # 卡片内的一行（44px，整行可点）
+    - id: setting_row
+      bg_color: 0xffffff
+      bg_opa: COVER
+      border_width: 0
+      radius: 0
+      pad_all: 0
+      shadow_width: 0
+      width: 304
+      height: 44
+
+    - id: setting_title
+      text_color: 0x1f1f1f
+      text_font: chinese_font14
+
+    - id: setting_value
+      text_color: 0x8a9099
+      text_font: chinese_font14
+      text_align: RIGHT
+
+    - id: setting_icon
+      text_color: 0x7a828c
+      text_font: chinese_font14
+
+    - id: setting_chevron
+      text_color: 0xc3c7ce
+      text_font: chinese_font14
+
+    # 分组标题（「本机」「系统」…）
+    - id: setting_group
+      text_color: 0x9aa0a6
+      text_font: chinese_font14
+      text_letter_space: 1
+
+    # 辅助说明 / 次要信息
+    - id: setting_hint
+      text_color: 0x8a9099
+      text_font: chinese_font14
+
+    # 危险操作文字
+    - id: setting_danger_text
+      text_color: 0xe5484d
+      text_font: chinese_font14
+
+    # 主按钮（蓝底白字）
+    - id: setting_primary_btn
+      bg_color: 0x1f95f6
+      bg_opa: COVER
+      border_width: 0
+      radius: 10
+      shadow_width: 0
+      pad_all: 0
+      text_color: 0xffffff
+      text_font: chinese_font14
+
+    # 主按钮里的文字（按钮用子 label + align CENTER 时使用）
+    - id: setting_primary_text
+      text_color: 0xffffff
+      text_font: chinese_font14
+
+    # 次按钮（白底细边）
+    - id: setting_secondary_btn
+      bg_color: 0xffffff
+      bg_opa: COVER
+      border_width: 1
+      border_color: 0xd9dce1
+      radius: 10
+      shadow_width: 0
+      pad_all: 0
+      text_color: 0x1f1f1f
+      text_font: chinese_font14
+
+    # 开关统一尺寸（避免默认 52×31 挤压右侧状态）
+    - id: setting_switch
+      width: 44
+      height: 24
+
+    # 更新页状态胶囊（颜色由脚本按状态改）
+    - id: setting_pill
+      bg_color: 0x8a9099
+      bg_opa: COVER
+      radius: 10
+      pad_left: 8
+      pad_right: 8
+      pad_top: 2
+      pad_bottom: 2
+      border_width: 0
+      text_color: 0xffffff
+      text_font: chinese_font14
+
+    # 36px 大数字（电量）
+    - id: setting_hero_number
+      text_color: 0x1f1f1f
+      text_font: chinese_font36
+
+    # Wi-Fi 扫描列表：透明底、无边距
+    - id: setting_list
+      bg_opa: TRANSP
+      border_width: 0
+      pad_all: 0
+      radius: 0

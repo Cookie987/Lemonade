@@ -92,28 +92,6 @@ interval:
           }
 
 lvgl:
-  top_layer:
-    widgets:
-      - button:
-          id: btn_back_appstore
-          width: 48
-          height: 24
-          x: -6
-          y: 20
-          align: TOP_RIGHT
-          bg_color: !lambda return lv_color_hex(0x1f95f6);
-          widgets:
-            - label:
-                align: CENTER
-                y: 2
-                text: "\uF2EA"  # rotate-left
-          hidden: true
-          on_release:
-            then:
-              - lvgl.page.show:
-                  id: page_app_store
-                  animation: MOVE_RIGHT
-                  time: 200ms
   pages:
     - id: !extend page_main
       widgets:
@@ -358,12 +336,9 @@ lvgl:
     - id: page_app_store_detail
       skip: true
       on_load:
-        - lvgl.widget.show: btn_back_appstore
         - lambda: |
             lv_label_set_text(id(lbl_topbar_title), id(app_store_component).get_selected_name().c_str());
             id(refresh_app_store_widgets)->execute();
-      on_unload:
-        - lvgl.widget.hide: btn_back_appstore
       widgets:
         - label:
             id: lbl_app_store_detail_body

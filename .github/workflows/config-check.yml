@@ -1,0 +1,64 @@
+name: ESPHome 配置检查
+
+# 只做 schema / ID 引用 / 包合并的校验，不编译，几十秒内出结果。
+# 编译验证在发布流程里做（见 publish-public-firmware.yml 的 build-t32）。
+#
+# 覆盖的 target 是仓库跟踪的触摸固件：
+#   touch_public.yaml / touch_canary.yaml / touch3.2_canary.yaml
+# 未纳入：
+#   non_touch_canary.yaml   —— 旧的 packages/s3 无触摸分支，依赖外部 GitHub 组件
+#   host-test.yaml          —— 主机 SDL 模拟器，需要本机 SDL2
+#   *.custom.yaml           —— 个人机型配置，被 .gitignore 忽略，不在仓库里
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: esp32-config-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  config:
+    name: 校验 ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - touch_public.yaml
+          - touch_canary.yaml
+          - touch3.2_canary.yaml
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+
+      - name: 安装 ESPHome
+        run: pip install "git+https://github.com/cookie987/esphome.git@release"
+
+      - name: 准备 secrets.yaml
+        env:
+          # 仓库配置了 Secret 就用真实值；fork PR 没有 Secret，退回占位值。
+          RAW_SECRETS: ${{ secrets.ESPHOME_SECRETS }}
+        run: |
+          if [ -n "$RAW_SECRETS" ]; then
+            printf '%s\n' "$RAW_SECRETS" > secrets.yaml
+          else
+            echo "未配置 ESPHOME_SECRETS，使用 .github/ci-secrets.yaml 占位值"
+            cp .github/ci-secrets.yaml secrets.yaml
+          fi
+
+      - name: 校验配置
+        run: esphome config "${{ matrix.target }}"

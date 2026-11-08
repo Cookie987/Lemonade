@@ -31,6 +31,192 @@ globals:
     restore_value: no
 
 script:
+  # ------------------------------------------------------------------
+  # 设置页公共行为
+  # ------------------------------------------------------------------
+
+  # 进入设置页：显示返回箭头与标题，隐藏顶栏日期/时间
+  - id: setting_page_enter
+    then:
+      - lvgl.widget.show: [btn_topbar_back, lbl_topbar_title]
+      - lvgl.widget.hide: [lbl_topbar_date, lbl_topbar_time]
+
+  # 离开设置页：恢复顶栏
+  - id: setting_page_leave
+    then:
+      - lvgl.widget.hide: btn_topbar_back
+      - lvgl.widget.show: [lbl_topbar_date, lbl_topbar_time]
+
+  # 顶栏返回箭头：按当前屏幕回到上一级
+  - id: setting_back
+    then:
+      - lambda: |
+          lv_obj_t *active = lv_screen_active();
+          auto show = [&](int index) {
+            id(lvgl_1)->show_page(index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+          };
+          if (active == id(page_setting_menu)->obj) {
+            show(id(page_main)->index);
+          } else if (active == id(system_setting_wifi_config_page)->obj) {
+            show(id(system_setting_network_page)->index);
+          } else if (active == id(system_setting_new_wifi_page)->obj) {
+            show(id(system_setting_wifi_config_page)->index);
+          } else if (active == id(system_setting_iot_page)->obj) {
+            show(id(system_setting_network_page)->index);
+          } else if (active == id(system_setting_previous_error_page)->obj) {
+            show(id(system_setting_system_page)->index);
+          } else {
+            show(id(page_setting_menu)->index);
+          }
+
+  # 瓶中之海：进入页面时同步滑块与数值
+  - id: sync_bottle_ocean
+    then:
+      - lvgl.slider.update:
+          id: bottle_ocean_hue_slider
+          value: !lambda 'return id(bottle_ocean_hue);'
+          knob:
+            bg_color: !lambda 'return lv_color_hsv_to_rgb(id(bottle_ocean_hue), 100, 100);'
+      - lvgl.slider.update:
+          id: bottle_ocean_brightness_slider
+          value: !lambda 'return id(bottle_ocean_brightness);'
+      - lvgl.slider.update:
+          id: bottle_ocean_flipratio_slider
+          value: !lambda 'return (int)(id(bottle_ocean_flipratio) * 100);'
+      - lvgl.slider.update:
+          id: bottle_ocean_pressure_slider
+          value: !lambda 'return (int)id(bottle_ocean_pressure);'
+      - lvgl.slider.update:
+          id: bottle_ocean_push_slider
+          value: !lambda 'return (int)id(bottle_ocean_push);'
+      - lvgl.slider.update:
+          id: bottle_ocean_tide_level_slider
+          value: !lambda 'return (int)(id(bottle_ocean_tide_level) * 100);'
+      - lambda: |-
+          char buf[12];
+          snprintf(buf, sizeof(buf), "%d°", (int)id(bottle_ocean_hue));
+          lv_label_set_text(id(lbl_bottle_hue_value), buf);
+          int brightness = (int)((id(bottle_ocean_brightness) - 63) * 100 / 192);
+          if (brightness < 0) brightness = 0;
+          if (brightness > 100) brightness = 100;
+          snprintf(buf, sizeof(buf), "%d%%", brightness);
+          lv_label_set_text(id(lbl_bottle_brightness_value), buf);
+          snprintf(buf, sizeof(buf), "%d%%", (int)(id(bottle_ocean_flipratio) * 100));
+          lv_label_set_text(id(lbl_bottle_flip_value), buf);
+          snprintf(buf, sizeof(buf), "%d", (int)id(bottle_ocean_pressure));
+          lv_label_set_text(id(lbl_bottle_pressure_value), buf);
+          snprintf(buf, sizeof(buf), "%d", (int)id(bottle_ocean_push));
+          lv_label_set_text(id(lbl_bottle_push_value), buf);
+          snprintf(buf, sizeof(buf), "%d%%", (int)(id(bottle_ocean_tide_level) * 100));
+          lv_label_set_text(id(lbl_bottle_tide_value), buf);
+
+  # 首页右侧状态摘要（进入设置时刷新）
+  - id: render_setting_menu
+    then:
+      - lambda: |
+          auto set_text = [](lv_obj_t *label, const std::string &value) {
+            if (label != nullptr) {
+              lv_label_set_text(label, value.c_str());
+            }
+          };
+
+          // 网络
+          std::string net = "未连接";
+          std::string pending = id(wifi_pending_ssid);
+          if (!id(wifi_switch).state) {
+            net = "已关闭";
+          } else if (!pending.empty()) {
+            net = "连接中";
+          } else if (!id(ssid).state.empty()) {
+            net = id(ssid).state;
+          }
+          set_text(id(lbl_menu_net_value), net);
+
+          // 亮度
+          char buf[40];
+          float brightness = id(backlight).current_values.get_brightness();
+          if (brightness < 0.0f) brightness = 0.0f;
+          if (brightness > 1.0f) brightness = 1.0f;
+          snprintf(buf, sizeof(buf), "亮度 %d%%", (int)(brightness * 100.0f + 0.5f));
+          set_text(id(lbl_menu_display_value), buf);
+
+          // 声音
+          set_text(id(lbl_menu_sound_value), id(buzzer_switch).state ? "已开启" : "已关闭");
+
+          // 电池
+          float soc = id(battery_soc);
+          if (soc < 0.0f) soc = 0.0f;
+          if (soc > 100.0f) soc = 100.0f;
+          snprintf(buf, sizeof(buf), "%d%%%s", (int)(soc + 0.5f),
+                   id(charge).state ? " · 充电中" : "");
+          set_text(id(lbl_menu_power_value), buf);
+
+          // 存储
+          float sd_free = id(sd_free_space).state;
+          if (!(sd_free > 0.0f)) {
+            set_text(id(lbl_menu_storage_value), "未检测到 SD 卡");
+          } else {
+            snprintf(buf, sizeof(buf), "%.1f GB 可用", sd_free / 1073741824.0f);
+            set_text(id(lbl_menu_storage_value), buf);
+          }
+
+          // 安全
+          std::string lock = "已关闭";
+          if (id(security_lock_type) == 1) {
+            lock = "数字密码";
+          } else if (id(security_lock_type) == 2) {
+            lock = "九点连线";
+          }
+          set_text(id(lbl_menu_security_value), lock);
+
+          // 系统更新
+          if (id(setting_update_has_update)) {
+            set_text(id(lbl_menu_update_value),
+                     std::string("可更新 ") + id(setting_update_latest_version));
+          } else if (id(setting_update_checked_at) == "未检查") {
+            set_text(id(lbl_menu_update_value), "未检查");
+          } else {
+            set_text(id(lbl_menu_update_value), "已是最新");
+          }
+
+  # 电源页实时数据
+  - id: render_power_page
+    then:
+      - lambda: |
+          char buf[40];
+          float soc = id(battery_soc);
+          if (soc < 0.0f) soc = 0.0f;
+          if (soc > 100.0f) soc = 100.0f;
+          int pct = (int)(soc + 0.5f);
+          snprintf(buf, sizeof(buf), "%d%%", pct);
+          lv_label_set_text(id(lbl_power_soc), buf);
+          lv_bar_set_value(id(bar_power_batt), pct, LV_ANIM_OFF);
+
+          bool charging = id(charge).state;
+          lv_label_set_text(id(lbl_power_status), charging ? "充电中" : "使用电池");
+          lv_obj_set_style_text_color(
+              id(lbl_power_status),
+              charging ? lv_color_hex(0x35a16b) : lv_color_hex(0x8a9099), 0);
+          lv_obj_set_style_text_color(
+              id(lbl_power_bolt),
+              charging ? lv_color_hex(0x35a16b) : lv_color_hex(0xc3c7ce), 0);
+
+          float temp = id(internal_temp).state;
+          int temp_c = (temp > -50.0f && temp < 150.0f) ? (int)(temp + 0.5f) : 0;
+          snprintf(buf, sizeof(buf), "%d ℃", temp_c);
+          lv_label_set_text(id(lbl_power_temp), buf);
+
+          snprintf(buf, sizeof(buf), "%.2f V", id(battery_voltage).state);
+          lv_label_set_text(id(battery_voltage_text), buf);
+          snprintf(buf, sizeof(buf), "%.2f V", id(usb_input_voltage).state);
+          lv_label_set_text(id(usb_voltage_text), buf);
+
+          lv_label_set_text(id(lbl_power_hint),
+                            charging ? "正在充电，请保持连接" : "正在使用电池供电");
+
+  # ------------------------------------------------------------------
+  # 系统更新页
+  # ------------------------------------------------------------------
   - id: render_system_update_page
     mode: restart
     then:
@@ -40,22 +226,72 @@ script:
             latest_version = "未知";
           }
 
-          std::string status_text = id(setting_update_status_text);
-          if (status_text.empty()) {
-            status_text = "尚未检查更新";
-          }
-
           std::string checked_at = id(setting_update_checked_at);
           if (checked_at.empty()) {
             checked_at = "未检查";
           }
+          std::string checked_short = checked_at;
+          if (checked_short.size() >= 16) {
+            // "YYYY-MM-DD HH:MM:SS" -> "HH:MM"
+            checked_short = checked_short.substr(11, 5);
+          }
+          std::string checked_line =
+              checked_at == "未检查" ? std::string("尚未检查")
+                                     : (std::string("检查于 ") + checked_short);
+          lv_label_set_text(id(lbl_update_checked), checked_line.c_str());
 
-          std::string summary =
-              std::string("当前版本：${lemonade_version}\n") +
-              "最新版本：" + latest_version + "\n" +
-              "状态：" + status_text + "\n" +
-              "检查时间：" + checked_at;
-          lv_label_set_text(id(lbl_update_summary), summary.c_str());
+          std::string status_text = id(setting_update_status_text);
+          bool failed = status_text.find("失败") != std::string::npos ||
+                        status_text.find("未连接") != std::string::npos ||
+                        status_text.find("无法") != std::string::npos;
+
+          if (id(setting_update_checking)) {
+            lv_label_set_text(id(lbl_update_status), "检查中");
+            lv_obj_set_style_bg_color(id(lbl_update_status), lv_color_hex(0x8a9099), 0);
+            lv_label_set_text(id(lbl_check_system_update), "检查中…");
+            lv_obj_set_style_text_color(id(lbl_check_system_update),
+                                        lv_color_hex(0x8a9099), 0);
+            lv_obj_add_state(id(btn_check_system_update), LV_STATE_DISABLED);
+            lv_label_set_text(id(lbl_update_system_action), "请稍候");
+            lv_obj_set_style_text_color(id(lbl_update_system_action),
+                                        lv_color_hex(0x8a9099), 0);
+            lv_obj_add_state(id(btn_update_system), LV_STATE_DISABLED);
+          } else if (id(setting_update_has_update)) {
+            lv_label_set_text(id(lbl_update_status), "可更新");
+            lv_obj_set_style_bg_color(id(lbl_update_status), lv_color_hex(0x1f95f6), 0);
+            lv_label_set_text(id(lbl_check_system_update), "重新检查");
+            lv_obj_set_style_text_color(id(lbl_check_system_update),
+                                        lv_color_hex(0x1f1f1f), 0);
+            lv_obj_clear_state(id(btn_check_system_update), LV_STATE_DISABLED);
+            lv_label_set_text(
+                id(lbl_update_system_action),
+                (std::string("安装 ") + latest_version).c_str());
+            lv_obj_set_style_text_color(id(lbl_update_system_action),
+                                        lv_color_hex(0xffffff), 0);
+            lv_obj_clear_state(id(btn_update_system), LV_STATE_DISABLED);
+          } else {
+            lv_label_set_text(id(lbl_update_status), failed ? "检查失败" : "已是最新");
+            lv_obj_set_style_bg_color(
+                id(lbl_update_status),
+                failed ? lv_color_hex(0xe5484d) : lv_color_hex(0x35a16b), 0);
+            lv_label_set_text(id(lbl_check_system_update), failed ? "重试" : "检查更新");
+            lv_obj_set_style_text_color(id(lbl_check_system_update),
+                                        lv_color_hex(0x1f1f1f), 0);
+            lv_obj_clear_state(id(btn_check_system_update), LV_STATE_DISABLED);
+            lv_label_set_text(id(lbl_update_system_action),
+                              failed ? "请先检查更新" : "已是最新版本");
+            lv_obj_set_style_text_color(id(lbl_update_system_action),
+                                        lv_color_hex(0x8a9099), 0);
+            lv_obj_add_state(id(btn_update_system), LV_STATE_DISABLED);
+          }
+
+          bool update_ready =
+              !id(setting_update_checking) && id(setting_update_has_update);
+          lv_color_t action_bg =
+              update_ready ? lv_color_hex(0x1f95f6) : lv_color_hex(0xdde1e6);
+          lv_obj_set_style_bg_color(id(btn_update_system), action_bg, 0);
+          lv_obj_set_style_bg_color(id(btn_update_system), action_bg,
+                                    LV_STATE_DISABLED);
 
           std::string changelog = id(setting_update_changelog);
           std::string changelog_view;
@@ -67,44 +303,21 @@ script:
             }
             if (c == '\n') {
               lines++;
-              if (lines >= 7) {
+              if (lines >= 3) {
                 break;
               }
             }
-            if (changelog_view.size() >= 260) {
+            if (changelog_view.size() >= 160) {
               break;
             }
             changelog_view.push_back(c);
           }
           if (changelog_view.empty()) {
-            changelog_view = "暂无更新日志";
+            changelog_view = "点击检查更新，查看最新版本说明";
           } else if (changelog_view.size() < changelog.size()) {
             changelog_view += "\n...";
           }
-          lv_label_set_text(
-              id(lbl_update_changelog),
-              (std::string("更新日志\n") + changelog_view).c_str());
-
-          if (id(setting_update_checking)) {
-            lv_label_set_text(id(lbl_check_system_update), "检查中...");
-            lv_obj_add_state(id(btn_check_system_update), LV_STATE_DISABLED);
-            lv_label_set_text(id(lbl_update_system_action), "准备中...");
-            lv_obj_add_state(id(btn_update_system), LV_STATE_DISABLED);
-            return;
-          }
-
-          lv_label_set_text(id(lbl_check_system_update), "刷新");
-          lv_obj_clear_state(id(btn_check_system_update), LV_STATE_DISABLED);
-
-          if (id(setting_update_has_update)) {
-            lv_label_set_text(
-                id(lbl_update_system_action),
-                (std::string("安装 ") + latest_version).c_str());
-            lv_obj_clear_state(id(btn_update_system), LV_STATE_DISABLED);
-          } else {
-            lv_label_set_text(id(lbl_update_system_action), "已是最新版本");
-            lv_obj_add_state(id(btn_update_system), LV_STATE_DISABLED);
-          }
+          lv_label_set_text(id(lbl_update_changelog), changelog_view.c_str());
 
   - id: check_system_update
     mode: restart
