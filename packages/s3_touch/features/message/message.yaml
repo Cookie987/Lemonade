@@ -348,14 +348,24 @@ script:
             lv_obj_set_style_pad_top(empty, 50, 0);
           }
           else {
-            int color_index = 0;
+            // 星标联系人排前面，其余保持 JSON 里的顺序
+            std::vector<std::string> ordered_contacts;
             for (JsonPair kv : contacts) {
-              std::string contact = kv.key().c_str();
-              if (contact.empty()) continue;
-              bool favorite = kv.value()["favorite"] | false;
-              uint8_t unread = kv.value()["unread"] | 0;
-              std::string last_message = kv.value()["last_message"] | "";
-              std::string last_time = kv.value()["last_time"] | "";
+              std::string c = kv.key().c_str();
+              if (c.empty()) continue;
+              if (kv.value()["favorite"] | false) ordered_contacts.push_back(c);
+            }
+            for (JsonPair kv : contacts) {
+              std::string c = kv.key().c_str();
+              if (c.empty()) continue;
+              if (!(kv.value()["favorite"] | false)) ordered_contacts.push_back(c);
+            }
+            for (const auto &contact : ordered_contacts) {
+              JsonObject cv = contacts[contact.c_str()].as<JsonObject>();
+              bool favorite = cv["favorite"] | false;
+              uint8_t unread = cv["unread"] | 0;
+              std::string last_message = cv["last_message"] | "";
+              std::string last_time = cv["last_time"] | "";
               std::string preview = last_message.empty() ? "点击开始聊天" : last_message;
 
               lv_obj_t *row = lv_obj_create(list);
@@ -374,7 +384,9 @@ script:
               lv_obj_set_size(avatar, 34, 34);
               lv_obj_set_pos(avatar, 10, 9);
               lv_obj_set_style_radius(avatar, LV_RADIUS_CIRCLE, 0);
-              lv_obj_set_style_bg_color(avatar, lv_color_hex(avatar_colors[color_index % 5]), 0);
+              uint32_t name_hash = 2166136261u;
+              for (uint8_t ch : contact) { name_hash = (name_hash ^ ch) * 16777619u; }
+              lv_obj_set_style_bg_color(avatar, lv_color_hex(avatar_colors[name_hash % 5]), 0);
               lv_obj_set_style_bg_opa(avatar, LV_OPA_COVER, 0);
               lv_obj_set_style_border_width(avatar, 0, 0);
               lv_obj_set_style_pad_all(avatar, 0, 0);
@@ -384,7 +396,6 @@ script:
               lv_obj_set_style_text_font(initial, chinese_font14, 0);
               lv_obj_set_style_text_color(initial, lv_color_hex(0xFFFFFF), 0);
               lv_obj_align(initial, LV_ALIGN_CENTER, 0, 0);
-              color_index++;
 
               lv_obj_t *name_label = lv_label_create(row);
               lv_obj_set_pos(name_label, 54, 7);

@@ -68,12 +68,12 @@ script:
 
           // 用“真正显示在屏幕上的页面”判断能否返回。
           // 有页内上级的页面由状态栏把 bar_back_available 置 true；
-          // 回主页交给物理 Home 键，手势只处理页内返回。
+          // 根页面（商店/消息/设置首页/计时器/天气/Lua）由 bar_gesture_home 允许手势回主页。
           lv_obj_t *active = lv_screen_active();
           bool special_back =
               active == id(page_security_pattern)->obj ||
               active == id(page_security_pin)->obj;
-          bool can_back = special_back || id(bar_back_available);
+          bool can_back = special_back || id(bar_back_available) || id(bar_gesture_home);
 
           // on_update 可能先于 on_touch 到达：第一次拿到坐标就当作起点
           if (!id(back_gesture_active)) {
@@ -164,7 +164,7 @@ script:
           if (triggered &&
               (from_left || from_right) &&
               std::abs(dy) <= ${back_gesture_max_dy} &&
-              (special_back || id(bar_back_available))) {
+              (special_back || id(bar_back_available) || id(bar_gesture_home))) {
             id(page_back)->execute();
           }
 

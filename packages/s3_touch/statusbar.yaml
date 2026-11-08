@@ -16,6 +16,11 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  # 根页面（商店/消息/设置首页/计时器/天气/Lua 应用）手势可回主页，但不显示返回键
+  - id: bar_gesture_home
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   # 锁屏前保存的状态，解锁后原样恢复（0=导航 1=兼容 2=沉浸）
   - id: bar_saved_mode
     type: int
@@ -240,6 +245,7 @@ script:
             lv_obj_add_flag(id(btn_topbar_back), LV_OBJ_FLAG_HIDDEN);
           }
           id(bar_back_available) = back;
+          id(bar_gesture_home) = !back;
           if (action == 1) {
             lv_obj_clear_flag(id(btn_app_store_refresh), LV_OBJ_FLAG_HIDDEN);
           } else {
@@ -288,6 +294,7 @@ script:
           id(bar_saved_mode) = 1;
           id(bar_saved_title) = title;
           id(bar_back_available) = false;
+          id(bar_gesture_home) = true;
       - script.execute: statusbar_update_status
 
   - id: statusbar_title
@@ -305,6 +312,7 @@ script:
       - lvgl.widget.hide: statusbar_root
       - lambda: |
           id(bar_back_available) = false;
+          id(bar_gesture_home) = false;
           id(bar_saved_mode) = 2;
 
   # 锁屏/密码/图案这类临时覆盖页：只藏栏，不覆盖保存的状态
@@ -313,6 +321,7 @@ script:
       - lvgl.widget.hide: statusbar_root
       - lambda: |
           id(bar_back_available) = false;
+          id(bar_gesture_home) = false;
 
   # 解锁后恢复锁屏前的栏状态
   - id: statusbar_restore
@@ -421,8 +430,8 @@ script:
               if (list != nullptr) {
                 lv_obj_clean(list);
               }
+              return;
             }
-            return;
           }
           if (active == id(system_setting_power_page)->obj ||
               active == id(system_setting_display_page)->obj ||
@@ -436,4 +445,7 @@ script:
             show(id(page_setting_menu)->index);
             return;
           }
-          // 其余页面（主屏/应用首页/Lua 应用）没有“页内上级”，不回退
+          // 根页面手势：没有页内上级时回主页；返回键本身不显示
+          if (id(bar_gesture_home)) {
+            id(lvgl_1)->show_page(id(page_main)->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+          }
