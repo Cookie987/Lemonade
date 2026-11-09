@@ -41,15 +41,22 @@ ok(select(2, page:gsub("\n", "\n")) == 6, "page should have 6 newlines")
 
 local ascii = string.rep("a", 40 * 9)
 page, used, filled = core.paginate(ascii)
-ok(#page == 36 * 7, "7 lines of 36 half-width chars, got " .. #page)
+ok(#page == 36 * 7 + 6, "7 wrapped lines of 36 chars, got " .. #page)
 ok(used == 36 * 7, "used " .. used .. " bytes")
 ok(filled, "page should be filled after 7 lines")
 
 local cjk = string.rep("中", 19 * 9)
 page, used, filled = core.paginate(cjk)
-ok(#page == 18 * 7 * 3, "7 lines of 18 cjk chars, got bytes " .. #page)
+ok(#page == 18 * 7 * 3 + 6, "7 wrapped lines of 18 cjk chars, got bytes " .. #page)
 ok(used == 18 * 7 * 3, "used " .. used .. " bytes")
 ok(filled, "cjk page should be filled")
+
+local long_line = string.rep("a", 100)
+page, used, filled = core.paginate(long_line)
+ok(page == string.rep("a", 36) .. "\n" .. string.rep("a", 36) .. "\n" .. string.rep("a", 28),
+    "long line should be hard-wrapped")
+ok(used == 100, "long line used bytes")
+ok(not filled, "100 chars is only 3 lines")
 
 local crlf = "a\r\nb\r\n"
 page, used = core.paginate(crlf)

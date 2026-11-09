@@ -163,18 +163,31 @@ end
 -- 返回 page_text, used_bytes, filled, line_count。
 -- used_bytes 是本页在 chunk 中消耗的字节数；下一页应从 chunk 的 used_bytes + 1 开始。
 -- filled 表示是否因为行数已满而结束（而不是因为 chunk 读完）。
-function M.paginate(chunk, max_lines, line_units)
+-- 超出宽度的长行会在这里插入换行符，因此 LVGL 不需要再做换行。
+-- want_text 为 false 时只计算边界，不拼接文本（用于扫描全书页数）。
+function M.paginate(chunk, max_lines, line_units, want_text)
     max_lines = max_lines or M.PAGE_LINES
     line_units = line_units or M.LINE_UNITS
     if not chunk or chunk == "" then
         return "", 0, false, 0
     end
 
+    local build_text = want_text ~= false
     local i = 1
     local len = #chunk
-    local lines = 0
+    local line_count = 0
     local units = 0
     local page_end = nil
+    local output = build_text and {} or nil
+    local line_parts = build_text and {} or nil
+
+    local function flush_line()
+        if build_text then
+            output[#output + 1] = table.concat(line_parts)
+            line_parts = {}
+        end
+        units = 0
+    end
 
     while i <= len do
         local next_i, codepoint = M.utf8_next(chunk, i)
@@ -183,10 +196,10 @@ function M.paginate(chunk, max_lines, line_units)
         end
 
         if codepoint == 10 then
-            lines = lines + 1
-            units = 0
+            flush_line()
+            line_count = line_count + 1
             i = next_i
-            if lines >= max_lines then
+            if line_count >= max_lines then
                 page_end = i
                 break
             end
@@ -195,14 +208,17 @@ function M.paginate(chunk, max_lines, line_units)
         else
             local width = M.char_units(codepoint)
             if units + width > line_units and units > 0 then
-                lines = lines + 1
-                units = 0
-                if lines >= max_lines then
+                flush_line()
+                line_count = line_count + 1
+                if line_count >= max_lines then
                     page_end = i
                     break
                 end
                 -- 当前字符还没有被消费，下一轮会放到新行开头
             else
+                if build_text then
+                    line_parts[#line_parts + 1] = chunk:sub(i, next_i - 1)
+                end
                 units = units + width
                 i = next_i
             end
@@ -211,17 +227,36 @@ function M.paginate(chunk, max_lines, line_units)
 
     if not page_end then
         page_end = len + 1
+        if units > 0 or (build_text and #line_parts > 0) then
+            flush_line()
+            line_count = line_count + 1
+        end
     end
 
     local used = page_end - 1
     if used <= 0 then
-        return "", 0, false, lines
+        return "", 0, false, line_count
     end
 
-    local text = chunk:sub(1, used)
-    text = text:gsub("\r\n", "\n"):gsub("\r", "\n")
-    text = text:gsub("\n+$", "")
-    return text, used, lines >= max_lines, lines
+    local text = build_text and table.concat(output, "\n") or ""
+    return text, used, line_count >= max_lines, line_count
+end
+
+-- 32 位 FNV-1a。
+function M.hash32(text)
+    local hash = 0x811C9DC5
+    for index = 1, #text do
+        hash = (hash ~ text:byte(index)) * 0x01000193
+    end
+    return hash
+end
+
+-- 返回 8 位十六进制字符串，用作缓存文件名。
+function M.hash_text(text)
+    local hash = M.hash32(text)
+    local high = (hash >> 16) & 0xFFFF
+    local low = hash & 0xFFFF
+    return string.format("%04x%04x", high, low)
 end
 
 function M.is_book_filename(name)

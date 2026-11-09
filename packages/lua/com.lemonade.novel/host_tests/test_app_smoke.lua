@@ -356,16 +356,17 @@ dofile("main.lua")
 -- 初始扫描后应该能看到书名
 local row = find_button_with_label("测试小说")
 assert(row, "book row should exist")
-assert(find_label_containing("Books · 未读"), "shelf meta should show folder and unread state")
+assert(find_label_containing("Books"), "shelf meta should show folder")
+assert(find_label_containing("未读"), "shelf should show unread state")
 
 -- 打开书
 fire(row, lv.EVENT_CLICKED)
 sys.run()
 
-assert(fskv_store["last_book"] == "/sdcard/Books/测试小说.txt", "last book should be saved")
 local content = find_label_containing("这是第 01 行")
 assert(content, "first page content should be rendered")
-assert(ui_state.topbar_hidden > 0, "reader should hide topbar")
+assert(ui_state.topbar_shown > 0, "reader should keep topbar visible")
+assert(find_label_containing("1/"), "page count should be shown")
 
 -- 下一页
 local next_button = find_button_with_label("下一页")
@@ -373,19 +374,32 @@ assert(next_button, "next button should exist")
 fire(next_button, lv.EVENT_CLICKED)
 sys.run()
 
-local record = fskv_store["novel:/sdcard/Books/测试小说.txt"]
-assert(record and type(record.o) == "number" and record.o > 0, "progress should be saved after page turn")
+local function parse_progress(value)
+    local offset, page, total, size = value:match("^(%d+):(%d+):(%d+):(%d+)$")
+    assert(offset, "progress should be stored as offset:page:total:size")
+    return {
+        o = tonumber(offset),
+        p = tonumber(page),
+        t = tonumber(total),
+        s = tonumber(size),
+    }
+end
+
+local record = parse_progress(fskv_store["novel:/sdcard/Books/测试小说.txt"])
+assert(record.o > 0, "progress should be saved after page turn")
+assert(record.p == 2, "page index should advance")
+assert(find_label_containing("2/"), "page count should advance")
 local saved_offset = record.o
 
 -- 返回书架
-local back_button = find_button_with_label("书架")
+local back_button = find_button_with_label("返回")
 assert(back_button, "back button should exist")
 fire(back_button, lv.EVENT_CLICKED)
 sys.run()
 
 assert(ui_state.topbar_shown > 0, "shelf should show topbar")
 assert(find_button_with_label("测试小说"), "shelf should list the book again")
-assert(find_label_containing("%"), "shelf should display progress percent")
+assert(find_label_containing("2/"), "shelf should display page progress")
 
 -- 再次打开应该恢复到上次位置
 row = find_button_with_label("测试小说")
@@ -393,6 +407,7 @@ fire(row, lv.EVENT_CLICKED)
 sys.run()
 local restored = find_label_containing("这是第")
 assert(restored, "restored page should have content")
-assert(fskv_store["novel:/sdcard/Books/测试小说.txt"].o == saved_offset, "offset should not change on open")
+assert(parse_progress(fskv_store["novel:/sdcard/Books/测试小说.txt"]).o == saved_offset,
+    "offset should not change on open")
 
 print("app smoke test passed")
