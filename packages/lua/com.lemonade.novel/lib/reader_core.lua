@@ -3,8 +3,8 @@
 
 local M = {}
 
-M.PAGE_LINES = 7          -- 每页行数
-M.LINE_UNITS = 36         -- 每行宽度单位（半角=1，全角=2）
+M.PAGE_LINES = 8          -- 每页行数
+M.LINE_UNITS = 294        -- 正文可用宽度（像素）
 M.READ_CHUNK = 32768      -- 每次从文件读取的字节数
 M.MAX_BOOKS = 300
 M.HISTORY_LIMIT = 12
@@ -68,24 +68,30 @@ function M.utf8_next(text, index)
         4
 end
 
--- 估算字符占用的显示宽度。全角/CJK 记 2，半角记 1。
+-- 估算字符占用的显示宽度（像素），与 14px 的 Sarasa UI SC 对齐。
 function M.char_units(codepoint)
     if codepoint == 9 then
-        return 4
+        return 28
     end
     if codepoint < 0x20 then
         return 0
     end
+    if codepoint == 32 then
+        return 4
+    end
+    if codepoint >= 0x30 and codepoint <= 0x39 then
+        return 9 -- 数字比普通半角略宽
+    end
     if codepoint < 0x7F then
-        return 1
+        return 8
     end
     if codepoint >= 0x0300 and codepoint <= 0x036F then
         return 0
     end
     if codepoint >= 0x2E80 then
-        return 2
+        return 14
     end
-    return 1
+    return 8
 end
 
 -- 校验 UTF-8。allow_partial 用于文件头这种可能从字符中间截断的片段。

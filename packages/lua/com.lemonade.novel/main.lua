@@ -559,6 +559,24 @@ local function go_prev()
     save_now()
 end
 
+local function jump_to_page(index)
+    if state.view ~= "reader" or not state.file then
+        return
+    end
+    index = math.floor(tonumber(index) or state.page_index)
+    if index < 1 then
+        index = 1
+    elseif index > state.total_pages then
+        index = state.total_pages
+    end
+    if index == state.page_index then
+        return
+    end
+    state.page_index = index
+    mark_dirty()
+    render_current()
+end
+
 local function close_reader()
     if state.save_timer then
         sys.timerStop(state.save_timer)
@@ -586,36 +604,24 @@ local function show_reader()
     ui.show_topbar()
 
     lv.obj_clean(page)
+    lv.obj_clear_flag(page, lv.FLAG_SCROLLABLE)
     lv.obj_set_style_bg_color(page, COLOR.reader_bg, 0)
     lv.obj_set_style_bg_opa(page, lv.OPA_COVER, 0)
     lv.obj_set_style_border_width(page, 0, 0)
 
-    create_button(page, "返回", 6, 26, 52, 22, {
-        transparent = true,
-        fg = COLOR.accent,
-        radius = 7,
-        on_click = function()
-            schedule(function()
-                save_now()
-                close_reader()
-                show_shelf()
-            end)
-        end,
-    })
-
     refs.content = lv.label_create(page)
-    lv.obj_set_pos(refs.content, 12, 50)
-    lv.obj_set_size(refs.content, 296, 148)
+    lv.obj_set_pos(refs.content, 13, 42)
+    lv.obj_set_size(refs.content, 294, 160)
     lv.label_set_long_mode(refs.content, lv.LABEL_LONG_MODE_CLIP)
     lv.obj_set_style_text_color(refs.content, COLOR.reader_text, 0)
     lv.obj_set_style_text_align(refs.content, lv.TEXT_ALIGN_LEFT, 0)
-    lv.obj_set_style_text_line_space(refs.content, 2, 0)
+    lv.obj_set_style_text_line_space(refs.content, 1, 0)
     lv.obj_set_style_bg_opa(refs.content, lv.OPA_TRANSP, 0)
 
     local function add_tap_zone(x, width, callback)
         local zone = lv.btn_create(page)
-        lv.obj_set_pos(zone, x, 50)
-        lv.obj_set_size(zone, width, 148)
+        lv.obj_set_pos(zone, x, 42)
+        lv.obj_set_size(zone, width, 160)
         lv.obj_set_style_bg_opa(zone, lv.OPA_TRANSP, 0)
         lv.obj_set_style_border_width(zone, 0, 0)
         lv.obj_set_style_shadow_width(zone, 0, 0)
@@ -629,35 +635,94 @@ local function show_reader()
         return zone
     end
 
-    add_tap_zone(0, 72, go_prev)
-    add_tap_zone(72, 248, go_next)
+    add_tap_zone(0, 80, go_prev)
+    add_tap_zone(80, 240, go_next)
 
     local footer_line = lv.obj_create(page)
-    lv.obj_set_pos(footer_line, 0, 200)
+    lv.obj_set_pos(footer_line, 0, 202)
     lv.obj_set_size(footer_line, 320, 1)
     lv.obj_set_style_bg_color(footer_line, COLOR.line, 0)
     lv.obj_set_style_bg_opa(footer_line, lv.OPA_COVER, 0)
     lv.obj_set_style_border_width(footer_line, 0, 0)
     lv.obj_set_style_radius(footer_line, 0, 0)
 
-    create_button(page, "上一页", 4, 204, 56, 30, {
+    create_button(page, "返回", 4, 206, 48, 28, {
+        transparent = true,
+        fg = COLOR.accent,
+        radius = 8,
+        on_click = function()
+            schedule(function()
+                save_now()
+                close_reader()
+                show_shelf()
+            end)
+        end,
+    })
+    create_button(page, "上一页", 56, 206, 52, 28, {
         bg = COLOR.card,
         fg = COLOR.accent,
         radius = 8,
         on_click = go_prev,
     })
-    create_button(page, "下一页", 260, 204, 56, 30, {
+    create_button(page, "下一页", 264, 206, 52, 28, {
         bg = COLOR.accent,
         fg = COLOR.white,
         radius = 8,
         on_click = go_next,
     })
 
-    refs.filename = create_label(page, state.title or "", 64, 203, 192, 16, COLOR.text, lv.TEXT_ALIGN_CENTER)
+    refs.filename = create_label(page, state.title or "", 108, 204, 152, 16, COLOR.text, lv.TEXT_ALIGN_CENTER)
     lv.label_set_long_mode(refs.filename, lv.LABEL_LONG_MODE_DOTS)
-    refs.pageinfo = create_label(page, "1/1", 64, 221, 192, 16, COLOR.muted, lv.TEXT_ALIGN_CENTER)
+    refs.pageinfo = create_label(page, "1/1", 108, 220, 152, 14, COLOR.muted, lv.TEXT_ALIGN_CENTER)
 
-    refs.progress = create_bar(page, 0, 238, 320, 2, 0, 1000, COLOR.accent)
+    refs.progress = create_bar(page, 0, 28, 320, 8, 0, 1000, COLOR.accent)
+
+    -- 用透明按钮盖住进度条，保证按下/拖动事件稳定。
+    refs.progress_hit = lv.btn_create(page)
+    lv.obj_set_pos(refs.progress_hit, 0, 25)
+    lv.obj_set_size(refs.progress_hit, 320, 17)
+    lv.obj_set_style_bg_opa(refs.progress_hit, lv.OPA_TRANSP, 0)
+    lv.obj_set_style_bg_opa(refs.progress_hit, lv.OPA_TRANSP, lv.STATE_PRESSED)
+    lv.obj_set_style_border_width(refs.progress_hit, 0, 0)
+    lv.obj_set_style_shadow_width(refs.progress_hit, 0, 0)
+    lv.obj_set_style_outline_width(refs.progress_hit, 0, 0)
+    lv.obj_set_style_radius(refs.progress_hit, 0, 0)
+    lv.obj_set_style_pad_all(refs.progress_hit, 0, 0)
+    lv.obj_add_flag(refs.progress_hit, lv.FLAG_CLICKABLE)
+    lv.obj_clear_flag(refs.progress_hit, lv.FLAG_SCROLLABLE)
+
+    local drag_x = nil
+    local function jump_from_touch(event)
+        local total = state.total_pages
+        if total <= 1 or not state.file then
+            return
+        end
+        local point = event and event.point
+        if point and point.x then
+            drag_x = point.x
+        end
+        if not drag_x then
+            return
+        end
+        local x = drag_x
+        if x < 0 then
+            x = 0
+        elseif x > 319 then
+            x = 319
+        end
+        local index = math.floor(x / 319 * (total - 1) + 0.5) + 1
+        jump_to_page(index)
+    end
+
+    lv.obj_add_event_cb(refs.progress_hit, function(event)
+        local code = lv.event_get_code(event)
+        if code == lv.EVENT_PRESSED or code == lv.EVENT_PRESSING then
+            jump_from_touch(event)
+        elseif code == lv.EVENT_RELEASED or code == lv.EVENT_CLICKED then
+            jump_from_touch(event)
+            save_now()
+        end
+    end, lv.EVENT_ALL)
 
     render_current()
 end
@@ -668,6 +733,7 @@ local function show_loading()
     ui.show_topbar()
 
     lv.obj_clean(page)
+    lv.obj_clear_flag(page, lv.FLAG_SCROLLABLE)
     lv.obj_set_style_bg_color(page, COLOR.reader_bg, 0)
     lv.obj_set_style_bg_opa(page, lv.OPA_COVER, 0)
     lv.obj_set_style_border_width(page, 0, 0)
@@ -964,11 +1030,11 @@ show_shelf = function()
                 end)
             end, lv.EVENT_CLICKED)
 
-            local title = create_label(row, book.title, 12, 5, 190, 18, COLOR.text, lv.TEXT_ALIGN_LEFT)
+            local title = create_label(row, book.title, 12, 5, 174, 18, COLOR.text, lv.TEXT_ALIGN_LEFT)
             lv.label_set_long_mode(title, lv.LABEL_LONG_MODE_DOTS)
-            local meta = create_label(row, book.folder, 12, 25, 218, 14, COLOR.muted, lv.TEXT_ALIGN_LEFT)
+            local meta = create_label(row, book.folder, 12, 25, 174, 14, COLOR.muted, lv.TEXT_ALIGN_LEFT)
             lv.label_set_long_mode(meta, lv.LABEL_LONG_MODE_DOTS)
-            create_label(row, percent_text, 236, 5, 48, 18, COLOR.accent, lv.TEXT_ALIGN_RIGHT)
+            create_label(row, percent_text, 194, 5, 90, 18, COLOR.accent, lv.TEXT_ALIGN_RIGHT)
             local bar = create_bar(row, 12, 42, 272, 3, 0, 100, COLOR.accent)
             lv.bar_set_value(bar, percent_value, 0)
         end
