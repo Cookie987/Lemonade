@@ -121,11 +121,11 @@ font:
     bpp: 4
     glyphs: [\:0123456789]
 
-  - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
-    id: "cookielogo"
-    size: 72
-    bpp: 4
-    glyphs: ["\uF564"]
+  # - file: "fonts/Font Awesome 7 Free-Solid-900.otf"
+  #   id: "cookielogo"
+  #   size: 72
+  #   bpp: 4
+  #   glyphs: ["\uF564"]
 
   - file: "fonts/HFDigits.ttf"
     id: "timer60"
