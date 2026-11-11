@@ -492,7 +492,7 @@ script:
                   std::string wt = wifi_text;
                   size_t sp = wt.find(' ');
                   std::string icon = sp == std::string::npos ? wt : wt.substr(0, sp);
-                  lv_label_set_text(id(lbl_bar_wifi), icon.c_str());
+                  lv_label_set_text(id(lbl_bar_wifi), (" " + icon).c_str());
                 }
 
   - id: get_iot_info
