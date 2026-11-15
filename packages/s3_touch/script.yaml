@@ -13,6 +13,8 @@ script:
   - id: power_menu_open
     mode: restart
     then:
+      - lambda: |-
+          if (esphome::lua_runtime::cancel_app_page_launch()) id(statusbar_immersive)->execute();
       - script.execute: security_register_activity
       - if:
           condition:
@@ -79,6 +81,8 @@ script:
 
   - id: wakeup_button
     then:
+      - lambda: |-
+          if (esphome::lua_runtime::cancel_app_page_launch()) id(statusbar_immersive)->execute();
       - script.execute: security_register_activity
       - if:
           condition:
@@ -88,6 +92,8 @@ script:
 
   - id: sleep_button
     then:
+      - lambda: |-
+          if (esphome::lua_runtime::cancel_app_page_launch()) id(statusbar_immersive)->execute();
       - script.execute: security_register_activity
       - if:
           condition:
@@ -148,6 +154,14 @@ script:
     then:
       - lambda: |
           lv_obj_send_event(id(page_main)->obj, LV_EVENT_REFRESH, nullptr);
+
+  # Deferred app-center refresh: aborting all Lua scripts while an app is being launched
+  # race with its task ("already running") and can leave the launch cover up.
+  - id: refresh_external_apps_retry
+    mode: restart
+    then:
+      - delay: 1200ms
+      - script.execute: refresh_external_apps
 
   - id: sd_card_inserted
     mode: single
@@ -1322,7 +1336,7 @@ script:
                 return;
               }
 
-              if (code == LV_EVENT_CLICKED || code == LV_EVENT_SHORT_CLICKED) {
+              if (code == LV_EVENT_CLICKED) {
                 if (st->suppress_click) {
                   st->suppress_click = false;
                   lv_event_stop_bubbling(e);
@@ -1337,6 +1351,20 @@ script:
                 IconItem *icon = Helper::find_by_obj(st, obj);
                 if (icon != nullptr && icon->page != nullptr) {
                   int idx = Helper::find_index_by_obj(st, obj);
+                  bool is_lua_app = idx >= 0 && idx < (int) st->icon_count &&
+                                    !icon_main_paths[idx].empty();
+                  std::string app_dir;
+                  if (is_lua_app) {
+                    size_t slash = icon_main_paths[idx].find_last_of('/');
+                    if (slash != std::string::npos) app_dir = icon_main_paths[idx].substr(0, slash);
+                    if (app_dir.empty()) is_lua_app = false;
+                  }
+                  bool app_ready = is_lua_app && esphome::lua_runtime::is_app_page_ready(app_dir);
+                  if (is_lua_app && !app_ready) {
+                    // The page is shown when the Lua UI reports ready (ui.ready() or the first
+                    // poll_events), so the renderer never paints a half-built UI.
+                    esphome::lua_runtime::request_app_page_launch(app_dir, icon->obj);
+                  }
                   if (idx >= 0 && idx < (int) st->icon_count) {
                     if (!icon_init_paths[idx].empty() && !icon_init_ran[idx]) {
                       ESP_LOGD("AppLua", "Run %s", icon_init_paths[idx].c_str());
@@ -1354,7 +1382,10 @@ script:
                   }
                   id(statusbar_compat)->execute(
                       std::string(icon->title != nullptr ? icon->title : ""));
-                  lv_scr_load_anim(icon->page, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
+                  if (!is_lua_app || app_ready) {
+                    esphome::lua_runtime::dismiss_launch_cover();
+                    lv_scr_load_anim(icon->page, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
+                  }
                   lv_event_stop_bubbling(e);
                   lv_event_stop_processing(e);
                 }
@@ -1488,6 +1519,12 @@ script:
                   }
                   Helper::stop_all_wiggle(st);
                   lv_obj_add_flag(id(btn_edit_done), LV_OBJ_FLAG_HIDDEN);
+                }
+
+                if (esphome::lua_runtime::is_any_app_launching()) {
+                  ESP_LOGI("AppScan", "Refresh deferred: app launch pending");
+                  id(refresh_external_apps_retry)->execute();
+                  return;
                 }
 
                 id(lua).abort_all();

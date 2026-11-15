@@ -1,9 +1,13 @@
 #include "lua_runtime.h"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstdio>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "esphome/core/log.h"
 #include "esphome/core/preferences.h"
@@ -37,7 +41,7 @@ namespace esphome {
 namespace lua_runtime {
 
 static const char *TAG = "lua_runtime";
-static const uint32_t LUA_TASK_STACK = 8192;
+static const uint32_t LUA_TASK_STACK = 20480;  // HTTPS/TLS + JSON needs headroom (was 8192)
 static const UBaseType_t LUA_TASK_PRIO = 1;
 
 #ifndef LUA_RUNTIME_STUB
@@ -54,6 +58,7 @@ static int g_log_style = 0;
 
 // RTOS constants
 static const int MSG_TIMER = 0x100;
+static const int MSG_HTTP = 0x101;
 static const int INF_TIMEOUT = -1;
 
 struct RtosMsg {
@@ -70,6 +75,7 @@ struct RtosTimer {
   int repeat;
   uint32_t timeout_ms;
   esp_timer_handle_t handle;
+  bool paused{false};
 };
 
 struct RtosContext {
@@ -81,10 +87,35 @@ struct RtosContext {
   uint32_t autogc_high{90};
   uint32_t autogc_counter{0};
   volatile bool alive{true};
+  volatile bool abort_requested{false};
+  volatile bool pause_requested{false};
+  volatile bool parked{false};
+  TaskHandle_t task{nullptr};
+  uint32_t abort_generation{0};
+  std::string path;
+  // Memory sampling, written only by the task that owns this state (see rtos_receive).
+  volatile uint32_t lua_bytes{0};
+  volatile uint32_t stack_bytes{0};
+  volatile uint32_t started_at{0};
+  uint32_t sample_counter{0};
 };
 
 static SemaphoreHandle_t g_run_lock = nullptr;
 static std::unordered_map<std::string, bool> g_run_paths;
+// Paths whose relaunch was requested while the previous task was still aborting. They are
+// started again as soon as the old task releases its run path, instead of being silently
+// skipped ("already running") and leaving the launch cover up until the 3 s timeout.
+static std::unordered_set<std::string> g_pending_restart;
+// Lifecycle state, accessed from the LVGL owner task (loop) and from Lua tasks.
+static SemaphoreHandle_t g_ctx_lock = nullptr;
+static std::unordered_map<std::string, RtosContext *> g_ctx_by_path;
+static std::unordered_map<std::string, uint32_t> g_app_background_since;
+static std::unordered_set<std::string> g_app_pause_sent;
+// Background apps are parked (task suspended, timers frozen) after this long and keep their
+// memory. They are only stopped (Lua VM + widgets freed) when free PSRAM drops below
+// APP_LOW_PSRAM_BYTES, and then only the oldest background app, one per loop.
+static constexpr uint32_t APP_BACKGROUND_PAUSE_MS = 3000;
+static constexpr size_t APP_LOW_PSRAM_BYTES = 1024 * 1024;
 static const char *CTX_KEY = "lua_runtime.ctx";
 static const char *ABORT_GEN_KEY = "lua_runtime.abort_generation";
 static volatile bool g_ota_active = false;
@@ -94,6 +125,9 @@ static constexpr uint32_t GLOBAL_PREFERENCE_SEED = 1944399030U;
 static constexpr size_t UID_RESTORE_SIZE = 64;
 
 static bool ota_is_active() { return g_ota_active; }
+
+static RtosContext *get_ctx(lua_State *L);
+static void sample_ctx_memory(lua_State *L, RtosContext *ctx);
 
 static void set_abort_generation(lua_State *L, uint32_t generation) {
   lua_pushlightuserdata(L, (void *) &ABORT_GEN_KEY);
@@ -116,6 +150,18 @@ void lua_abort_if_ota(lua_State *L) {
   if (get_abort_generation(L) != g_abort_generation) {
     luaL_error(L, "Lua script aborted because runtime abort was requested");
   }
+}
+
+void lua_sample_self_memory(lua_State *L) {
+  RtosContext *ctx = get_ctx(L);
+  if (ctx == nullptr) return;
+  sample_ctx_memory(L, ctx);
+}
+
+bool lua_abort_requested(lua_State *L) {
+  RtosContext *ctx = get_ctx(L);
+  if (ctx == nullptr) return false;
+  return ctx->abort_requested || ctx->abort_generation != g_abort_generation;
 }
 
 static void lua_ota_hook(lua_State *L, lua_Debug *ar) {
@@ -147,6 +193,26 @@ static void release_run_path(const std::string &path) {
   }
   if (g_run_lock) xSemaphoreGive(g_run_lock);
 }
+
+static void mark_pending_restart(const std::string &path) {
+  if (g_run_lock == nullptr) return;
+  xSemaphoreTake(g_run_lock, portMAX_DELAY);
+  g_pending_restart.insert(path);
+  xSemaphoreGive(g_run_lock);
+}
+
+static bool take_pending_restart(const std::string &path) {
+  if (g_run_lock == nullptr) return false;
+  bool pending = false;
+  xSemaphoreTake(g_run_lock, portMAX_DELAY);
+  auto it = g_pending_restart.find(path);
+  if (it != g_pending_restart.end()) {
+    g_pending_restart.erase(it);
+    pending = true;
+  }
+  xSemaphoreGive(g_run_lock);
+  return pending;
+}
 static void set_ctx(lua_State *L, RtosContext *ctx) {
   lua_pushlightuserdata(L, (void *) &CTX_KEY);
   lua_pushlightuserdata(L, ctx);
@@ -161,7 +227,143 @@ static RtosContext *get_ctx(lua_State *L) {
   return ctx;
 }
 
+// ---------------------------------------------------------------- app lifecycle
+static void ensure_lifecycle_locks() {
+  if (g_ctx_lock == nullptr) g_ctx_lock = xSemaphoreCreateMutex();
+}
+
+static std::string app_dir_of_script(const std::string &path) {
+  size_t pos = path.find_last_of('/');
+  if (pos == std::string::npos) return ".";
+  return path.substr(0, pos);
+}
+
+static bool is_main_script(const std::string &path) {
+  static const char *suffix = "/main.lua";
+  const size_t n = 9;
+  return path.size() >= n && path.compare(path.size() - n, n, suffix) == 0;
+}
+
+static void register_ctx(const std::string &path, RtosContext *ctx) {
+  ensure_lifecycle_locks();
+  if (g_ctx_lock == nullptr) return;
+  xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+  g_ctx_by_path[path] = ctx;
+  xSemaphoreGive(g_ctx_lock);
+}
+
+// run_file calls this under the same lock right before its stack frame goes away, so any
+// ctx found while holding g_ctx_lock is guaranteed to still be alive.
+static void unregister_ctx(const std::string &path) {
+  if (g_ctx_lock == nullptr) return;
+  xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+  g_ctx_by_path.erase(path);
+  xSemaphoreGive(g_ctx_lock);
+}
+
+// Ask a background script to park itself at its next rtos.receive boundary.
+static void pause_app_script(const std::string &path) {
+  ensure_lifecycle_locks();
+  if (g_ctx_lock == nullptr) return;
+  xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+  auto it = g_ctx_by_path.find(path);
+  if (it != g_ctx_by_path.end() && it->second != nullptr) {
+    RtosContext *ctx = it->second;
+    if (!ctx->parked) {
+      ctx->pause_requested = true;
+      if (ctx->queue != nullptr) {
+        RtosMsg msg{};
+        xQueueSend(ctx->queue, &msg, 0);
+      }
+    }
+  }
+  xSemaphoreGive(g_ctx_lock);
+}
+
+static void resume_app_script(const std::string &path) {
+  ensure_lifecycle_locks();
+  if (g_ctx_lock == nullptr) return;
+  xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+  auto it = g_ctx_by_path.find(path);
+  if (it != g_ctx_by_path.end() && it->second != nullptr) {
+    RtosContext *ctx = it->second;
+    ctx->pause_requested = false;
+    if (ctx->parked && ctx->task != nullptr) {
+      vTaskResume(ctx->task);
+    }
+  }
+  xSemaphoreGive(g_ctx_lock);
+}
+
+// Set the per-state abort flag and wake the script: a dummy rtos message wakes a task
+// blocked in sys.wait, and a parked task is resumed so it can observe the abort flag.
+static void stop_app_script(const std::string &path) {
+  ensure_lifecycle_locks();
+  if (g_ctx_lock == nullptr) return;
+  xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+  auto it = g_ctx_by_path.find(path);
+  if (it != g_ctx_by_path.end() && it->second != nullptr) {
+    RtosContext *ctx = it->second;
+    ctx->abort_requested = true;
+    ctx->pause_requested = false;
+    if (ctx->parked && ctx->task != nullptr) {
+      vTaskResume(ctx->task);
+    } else if (ctx->queue != nullptr) {
+      RtosMsg msg{};
+      xQueueSend(ctx->queue, &msg, 0);
+    }
+  }
+  xSemaphoreGive(g_ctx_lock);
+}
+
+// Async HTTP helpers used by lua_httplib.cpp.
+std::string lua_runtime_script_path(lua_State *L) {
+  RtosContext *ctx = get_ctx(L);
+  return ctx != nullptr ? ctx->path : std::string();
+}
+
+void lua_http_notify(const std::string &owner) {
+  ensure_lifecycle_locks();
+  if (g_ctx_lock == nullptr) return;
+  xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+  auto it = g_ctx_by_path.find(owner);
+  if (it != g_ctx_by_path.end() && it->second != nullptr && it->second->queue != nullptr) {
+    RtosMsg msg{MSG_HTTP, 0, 0};
+    xQueueSend(it->second->queue, &msg, 0);
+  }
+  xSemaphoreGive(g_ctx_lock);
+}
+
+// A run path can still be claimed while its task is winding down after an abort (low
+// memory, app-center refresh's abort_all, OTA...). In that window a new launch must wait
+// for the old task instead of being silently skipped.
+static bool is_script_aborting(const std::string &path) {
+  ensure_lifecycle_locks();
+  if (g_ctx_lock == nullptr) return false;
+  xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+  bool aborting = false;
+  auto it = g_ctx_by_path.find(path);
+  if (it != g_ctx_by_path.end() && it->second != nullptr) {
+    aborting = it->second->abort_requested || it->second->abort_generation != g_abort_generation;
+  }
+  xSemaphoreGive(g_ctx_lock);
+  return aborting;
+}
+
 static size_t g_lua_max_used = 0;
+
+// Samples this state's memory from the task that owns it: lua_gc() must never be called from
+// another task, so the Lua task records its own numbers at the rtos.receive boundary and the
+// settings page just reads the cached values.
+static void sample_ctx_memory(lua_State *L, RtosContext *ctx) {
+  if (L == nullptr || ctx == nullptr) return;
+  int kb = lua_gc(L, LUA_GCCOUNT, 0);
+  int bytes = lua_gc(L, LUA_GCCOUNTB, 0);
+  ctx->lua_bytes = (uint32_t) kb * 1024u + (uint32_t) bytes;
+  UBaseType_t free_words = uxTaskGetStackHighWaterMark(nullptr);
+  uint32_t free_bytes = (uint32_t) free_words * sizeof(StackType_t);
+  ctx->stack_bytes = free_bytes < LUA_TASK_STACK ? LUA_TASK_STACK - free_bytes : 0;
+}
 
 static std::string to_upper(std::string s) {
   for (auto &ch : s) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
@@ -355,12 +557,70 @@ static void rtos_timer_cb(void *arg) {
   }
 }
 
+// Freeze this state's timers before the Lua task parks itself. One-shot timers restart with
+// their original timeout after resume (suspended time does not count), periodic timers
+// restart with their period.
+static void pause_ctx_timers(RtosContext *ctx) {
+  if (ctx == nullptr || ctx->lock == nullptr) return;
+  xSemaphoreTake(ctx->lock, portMAX_DELAY);
+  for (auto &entry : ctx->timers) {
+    RtosTimer *timer = entry.second;
+    if (timer == nullptr || timer->handle == nullptr) continue;
+    timer->paused = esp_timer_stop(timer->handle) == ESP_OK;
+  }
+  xSemaphoreGive(ctx->lock);
+}
+
+static void resume_ctx_timers(RtosContext *ctx) {
+  if (ctx == nullptr || ctx->lock == nullptr) return;
+  xSemaphoreTake(ctx->lock, portMAX_DELAY);
+  for (auto &entry : ctx->timers) {
+    RtosTimer *timer = entry.second;
+    if (timer == nullptr || timer->handle == nullptr || !timer->paused) continue;
+    timer->paused = false;
+    if (timer->repeat == 0) {
+      esp_timer_start_once(timer->handle, (uint64_t) timer->timeout_ms * 1000);
+    } else {
+      esp_timer_start_periodic(timer->handle, (uint64_t) timer->timeout_ms * 1000);
+    }
+  }
+  xSemaphoreGive(ctx->lock);
+}
+
+// Cooperative suspend: the Lua task parks itself at the rtos.receive boundary, where it
+// holds no locks and its timers can be frozen safely. The main task resumes it with
+// vTaskResume when the app becomes visible again.
+static void maybe_pause_app(lua_State *L, RtosContext *ctx) {
+  if (ctx == nullptr || !ctx->pause_requested) return;
+  ctx->pause_requested = false;
+  pause_ctx_timers(ctx);
+  ctx->parked = true;
+  vTaskSuspend(nullptr);
+  ctx->parked = false;
+  if (ctx->abort_requested) {
+    luaL_error(L, "Lua script aborted because runtime abort was requested");
+  }
+  resume_ctx_timers(ctx);
+}
+
 static int rtos_receive(lua_State *L) {
   RtosContext *ctx = get_ctx(L);
   if (ctx == nullptr || !ctx->alive || ctx->queue == nullptr) {
     lua_pushinteger(L, -1);
     return 1;
   }
+
+  // Per-app stop is deferred to this boundary: never raise from inside a blocking C call
+  // (e.g. esp_http_client), otherwise its close/cleanup is skipped and resources leak.
+  if (ctx->abort_requested) {
+    luaL_error(L, "Lua script aborted because runtime abort was requested");
+  }
+
+  maybe_pause_app(L, ctx);
+
+  // Deliver any async HTTP completions that are already done (safe without the wake
+  // message: the worker also sends one, but it can be dropped if the queue is full).
+  lua_http_dispatch(L, ctx->path);
 
   int timeout = (int) luaL_optinteger(L, 1, -1);
   RtosMsg msg{0, 0, 0};
@@ -376,6 +636,10 @@ static int rtos_receive(lua_State *L) {
         return 1;
       }
       if (xQueueReceive(ctx->queue, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
+        if (msg.msgid == MSG_HTTP) {
+          lua_http_dispatch(L, ctx->path);
+          continue;
+        }
         break;
       }
     }
@@ -389,6 +653,10 @@ static int rtos_receive(lua_State *L) {
       }
       int slice = remaining > 100 ? 100 : remaining;
       if (xQueueReceive(ctx->queue, &msg, pdMS_TO_TICKS(slice)) == pdTRUE) {
+        if (msg.msgid == MSG_HTTP) {
+          lua_http_dispatch(L, ctx->path);
+          continue;
+        }
         break;
       }
       remaining -= slice;
@@ -414,6 +682,12 @@ static int rtos_receive(lua_State *L) {
         lua_gc(L, LUA_GCCOLLECT, 0);
       }
     }
+  }
+
+  // Memory sampling for the settings "running apps" page: cheap, and only from this task.
+  if (++ctx->sample_counter >= 20) {
+    ctx->sample_counter = 0;
+    sample_ctx_memory(L, ctx);
   }
 
   lua_pushinteger(L, msg.msgid);
@@ -896,6 +1170,8 @@ void LuaRuntime::setup() {
 void LuaRuntime::loop() {
 #ifndef LUA_RUNTIME_STUB
   process_lvgl_jobs();
+  tick_app_page_launch();
+  update_app_lifecycle();
   lua_usb_pump_tx();
 #endif
 }
@@ -910,7 +1186,137 @@ void LuaRuntime::dump_config() {
 #endif
 }
 
-void LuaRuntime::mark_task_done(const std::string &path) { release_run_path(path); }
+void LuaRuntime::mark_task_done(const std::string &path) {
+#ifndef LUA_RUNTIME_STUB
+  if (is_main_script(path)) {
+    // The script is gone: drop its widgets and let the next launch rebuild them.
+    release_app_page(app_dir_of_script(path));
+  }
+#endif
+  release_run_path(path);
+#ifndef LUA_RUNTIME_STUB
+  // A launch arrived while this task was aborting: start it now that the path is free.
+  if (take_pending_restart(path)) {
+    ESP_LOGI(TAG, "Restarting Lua script after previous task exited: %s", path.c_str());
+    if (is_main_script(path)) {
+      // The 3 s timeout may already have dismissed the cover; re-arm the request so the
+      // rebuilt page is shown when it reports ready.
+      rearm_app_page_launch(app_dir_of_script(path));
+    }
+    this->run_file_async(path);
+  }
+#endif
+}
+
+// Parks background apps (task suspended, timers frozen) and only stops one when free PSRAM
+// is critically low. Locked/asleep disables stopping, not parking.
+void LuaRuntime::update_app_lifecycle() {
+#ifndef LUA_RUNTIME_STUB
+  const bool gate_open = !this->lifecycle_gate_ || this->lifecycle_gate_();
+
+  std::vector<std::string> tasks;
+  if (g_ctx_lock != nullptr) {
+    xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+    tasks.reserve(g_ctx_by_path.size());
+    for (const auto &entry : g_ctx_by_path) {
+      RtosContext *ctx = entry.second;
+      if (ctx == nullptr || !is_main_script(entry.first)) continue;
+      // Never park a synchronous run_file() that is executing on this task.
+      if (ctx->task == xTaskGetCurrentTaskHandle()) continue;
+      tasks.push_back(entry.first);
+    }
+    xSemaphoreGive(g_ctx_lock);
+  }
+  if (tasks.empty()) {
+    g_app_background_since.clear();
+    g_app_pause_sent.clear();
+    return;
+  }
+
+  // While locked or asleep every app counts as background, so the foreground app is parked
+  // too (timers frozen). It is resumed when the gate opens and its page is active again.
+  const std::string active = gate_open ? active_app_dir() : std::string();
+  const uint32_t now = (uint32_t) (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+  auto is_running_dir = [&tasks](const std::string &dir) {
+    for (const auto &path : tasks) {
+      if (app_dir_of_script(path) == dir) return true;
+    }
+    return false;
+  };
+
+  // Forget apps that are no longer running.
+  for (auto it = g_app_background_since.begin(); it != g_app_background_since.end();) {
+    if (!is_running_dir(it->first)) {
+      it = g_app_background_since.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  for (auto it = g_app_pause_sent.begin(); it != g_app_pause_sent.end();) {
+    if (g_app_background_since.find(*it) == g_app_background_since.end()) {
+      it = g_app_pause_sent.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  for (const auto &path : tasks) {
+    const std::string dir = app_dir_of_script(path);
+
+    if (!active.empty() && dir == active) {
+      g_app_background_since.erase(dir);
+      g_app_pause_sent.erase(dir);
+      resume_app_script(path);
+      continue;
+    }
+
+    auto it = g_app_background_since.find(dir);
+    if (it == g_app_background_since.end()) {
+      g_app_background_since[dir] = now;
+      continue;
+    }
+    const uint32_t bg_ms = (uint32_t) (now - it->second);
+
+    // Park the app once its UI exists; a script that is still building is left alone.
+    if (bg_ms >= APP_BACKGROUND_PAUSE_MS && !is_app_launching(dir) && is_app_page_ready(dir) &&
+        g_app_pause_sent.find(dir) == g_app_pause_sent.end()) {
+      pause_app_script(path);
+      g_app_pause_sent.insert(dir);
+    }
+  }
+
+  // Emergency only: reclaim memory by stopping the oldest background app. Never stop the
+  // foreground page or an app that is still launching (its page is not active yet), and
+  // leave a cooldown between two stops so the aborted task has time to release its PSRAM.
+  if (!gate_open) return;
+  if (heap_caps_get_free_size(MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT) >= APP_LOW_PSRAM_BYTES) return;
+  static uint32_t last_low_mem_stop = 0;
+  if (last_low_mem_stop != 0 && (uint32_t) (now - last_low_mem_stop) < 1500) return;
+
+  std::string oldest;
+  uint32_t oldest_at = 0;
+  for (const auto &entry : g_app_background_since) {
+    if (!active.empty() && entry.first == active) continue;
+    if (is_app_launching(entry.first)) continue;
+    if (oldest.empty() || (int32_t) (entry.second - oldest_at) < 0) {
+      oldest = entry.first;
+      oldest_at = entry.second;
+    }
+  }
+  if (oldest.empty()) return;
+  for (const auto &path : tasks) {
+    if (app_dir_of_script(path) == oldest) {
+      ESP_LOGW(TAG, "PSRAM low, stopping background app: %s", path.c_str());
+      stop_app_script(path);
+      last_low_mem_stop = now;
+      g_app_pause_sent.erase(oldest);
+      g_app_background_since.erase(oldest);
+      break;
+    }
+  }
+#endif
+}
 
 void LuaRuntime::set_ota_active(bool active) {
 #ifndef LUA_RUNTIME_STUB
@@ -954,6 +1360,126 @@ void LuaRuntime::abort_all() {
 #endif
 }
 
+// Reads the display name out of <dir>/manifest.json without pulling in a JSON dependency:
+// the manifest is a flat object, so the first "name" key is the app name.
+static std::string app_display_name(const std::string &dir) {
+  static std::unordered_map<std::string, std::string> cache;
+  auto cached = cache.find(dir);
+  if (cached != cache.end()) return cached->second;
+
+  std::string name;
+  FILE *file = fopen((dir + "/manifest.json").c_str(), "r");
+  if (file != nullptr) {
+    char buffer[1024];
+    size_t len = fread(buffer, 1, sizeof(buffer) - 1, file);
+    buffer[len] = '\0';
+    fclose(file);
+
+    std::string body(buffer, len);
+    size_t key = body.find("\"name\"");
+    if (key != std::string::npos) {
+      size_t colon = body.find(':', key + 6);
+      size_t quote = colon == std::string::npos ? std::string::npos : body.find('"', colon);
+      if (quote != std::string::npos) {
+        size_t end = quote + 1;
+        while (end < body.size() && body[end] != '"') {
+          if (body[end] == '\\') end++;
+          end++;
+        }
+        if (end <= body.size()) name = body.substr(quote + 1, end - quote - 1);
+      }
+    }
+  }
+  if (name.empty()) {
+    size_t slash = dir.find_last_of('/');
+    name = slash == std::string::npos ? dir : dir.substr(slash + 1);
+  }
+  cache[dir] = name;
+  return name;
+}
+
+std::vector<LuaAppInfo> LuaRuntime::list_apps() {
+  std::vector<LuaAppInfo> apps;
+#ifndef LUA_RUNTIME_STUB
+  ensure_lifecycle_locks();
+  if (g_ctx_lock == nullptr) return apps;
+
+  const uint32_t now = (uint32_t) (xTaskGetTickCount() * portTICK_PERIOD_MS);
+  xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+  for (const auto &entry : g_ctx_by_path) {
+    RtosContext *ctx = entry.second;
+    if (ctx == nullptr || !is_main_script(entry.first)) continue;
+    LuaAppInfo info;
+    info.dir = app_dir_of_script(entry.first);
+    info.name = app_display_name(info.dir);
+    info.script = entry.first;
+    info.lua_bytes = ctx->lua_bytes;
+    info.stack_bytes = ctx->stack_bytes;
+    info.parked = ctx->parked;
+    info.aborting = ctx->abort_requested || ctx->abort_generation != g_abort_generation;
+    if (ctx->started_at != 0) info.running_ms = (uint32_t) (now - ctx->started_at);
+    apps.push_back(std::move(info));
+  }
+  xSemaphoreGive(g_ctx_lock);
+
+  // Oldest first: the list is stable between refreshes.
+  std::sort(apps.begin(), apps.end(), [](const LuaAppInfo &a, const LuaAppInfo &b) {
+    return a.running_ms > b.running_ms;
+  });
+#endif
+  return apps;
+}
+
+bool LuaRuntime::stop_app(const std::string &app_dir) {
+#ifdef LUA_RUNTIME_STUB
+  (void) app_dir;
+  return false;
+#else
+  if (app_dir.empty()) return false;
+  const std::string path = app_dir + "/main.lua";
+  RtosContext *ctx = nullptr;
+  ensure_lifecycle_locks();
+  if (g_ctx_lock != nullptr) {
+    xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+    auto it = g_ctx_by_path.find(path);
+    if (it != g_ctx_by_path.end()) ctx = it->second;
+    xSemaphoreGive(g_ctx_lock);
+  }
+  if (ctx == nullptr) return false;
+  ESP_LOGI(TAG, "Stopping app from settings: %s", app_dir.c_str());
+  // Aborted here, released by the task itself (page widgets go away in mark_task_done).
+  stop_app_script(path);
+  return true;
+#endif
+}
+
+LuaMemoryInfo LuaRuntime::memory_info() {
+  LuaMemoryInfo info;
+  multi_heap_info_t heap{};
+  heap_caps_get_info(&heap, MALLOC_CAP_SPIRAM);
+  info.psram_free = heap.total_free_bytes;
+  info.psram_largest = heap.largest_free_block;
+  info.psram_total = heap.total_free_bytes + heap.total_allocated_bytes;
+  multi_heap_info_t internal{};
+  heap_caps_get_info(&internal, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  info.internal_free = internal.total_free_bytes;
+  info.internal_largest = internal.largest_free_block;
+  info.internal_total = internal.total_free_bytes + internal.total_allocated_bytes;
+
+#ifndef LUA_RUNTIME_STUB
+  ensure_lifecycle_locks();
+  if (g_ctx_lock != nullptr) {
+    xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+    for (const auto &entry : g_ctx_by_path) {
+      RtosContext *ctx = entry.second;
+      if (ctx != nullptr && is_main_script(entry.first)) info.lua_bytes_total += ctx->lua_bytes;
+    }
+    xSemaphoreGive(g_ctx_lock);
+  }
+#endif
+  return info;
+}
+
 bool LuaRuntime::run_file(const std::string &path) {
 #ifdef LUA_RUNTIME_STUB
   ESP_LOGE(TAG, "Lua runtime is in stub mode. Add Lua sources and disable enable_stub.");
@@ -974,7 +1500,12 @@ bool LuaRuntime::run_file(const std::string &path) {
   RtosContext ctx;
   ctx.queue = xQueueCreate(16, sizeof(RtosMsg));
   ctx.lock = xSemaphoreCreateMutex();
+  ctx.task = xTaskGetCurrentTaskHandle();
+  ctx.path = path;
+  ctx.abort_generation = g_abort_generation;
+  ctx.started_at = (uint32_t) (xTaskGetTickCount() * portTICK_PERIOD_MS);
   set_ctx(L, &ctx);
+  register_ctx(path, &ctx);
 
   if (ctx.queue == nullptr) {
     ESP_LOGE(TAG, "rtos.queue create failed");
@@ -983,13 +1514,13 @@ bool LuaRuntime::run_file(const std::string &path) {
     ESP_LOGE(TAG, "rtos.lock create failed");
   }
 
-  esp_err_t init_err = esp_timer_init();
-  if (init_err != ESP_OK && init_err != ESP_ERR_INVALID_STATE) {
-    ESP_LOGW(TAG, "rtos.timer_start init fail: %s", esp_err_to_name(init_err));
-  }
+  // esp_timer is initialized by the ESP-IDF/ESPHome startup and esp_timer_create()
+  // initializes it lazily if needed. Calling esp_timer_init() here for every script just
+  // logs "Task is already initialized" (once per app script).
 
   luaL_openlibs(L);
   set_abort_generation(L, g_abort_generation);
+  ctx.abort_generation = g_abort_generation;
   register_base_api(L, path, this);
   set_package_path(L, path);
   lua_sethook(L, lua_ota_hook, LUA_MASKCOUNT, 1000);
@@ -1000,7 +1531,9 @@ bool LuaRuntime::run_file(const std::string &path) {
     std::string error_message = err ? err : "(unknown)";
     ESP_LOGE(TAG, "Lua load error: %s", error_message.c_str());
     cleanup_lvgl_api(L);
+    lua_http_cancel_owner(L, path);
     lua_close(L);
+    unregister_ctx(path);
     rtos_cleanup(ctx);
     show_lua_error_on_app_page(path, error_message);
     return false;
@@ -1010,19 +1543,30 @@ bool LuaRuntime::run_file(const std::string &path) {
   if (call_status != LUA_OK) {
     const char *err = lua_tostring(L, -1);
     std::string error_message = err ? err : "(unknown)";
-    ESP_LOGE(TAG, "Lua runtime error: %s", error_message.c_str());
+    // Lua prefixes the chunk/line (e.g. "lib/sys.lua:578: ..."), so compare substrings.
+    bool expected_abort =
+        error_message.find("Lua script aborted because runtime abort was requested") != std::string::npos ||
+        error_message.find("Lua script aborted because OTA is in progress") != std::string::npos;
+    if (expected_abort) {
+      ESP_LOGI(TAG, "Lua script stopped: %s", path.c_str());
+    } else {
+      ESP_LOGE(TAG, "Lua runtime error: %s", error_message.c_str());
+    }
     cleanup_lvgl_api(L);
+    lua_http_cancel_owner(L, path);
     lua_close(L);
+    unregister_ctx(path);
     rtos_cleanup(ctx);
-    if (error_message != "Lua script aborted because runtime abort was requested" &&
-        error_message != "Lua script aborted because OTA is in progress") {
+    if (!expected_abort) {
       show_lua_error_on_app_page(path, error_message);
     }
     return false;
   }
 
   cleanup_lvgl_api(L);
+  lua_http_cancel_owner(L, path);
   lua_close(L);
+  unregister_ctx(path);
   rtos_cleanup(ctx);
   ESP_LOGI(TAG, "Lua script finished: %s", path.c_str());
   return true;
@@ -1062,6 +1606,10 @@ bool LuaRuntime::run_file_async(const std::string &path) {
     return false;
   }
   if (!claim_run_path(path)) {
+    // A new launch can arrive while the previous task is still winding down after an abort
+    // (low-memory stop, app-center abort_all, OTA). Remember it so mark_task_done can start
+    // it as soon as the run path is released, instead of skipping the launch silently.
+    if (is_script_aborting(path)) mark_pending_restart(path);
     ESP_LOGI(TAG, "Lua task already running, skip: %s", path.c_str());
     return false;
   }

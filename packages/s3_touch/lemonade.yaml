@@ -3,8 +3,14 @@ esphome:
   friendly_name: ${lemonade_device_friendly_name}
   platformio_options:
     upload_speed: 1152000
+    # JPEGDEC 的 library.properties 里有 depends=bb_spi_lcd，
+    # 但 bb_spi_lcd 是 Arduino-only（bb_parallel.cpp 无条件 #include <Arduino.h>），
+    # 在 esp-idf 下会编译失败。我们只用 JPEGDEC.h 解码，不需要 JPEGDisplay，
+    # 所以直接忽略这个传递依赖。
+    lib_ignore:
+      - bb_spi_lcd
     lib_deps:
-      - JPEGDEC@https://github.com/bitbank2/JPEGDEC#1.8.4
+      - JPEGDEC@https://github.com/bitbank2/JPEGDEC
       - pngle@1.1.0
   includes:
     - packages/s3_touch/background_runtime_image.h
@@ -140,6 +146,8 @@ esphome:
         - script.execute: wakeup_script
     - priority: -100
       then:
+        - lambda: |-
+            id(lua).set_lifecycle_gate([] { return !id(is_sleeping) && !id(security_is_locked); });
         - lambda: |
             id(lua).run_file_async("/sdcard/init.lua");
         - lambda: |

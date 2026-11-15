@@ -217,6 +217,30 @@ lvgl:
                   then:
                     - script.execute: weather_update
 
+            - button:
+                id: btn_lua_apps_refresh
+                align: TOP_RIGHT
+                x: -4
+                y: 0
+                width: 36
+                height: 22
+                hidden: true
+                bg_opa: TRANSP
+                border_width: 0
+                shadow_width: 0
+                pad_all: 0
+                pressed:
+                  bg_color: 0xe7e9ec
+                  bg_opa: COVER
+                widgets:
+                  - label:
+                      align: CENTER
+                      styles: [bar_action_style]
+                      text: "刷新"
+                on_click:
+                  then:
+                    - script.execute: render_lua_apps_page
+
 script:
   # 实底导航栏：标题 + 时间 + 电量（+ 可选动作）
   - id: statusbar_enter
@@ -261,7 +285,12 @@ script:
           } else {
             lv_obj_add_flag(id(btn_weather_refresh), LV_OBJ_FLAG_HIDDEN);
           }
-          if (action == 1 || action == 2 || action == 3) {
+          if (action == 4) {
+            lv_obj_clear_flag(id(btn_lua_apps_refresh), LV_OBJ_FLAG_HIDDEN);
+          } else {
+            lv_obj_add_flag(id(btn_lua_apps_refresh), LV_OBJ_FLAG_HIDDEN);
+          }
+          if (action == 1 || action == 2 || action == 3 || action == 4) {
             lv_obj_set_x(id(lbl_bar_battery), -44);
             lv_obj_set_width(id(lbl_topbar_title), 105);
           } else {
@@ -283,6 +312,7 @@ script:
           lv_obj_add_flag(id(btn_app_store_refresh), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(btn_message_add), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(btn_weather_refresh), LV_OBJ_FLAG_HIDDEN);
+          lv_obj_add_flag(id(btn_lua_apps_refresh), LV_OBJ_FLAG_HIDDEN);
           lv_obj_add_flag(id(btn_topbar_back), LV_OBJ_FLAG_HIDDEN);
           lv_obj_clear_flag(id(lbl_topbar_title), LV_OBJ_FLAG_HIDDEN);
           lv_obj_set_x(id(lbl_bar_time), 12);
@@ -390,6 +420,8 @@ script:
   # 返回“页内上级”；回主页交给物理 Home 键
   - id: page_back
     then:
+      - lambda: |-
+          if (esphome::lua_runtime::cancel_app_page_launch()) id(statusbar_immersive)->execute();
       - lambda: |
           lv_obj_t *active = lv_screen_active();
           auto show = [&](int index) {
@@ -442,11 +474,15 @@ script:
               active == id(system_setting_bottle_ocean_page)->obj ||
               active == id(system_setting_update_page)->obj ||
               active == id(system_setting_storage_page)->obj ||
-              active == id(system_setting_security_page)->obj) {
+              active == id(system_setting_security_page)->obj ||
+              active == id(system_setting_lua_apps_page)->obj) {
             show(id(page_setting_menu)->index);
             return;
           }
           // 根页面手势：没有页内上级时回主页；返回键本身不显示
           if (id(bar_gesture_home)) {
             id(lvgl_1)->show_page(id(page_main)->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
+            // The app page was shown with raw LVGL, so ESPHome may consider page_main
+            // already active and skip its on_load: restore the immersive bar explicitly.
+            id(statusbar_immersive)->execute();
           }

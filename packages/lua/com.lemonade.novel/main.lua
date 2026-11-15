@@ -2,6 +2,7 @@
 local sys = require("sys")
 local lv = lvgl
 local core = require("reader_core")
+local uikit = require("uikit")
 
 local page = lv.app_page()
 if not page then
@@ -82,6 +83,7 @@ local state = {
 }
 
 local refs = {}
+local uiapp
 local show_shelf
 
 local function with_batch(fn)
@@ -503,7 +505,7 @@ local function read_page_at(position)
 end
 
 local function render_current()
-    if not refs.content or not state.file then
+    if not state.file then
         return
     end
 
@@ -523,12 +525,17 @@ local function render_current()
         end
     end
 
-    with_batch(function()
-        lv.label_set_text(refs.content, text)
-        lv.label_set_text(refs.filename, state.title or "")
-        lv.label_set_text(refs.pageinfo, string.format("%d/%d", index, total))
-        lv.bar_set_value(refs.progress, permille, 0)
-    end)
+    state.view = "reader"
+    if uiapp then
+        uiapp.set_state({
+            view = "reader",
+            page_text = text,
+            filename = state.title or "",
+            pageinfo = string.format("%d/%d", index, total),
+            progress = permille,
+        })
+        uiapp.render()
+    end
 end
 
 local function go_next()
@@ -577,6 +584,30 @@ local function jump_to_page(index)
     render_current()
 end
 
+local drag_x = nil
+
+local function jump_from_touch(event)
+    local total = state.total_pages
+    if total <= 1 or not state.file then
+        return
+    end
+    local point = event and event.point
+    if point and point.x then
+        drag_x = point.x
+    end
+    if not drag_x then
+        return
+    end
+    local x = drag_x
+    if x < 0 then
+        x = 0
+    elseif x > 319 then
+        x = 319
+    end
+    local index = math.floor(x / 319 * (total - 1) + 0.5) + 1
+    jump_to_page(index)
+end
+
 local function close_reader()
     if state.save_timer then
         sys.timerStop(state.save_timer)
@@ -599,146 +630,18 @@ local function close_reader()
 end
 
 local function show_reader()
-    refs = {}
     state.view = "reader"
     ui.show_topbar()
-
-    lv.obj_clean(page)
-    lv.obj_clear_flag(page, lv.FLAG_SCROLLABLE)
-    lv.obj_set_style_bg_color(page, COLOR.reader_bg, 0)
-    lv.obj_set_style_bg_opa(page, lv.OPA_COVER, 0)
-    lv.obj_set_style_border_width(page, 0, 0)
-
-    refs.content = lv.label_create(page)
-    lv.obj_set_pos(refs.content, 13, 42)
-    lv.obj_set_size(refs.content, 294, 160)
-    lv.label_set_long_mode(refs.content, lv.LABEL_LONG_MODE_CLIP)
-    lv.obj_set_style_text_color(refs.content, COLOR.reader_text, 0)
-    lv.obj_set_style_text_align(refs.content, lv.TEXT_ALIGN_LEFT, 0)
-    lv.obj_set_style_text_line_space(refs.content, 1, 0)
-    lv.obj_set_style_bg_opa(refs.content, lv.OPA_TRANSP, 0)
-
-    local function add_tap_zone(x, width, callback)
-        local zone = lv.btn_create(page)
-        lv.obj_set_pos(zone, x, 42)
-        lv.obj_set_size(zone, width, 160)
-        lv.obj_set_style_bg_opa(zone, lv.OPA_TRANSP, 0)
-        lv.obj_set_style_border_width(zone, 0, 0)
-        lv.obj_set_style_shadow_width(zone, 0, 0)
-        lv.obj_set_style_outline_width(zone, 0, 0)
-        lv.obj_set_style_radius(zone, 0, 0)
-        lv.obj_set_style_pad_all(zone, 0, 0)
-        lv.obj_add_flag(zone, lv.FLAG_CLICKABLE)
-        lv.obj_add_event_cb(zone, function()
-            callback()
-        end, lv.EVENT_CLICKED)
-        return zone
-    end
-
-    add_tap_zone(0, 80, go_prev)
-    add_tap_zone(80, 240, go_next)
-
-    local footer_line = lv.obj_create(page)
-    lv.obj_set_pos(footer_line, 0, 202)
-    lv.obj_set_size(footer_line, 320, 1)
-    lv.obj_set_style_bg_color(footer_line, COLOR.line, 0)
-    lv.obj_set_style_bg_opa(footer_line, lv.OPA_COVER, 0)
-    lv.obj_set_style_border_width(footer_line, 0, 0)
-    lv.obj_set_style_radius(footer_line, 0, 0)
-
-    create_button(page, "返回", 4, 206, 48, 28, {
-        transparent = true,
-        fg = COLOR.accent,
-        radius = 8,
-        on_click = function()
-            schedule(function()
-                save_now()
-                close_reader()
-                show_shelf()
-            end)
-        end,
-    })
-    create_button(page, "上一页", 56, 206, 52, 28, {
-        bg = COLOR.card,
-        fg = COLOR.accent,
-        radius = 8,
-        on_click = go_prev,
-    })
-    create_button(page, "下一页", 264, 206, 52, 28, {
-        bg = COLOR.accent,
-        fg = COLOR.white,
-        radius = 8,
-        on_click = go_next,
-    })
-
-    refs.filename = create_label(page, state.title or "", 108, 204, 152, 16, COLOR.text, lv.TEXT_ALIGN_CENTER)
-    lv.label_set_long_mode(refs.filename, lv.LABEL_LONG_MODE_DOTS)
-    refs.pageinfo = create_label(page, "1/1", 108, 220, 152, 14, COLOR.muted, lv.TEXT_ALIGN_CENTER)
-
-    refs.progress = create_bar(page, 0, 28, 320, 8, 0, 1000, COLOR.accent)
-
-    -- 用透明按钮盖住进度条，保证按下/拖动事件稳定。
-    refs.progress_hit = lv.btn_create(page)
-    lv.obj_set_pos(refs.progress_hit, 0, 25)
-    lv.obj_set_size(refs.progress_hit, 320, 17)
-    lv.obj_set_style_bg_opa(refs.progress_hit, lv.OPA_TRANSP, 0)
-    lv.obj_set_style_bg_opa(refs.progress_hit, lv.OPA_TRANSP, lv.STATE_PRESSED)
-    lv.obj_set_style_border_width(refs.progress_hit, 0, 0)
-    lv.obj_set_style_shadow_width(refs.progress_hit, 0, 0)
-    lv.obj_set_style_outline_width(refs.progress_hit, 0, 0)
-    lv.obj_set_style_radius(refs.progress_hit, 0, 0)
-    lv.obj_set_style_pad_all(refs.progress_hit, 0, 0)
-    lv.obj_add_flag(refs.progress_hit, lv.FLAG_CLICKABLE)
-    lv.obj_clear_flag(refs.progress_hit, lv.FLAG_SCROLLABLE)
-
-    local drag_x = nil
-    local function jump_from_touch(event)
-        local total = state.total_pages
-        if total <= 1 or not state.file then
-            return
-        end
-        local point = event and event.point
-        if point and point.x then
-            drag_x = point.x
-        end
-        if not drag_x then
-            return
-        end
-        local x = drag_x
-        if x < 0 then
-            x = 0
-        elseif x > 319 then
-            x = 319
-        end
-        local index = math.floor(x / 319 * (total - 1) + 0.5) + 1
-        jump_to_page(index)
-    end
-
-    lv.obj_add_event_cb(refs.progress_hit, function(event)
-        local code = lv.event_get_code(event)
-        if code == lv.EVENT_PRESSED or code == lv.EVENT_PRESSING then
-            jump_from_touch(event)
-        elseif code == lv.EVENT_RELEASED or code == lv.EVENT_CLICKED then
-            jump_from_touch(event)
-            save_now()
-        end
-    end, lv.EVENT_ALL)
-
     render_current()
 end
 
 local function show_loading()
-    refs = {}
-    state.view = "reader"
+    state.view = "loading"
     ui.show_topbar()
-
-    lv.obj_clean(page)
-    lv.obj_clear_flag(page, lv.FLAG_SCROLLABLE)
-    lv.obj_set_style_bg_color(page, COLOR.reader_bg, 0)
-    lv.obj_set_style_bg_opa(page, lv.OPA_COVER, 0)
-    lv.obj_set_style_border_width(page, 0, 0)
-
-    create_label(page, "正在排版…", 10, 106, 300, 24, COLOR.muted, lv.TEXT_ALIGN_CENTER)
+    if uiapp then
+        uiapp.set_state({ view = "loading" })
+        uiapp.render()
+    end
     lv.poll_events(10)
 end
 
@@ -945,56 +848,8 @@ local function safe_scan_books()
 end
 
 show_shelf = function()
-    refs = {}
     state.view = "shelf"
     ui.show_topbar()
-
-    lv.obj_clean(page)
-    lv.obj_set_style_bg_color(page, COLOR.bg, 0)
-    lv.obj_set_style_bg_opa(page, lv.OPA_COVER, 0)
-    lv.obj_set_style_border_width(page, 0, 0)
-
-    create_label(page, "我的书架", 12, 29, 180, 18, COLOR.accent, lv.TEXT_ALIGN_LEFT)
-    create_button(page, "刷新", 252, 28, 56, 24, {
-        bg = COLOR.card,
-        fg = COLOR.accent,
-        radius = 7,
-        on_click = function()
-            if not state.scanning then
-                schedule(function()
-                    state.scanning = true
-                    state.shelf_page = 1
-                    show_shelf()
-                    sys.timerStart(function()
-                        local books, err = safe_scan_books()
-                        state.books = books
-                        state.scanning = false
-                        show_shelf()
-                        if err then
-                            notify(err, 2400)
-                        end
-                    end, 30)
-                end)
-            end
-        end,
-    })
-
-    if state.scanning then
-        local loading = create_label(page, "正在扫描 SD 卡…\n\n支持 Books / Novels / 小说 等目录", 10, 92, 300, 60,
-            COLOR.muted, lv.TEXT_ALIGN_CENTER)
-        lv.label_set_long_mode(loading, lv.LABEL_LONG_MODE_WRAP)
-        lv.obj_set_style_text_line_space(loading, 4, 0)
-        return
-    end
-
-    if #state.books == 0 then
-        local empty = create_label(page,
-            "没有找到小说\n\n把 UTF-8 编码的 .txt 文件放到\nSD 卡的 Books 或 Novels 目录\n然后点右上角刷新",
-            10, 72, 300, 120, COLOR.muted, lv.TEXT_ALIGN_CENTER)
-        lv.label_set_long_mode(empty, lv.LABEL_LONG_MODE_WRAP)
-        lv.obj_set_style_text_line_space(empty, 4, 0)
-        return
-    end
 
     local per_page = BOOKS_PER_PAGE
     local total_pages = math.max(1, math.ceil(#state.books / per_page))
@@ -1004,73 +859,35 @@ show_shelf = function()
         state.shelf_page = total_pages
     end
 
-    local rows_start = 54
+    local rows = {}
     local start_index = (state.shelf_page - 1) * per_page + 1
     for slot = 0, per_page - 1 do
         local book = state.books[start_index + slot]
         if book then
-            local y = rows_start + slot * (SHELF_ROW_HEIGHT + SHELF_ROW_GAP)
             local record = get_record(book.path)
             local percent_text, percent_value = record_progress(record)
-            local path = book.path
-
-            local row = lv.btn_create(page)
-            lv.obj_set_pos(row, 12, y)
-            lv.obj_set_size(row, 296, SHELF_ROW_HEIGHT)
-            lv.obj_set_style_bg_color(row, COLOR.card, 0)
-            lv.obj_set_style_bg_opa(row, lv.OPA_COVER, 0)
-            lv.obj_set_style_border_width(row, 0, 0)
-            lv.obj_set_style_shadow_width(row, 0, 0)
-            lv.obj_set_style_outline_width(row, 0, 0)
-            lv.obj_set_style_radius(row, 11, 0)
-            lv.obj_set_style_pad_all(row, 0, 0)
-            lv.obj_add_event_cb(row, function()
-                schedule(function()
-                    open_book(path)
-                end)
-            end, lv.EVENT_CLICKED)
-
-            local title = create_label(row, book.title, 12, 5, 174, 18, COLOR.text, lv.TEXT_ALIGN_LEFT)
-            lv.label_set_long_mode(title, lv.LABEL_LONG_MODE_DOTS)
-            local meta = create_label(row, book.folder, 12, 25, 174, 14, COLOR.muted, lv.TEXT_ALIGN_LEFT)
-            lv.label_set_long_mode(meta, lv.LABEL_LONG_MODE_DOTS)
-            create_label(row, percent_text, 194, 5, 90, 18, COLOR.accent, lv.TEXT_ALIGN_RIGHT)
-            local bar = create_bar(row, 12, 42, 272, 3, 0, 100, COLOR.accent)
-            lv.bar_set_value(bar, percent_value, 0)
+            rows[#rows + 1] = {
+                path = book.path,
+                title = book.title,
+                folder = book.folder,
+                percent_text = percent_text,
+                percent_value = percent_value,
+            }
         end
     end
 
-    if total_pages > 1 then
-        create_button(page, "上一页", 8, 212, 52, 22, {
-            transparent = true,
-            fg = state.shelf_page > 1 and COLOR.accent or COLOR.faint,
-            radius = 6,
-            on_click = function()
-                if state.shelf_page > 1 then
-                    schedule(function()
-                        state.shelf_page = state.shelf_page - 1
-                        show_shelf()
-                    end)
-                end
-            end,
+    if uiapp then
+        uiapp.set_state({
+            view = "shelf",
+            scanning = state.scanning,
+            books_count = #state.books,
+            rows = rows,
+            shelf_page = state.shelf_page,
+            shelf_pages = total_pages,
+            shelf_info = string.format("%d/%d · 共 %d 本", state.shelf_page, total_pages, #state.books),
         })
-        create_button(page, "下一页", 260, 212, 52, 22, {
-            transparent = true,
-            fg = state.shelf_page < total_pages and COLOR.accent or COLOR.faint,
-            radius = 6,
-            on_click = function()
-                if state.shelf_page < total_pages then
-                    schedule(function()
-                        state.shelf_page = state.shelf_page + 1
-                        show_shelf()
-                    end)
-                end
-            end,
-        })
+        uiapp.render()
     end
-
-    local info = string.format("%d/%d · 共 %d 本", state.shelf_page, total_pages, #state.books)
-    create_label(page, info, 64, 214, 192, 18, COLOR.muted, lv.TEXT_ALIGN_CENTER)
 end
 
 local function refresh_books()
@@ -1087,6 +904,262 @@ local function refresh_books()
         end
     end, 30)
 end
+
+-- 声明式界面 ---------------------------------------------------------
+local function view_loading()
+    return {
+        kind = "obj",
+        key = "root",
+        props = { scrollable = false },
+        style = { width = 320, height = 240, bg_color = COLOR.reader_bg, bg_opa = lv.OPA_COVER, border_width = 0, pad_all = 0, radius = 0 },
+        children = {
+            {
+                kind = "label",
+                key = "loading",
+                props = { text = "正在排版…" },
+                style = { x = 10, y = 106, width = 300, height = 24, text_color = COLOR.muted, text_align = lv.TEXT_ALIGN_CENTER },
+            },
+        },
+    }
+end
+
+local function view_shelf(st)
+    local children = {
+        {
+            kind = "label",
+            key = "title",
+            props = { text = "我的书架" },
+            style = { x = 12, y = 29, width = 180, height = 18, text_color = COLOR.accent, text_align = lv.TEXT_ALIGN_LEFT },
+        },
+        {
+            kind = "btn",
+            key = "refresh",
+            style = { x = 252, y = 28, width = 56, height = 24, bg_color = COLOR.card, border_width = 0, shadow_width = 0, radius = 7 },
+            children = {
+                { kind = "label", key = "t", props = { text = "刷新" }, style = { text_color = COLOR.accent, align = { lv.ALIGN_CENTER, 0, 0 } } },
+            },
+            on = {
+                [lv.EVENT_CLICKED] = function()
+                    if not state.scanning then
+                        schedule(function()
+                            refresh_books()
+                        end)
+                    end
+                end,
+            },
+        },
+    }
+
+    if st.scanning then
+        children[#children + 1] = {
+            kind = "label",
+            key = "scanning",
+            props = { text = "正在扫描 SD 卡…\n\n支持 Books / Novels / 小说 等目录", long_mode = lv.LABEL_LONG_MODE_WRAP },
+            style = { x = 10, y = 92, width = 300, height = 60, text_color = COLOR.muted, text_align = lv.TEXT_ALIGN_CENTER, text_line_space = 4 },
+        }
+    elseif (st.books_count or 0) == 0 then
+        children[#children + 1] = {
+            kind = "label",
+            key = "empty",
+            props = { text = "没有找到小说\n\n把 UTF-8 编码的 .txt 文件放到\nSD 卡的 Books 或 Novels 目录\n然后点右上角刷新", long_mode = lv.LABEL_LONG_MODE_WRAP },
+            style = { x = 10, y = 72, width = 300, height = 120, text_color = COLOR.muted, text_align = lv.TEXT_ALIGN_CENTER, text_line_space = 4 },
+        }
+    else
+        for index, row in ipairs(st.rows or {}) do
+            local y = 54 + (index - 1) * (SHELF_ROW_HEIGHT + SHELF_ROW_GAP)
+            children[#children + 1] = {
+                kind = "btn",
+                key = "row:" .. row.path,
+                style = { x = 12, y = y, width = 296, height = SHELF_ROW_HEIGHT, bg_color = COLOR.card, bg_opa = lv.OPA_COVER, border_width = 0, shadow_width = 0, outline_width = 0, radius = 11, pad_all = 0 },
+                children = {
+                    { kind = "label", key = "title", props = { text = row.title, long_mode = lv.LABEL_LONG_MODE_DOTS }, style = { x = 12, y = 5, width = 174, height = 18, text_color = COLOR.text, text_align = lv.TEXT_ALIGN_LEFT } },
+                    { kind = "label", key = "meta", props = { text = row.folder, long_mode = lv.LABEL_LONG_MODE_DOTS }, style = { x = 12, y = 25, width = 174, height = 14, text_color = COLOR.muted, text_align = lv.TEXT_ALIGN_LEFT } },
+                    { kind = "label", key = "pct", props = { text = row.percent_text }, style = { x = 194, y = 5, width = 90, height = 18, text_color = COLOR.accent, text_align = lv.TEXT_ALIGN_RIGHT } },
+                    {
+                        kind = "bar",
+                        key = "bar",
+                        props = { range = { 0, 100 }, value = row.percent_value },
+                        style = { x = 12, y = 42, width = 272, height = 3, bg_color = COLOR.bar_bg, bg_opa = lv.OPA_COVER, border_width = 0, radius = 2 },
+                        parts = { [lv.PART_INDICATOR] = { bg_color = COLOR.accent, bg_opa = lv.OPA_COVER, radius = 2 } },
+                    },
+                },
+                on = {
+                    [lv.EVENT_CLICKED] = function()
+                        schedule(function()
+                            open_book(row.path)
+                        end)
+                    end,
+                },
+            }
+        end
+
+        if (st.shelf_pages or 1) > 1 then
+            children[#children + 1] = {
+                kind = "btn",
+                key = "prev_page",
+                style = { x = 8, y = 212, width = 52, height = 22, bg_opa = 0, border_width = 0, shadow_width = 0, radius = 6 },
+                children = {
+                    { kind = "label", key = "t", props = { text = "上一页" }, style = { text_color = (st.shelf_page > 1 and COLOR.accent or COLOR.faint), align = { lv.ALIGN_CENTER, 0, 0 } } },
+                },
+                on = {
+                    [lv.EVENT_CLICKED] = function()
+                        if st.shelf_page > 1 then
+                            schedule(function()
+                                state.shelf_page = state.shelf_page - 1
+                                show_shelf()
+                            end)
+                        end
+                    end,
+                },
+            }
+            children[#children + 1] = {
+                kind = "btn",
+                key = "next_page",
+                style = { x = 260, y = 212, width = 52, height = 22, bg_opa = 0, border_width = 0, shadow_width = 0, radius = 6 },
+                children = {
+                    { kind = "label", key = "t", props = { text = "下一页" }, style = { text_color = (st.shelf_page < st.shelf_pages and COLOR.accent or COLOR.faint), align = { lv.ALIGN_CENTER, 0, 0 } } },
+                },
+                on = {
+                    [lv.EVENT_CLICKED] = function()
+                        if st.shelf_page < st.shelf_pages then
+                            schedule(function()
+                                state.shelf_page = state.shelf_page + 1
+                                show_shelf()
+                            end)
+                        end
+                    end,
+                },
+            }
+        end
+
+        children[#children + 1] = {
+            kind = "label",
+            key = "info",
+            props = { text = st.shelf_info or "" },
+            style = { x = 64, y = 214, width = 192, height = 18, text_color = COLOR.muted, text_align = lv.TEXT_ALIGN_CENTER },
+        }
+    end
+
+    return {
+        kind = "obj",
+        key = "root",
+        props = { scrollable = false },
+        style = { width = 320, height = 240, bg_color = COLOR.bg, bg_opa = lv.OPA_COVER, border_width = 0, pad_all = 0, radius = 0 },
+        children = children,
+    }
+end
+
+local function reader_button(key, text, x, y, width, height, bg_color, fg_color, on_click)
+    return {
+        kind = "btn",
+        key = key,
+        style = { x = x, y = y, width = width, height = height, bg_color = bg_color, bg_opa = (bg_color and lv.OPA_COVER or 0), border_width = 0, shadow_width = 0, outline_width = 0, radius = 8, pad_all = 0 },
+        children = {
+            { kind = "label", key = "t", props = { text = text }, style = { text_color = fg_color, align = { lv.ALIGN_CENTER, 0, 0 } } },
+        },
+        on = { [lv.EVENT_CLICKED] = on_click },
+    }
+end
+
+local function view_reader(st)
+    return {
+        kind = "obj",
+        key = "root",
+        props = { scrollable = false },
+        style = { width = 320, height = 240, bg_color = COLOR.reader_bg, bg_opa = lv.OPA_COVER, border_width = 0, pad_all = 0, radius = 0 },
+        children = {
+            {
+                kind = "label",
+                key = "content",
+                props = { text = st.page_text or "", long_mode = lv.LABEL_LONG_MODE_CLIP },
+                style = { x = 13, y = 42, width = 294, height = 160, text_color = COLOR.reader_text, text_align = lv.TEXT_ALIGN_LEFT, text_line_space = 1, bg_opa = 0 },
+            },
+            {
+                kind = "btn",
+                key = "zone_prev",
+                style = { x = 0, y = 42, width = 80, height = 160, bg_opa = 0, border_width = 0, shadow_width = 0, outline_width = 0, radius = 0, pad_all = 0, clickable = true },
+                on = { [lv.EVENT_CLICKED] = function() go_prev() end },
+            },
+            {
+                kind = "btn",
+                key = "zone_next",
+                style = { x = 80, y = 42, width = 240, height = 160, bg_opa = 0, border_width = 0, shadow_width = 0, outline_width = 0, radius = 0, pad_all = 0, clickable = true },
+                on = { [lv.EVENT_CLICKED] = function() go_next() end },
+            },
+            {
+                kind = "obj",
+                key = "footer_line",
+                style = { x = 0, y = 202, width = 320, height = 1, bg_color = COLOR.line, bg_opa = lv.OPA_COVER, border_width = 0, radius = 0 },
+            },
+            reader_button("back", "返回", 4, 206, 48, 28, nil, COLOR.accent, function()
+                schedule(function()
+                    save_now()
+                    close_reader()
+                    show_shelf()
+                end)
+            end),
+            reader_button("prev", "上一页", 56, 206, 52, 28, COLOR.card, COLOR.accent, function() go_prev() end),
+            reader_button("next", "下一页", 264, 206, 52, 28, COLOR.accent, COLOR.white, function() go_next() end),
+            {
+                kind = "label",
+                key = "filename",
+                props = { text = st.filename or "", long_mode = lv.LABEL_LONG_MODE_DOTS },
+                style = { x = 108, y = 204, width = 152, height = 16, text_color = COLOR.text, text_align = lv.TEXT_ALIGN_CENTER },
+            },
+            {
+                kind = "label",
+                key = "pageinfo",
+                props = { text = st.pageinfo or "" },
+                style = { x = 108, y = 220, width = 152, height = 14, text_color = COLOR.muted, text_align = lv.TEXT_ALIGN_CENTER },
+            },
+            {
+                kind = "bar",
+                key = "progress",
+                props = { range = { 0, 1000 }, value = st.progress or 0 },
+                style = { x = 0, y = 28, width = 320, height = 8, bg_color = COLOR.bar_bg, bg_opa = lv.OPA_COVER, border_width = 0, radius = 4 },
+                parts = { [lv.PART_INDICATOR] = { bg_color = COLOR.accent, bg_opa = lv.OPA_COVER, radius = 4 } },
+            },
+            {
+                kind = "btn",
+                key = "progress_hit",
+                props = { scrollable = false },
+                style = { x = 0, y = 25, width = 320, height = 17, bg_opa = 0, border_width = 0, shadow_width = 0, outline_width = 0, radius = 0, pad_all = 0, clickable = true },
+                on = {
+                    [lv.EVENT_PRESSED] = function(event) jump_from_touch(event) end,
+                    [lv.EVENT_PRESSING] = function(event) jump_from_touch(event) end,
+                    [lv.EVENT_RELEASED] = function(event) jump_from_touch(event); save_now() end,
+                    [lv.EVENT_CLICKED] = function(event) jump_from_touch(event); save_now() end,
+                },
+            },
+        },
+    }
+end
+
+uiapp = uikit.app({
+    state = {
+        view = "loading",
+        scanning = false,
+        books_count = 0,
+        rows = {},
+        shelf_page = 1,
+        shelf_pages = 1,
+        shelf_info = "",
+        page_text = "",
+        filename = "",
+        pageinfo = "",
+        progress = 0,
+    },
+    view = function(st)
+        if st.view == "reader" then
+            return view_reader(st)
+        elseif st.view == "loading" then
+            return view_loading()
+        end
+        return view_shelf(st)
+    end,
+})
+
+uiapp.mount(page)
 
 -- 启动 ---------------------------------------------------------------
 if fskv and fskv.init then
@@ -1113,6 +1186,7 @@ end
 
 sys.timerLoopStart(function()
     lv.poll_events(10)
+    uiapp.tick()
 end, 16)
 
 sys.run()

@@ -213,7 +213,20 @@ local status, headers, body = http.request(method, url, headers, body, opts, ca_
 - 成功：`status_code, response_headers, response_body_or_bytes`
 - 失败：`negative_error_code, nil, nil`
 
-`http.request_async` 当前映射到同一实现。
+`http.request_async` 与 `http.request` 是同一实现，推荐直接用协程：
+
+```lua
+sys.taskInit(function()
+    local status, headers, body = http.request("GET", url, nil, nil, {timeout = 12000})
+    -- 请求在 worker 上执行，这里被恢复时拿到 (status, headers, body)
+end)
+```
+
+- **在协程里调用（例如 `sys.taskInit`）时是异步的**：请求跑在独立的 HTTP worker（20 KB PSRAM 栈）上，当前协程挂起；完成后 `rtos.receive` 恢复协程并把 `(status_code, headers, body_or_bytes)` 作为 `http.request` 的返回值。请求期间 LVGL、状态栏和其他协程继续运行。
+- 在 main chunk、定时器回调、LVGL 事件回调里调用（不可 yield）时仍是**阻塞**实现，保持旧行为。
+- 设置了 `opts.callback` / `opts.userdata`（进度回调）时走阻塞实现，因为进度回调需要 Lua 状态。
+- 每个脚本最多同时 4 个异步请求，超出会立即返回 `-ESP_ERR_NO_MEM`；失败返回同样是 `negative_error_code, nil, nil`。
+- 应用被停止时会取消它未完成的异步请求；挂起（park）不会取消，恢复后继续投递结果。
 
 ## `switch`
 
@@ -237,9 +250,12 @@ Lemonade UI 辅助接口：
 - `ui.show_topbar()`
 - `ui.show_notification(message[, suffix[, delay_ms]])`
 - `ui.close_notification([suffix])`
+- `ui.ready()`
 - `ui.font14() -> font|nil`
 
 默认情况下 Lua 应用顶部会显示系统状态栏（标题 + 时间 + 电量，透明底）。`ui.hide_topbar()` 会隐藏整条状态栏（适合需要全屏绘制的应用），`ui.show_topbar()` 恢复当前应用的状态栏。
+
+`ui.ready()` 通知运行时“界面已经建好，可以切到前台了”。通常不需要手动调用：应用第一次调用 `lv.poll_events()` 时就视为 ready，页面才会从桌面切过来，因此不会出现半成品一帧帧画出来的情况。只有在你进入事件循环前还有一段耗时初始化、想先把页面显示出来时才需要提前调用。
 
 `suffix` 用于匹配已有通知并更新，或关闭指定通知。空 suffix 关闭全部通知。
 

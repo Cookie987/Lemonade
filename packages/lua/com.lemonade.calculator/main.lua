@@ -3,6 +3,7 @@
 
 local sys = require("sys")
 local lv = lvgl
+local uikit = require("uikit")
 
 local page = lv.app_page()
 if not page then return end
@@ -23,68 +24,22 @@ local expression = "0"
 local last_result = "0"
 local angle_mode = "DEG"
 local has_error = false
-local clear_btn_label = nil
+local app
 
-local function with_batch(fn)
-    lv.batch_begin()
-    local ok, result = pcall(fn)
-    lv.batch_end()
-    if not ok then
-        error(result)
-    end
-    return result
+local function sync_state()
+    app.set_state({
+        expression = expression,
+        last_result = last_result,
+        angle_mode = angle_mode,
+        has_error = has_error,
+    })
 end
-
-lv.obj_set_style_bg_color(page, 0xFFFFFF, 0)
-
-local display_panel = lv.obj_create(page)
-lv.obj_set_size(display_panel, 320, 68)
-lv.obj_align(display_panel, lv.ALIGN_TOP_MID, 0, 0)
-lv.obj_set_style_bg_opa(display_panel, 0, 0)
-lv.obj_set_style_border_width(display_panel, 0, 0)
-lv.obj_set_style_pad_all(display_panel, 0, 0)
-
-local mode_label = lv.label_create(display_panel)
-lv.obj_align(mode_label, lv.ALIGN_TOP_LEFT, 12, 15)
-
-local display_label = lv.label_create(display_panel)
-lv.obj_set_style_text_font(display_label, font, 0)
-lv.obj_set_width(display_label, 300)
-lv.obj_set_style_text_align(display_label, lv.TEXT_ALIGN_RIGHT, 0)
-lv.obj_align(display_label, lv.ALIGN_BOTTOM_RIGHT, -10, -2)
-
-local hint_label = lv.label_create(display_panel)
-lv.obj_set_width(hint_label, 300)
-lv.obj_set_style_text_align(hint_label, lv.TEXT_ALIGN_RIGHT, 0)
-lv.obj_align(hint_label, lv.ALIGN_TOP_RIGHT, -10, 15)
-
-local btn_grid = lv.obj_create(page)
-lv.obj_set_size(btn_grid, 320, 172)
-lv.obj_align(btn_grid, lv.ALIGN_BOTTOM_MID, 0, 0)
-lv.obj_set_flex_flow(btn_grid, lv.FLEX_FLOW_ROW_WRAP)
-lv.obj_set_style_pad_all(btn_grid, 4, 0)
-lv.obj_set_style_pad_row(btn_grid, 4, 0)
-lv.obj_set_style_pad_column(btn_grid, 4, 0)
-lv.obj_set_style_bg_opa(btn_grid, 0, 0)
-lv.obj_set_style_border_width(btn_grid, 0, 0)
 
 local function trim_expression(text)
     if #text <= DISPLAY_LIMIT then
         return text
     end
     return "..." .. string.sub(text, #text - DISPLAY_LIMIT + 4)
-end
-
-local function update_display()
-    with_batch(function()
-        lv.label_set_text(mode_label, angle_mode)
-        lv.label_set_text(hint_label, "Ans = " .. last_result)
-        lv.label_set_text(display_label, trim_expression(expression))
-        if clear_btn_label then
-            local clear_text = (expression == "0" and not has_error) and "AC" or "C"
-            lv.label_set_text(clear_btn_label, clear_text)
-        end
-    end)
 end
 
 local function is_digit(ch)
@@ -495,10 +450,11 @@ local function toggle_angle_mode()
     angle_mode = angle_mode == "DEG" and "RAD" or "DEG"
 end
 
-local function on_btn_click(e)
-    local btn = lv.event_get_target(e)
-    local label = lv.obj_get_child(btn, 0)
-    local txt = lv.label_get_text(label)
+local function handle_key(key)
+    local txt = key
+    if txt == "AC" then
+        txt = (expression == "0" and not has_error) and "AC" or "C"
+    end
 
     if txt:match("^%d$") then
         append_digit(txt)
@@ -526,7 +482,7 @@ local function on_btn_click(e)
         append_fragment(txt)
     end
 
-    update_display()
+    sync_state()
 end
 
 local buttons = {
@@ -539,42 +495,121 @@ local buttons = {
     "0", ".", "atan", "+", "=",
 }
 
-with_batch(function()
-    for _, txt in ipairs(buttons) do
-        local btn = lv.btn_create(btn_grid)
-        lv.obj_set_size(btn, 58, 20)
-
-        local lbl = lv.label_create(btn)
-        lv.label_set_text(lbl, txt)
-        lv.obj_center(lbl)
-
-        if txt == "AC" then
-            clear_btn_label = lbl
-        end
-
-        if txt == "AC" or txt == "DEL" then
-            lv.obj_set_style_bg_color(btn, 0xC0392B, 0)
-        elseif txt == "DEG" or txt == "RAD" or txt == "=" then
-            lv.obj_set_style_bg_color(btn, 0x2E86C1, 0)
-        elseif txt == "/" or txt == "*" or txt == "-" or txt == "+" or txt == "^" then
-            lv.obj_set_style_bg_color(btn, 0x333333, 0)
-        elseif txt == "sin" or txt == "cos" or txt == "tan"
-            or txt == "asin" or txt == "acos" or txt == "atan"
-            or txt == "sqrt" or txt == "ln" or txt == "log" or txt == "abs"
-            or txt == "pi" or txt == "e" or txt == "ans" then
-            lv.obj_set_style_bg_color(btn, 0x566573, 0)
-        else
-            lv.obj_set_style_bg_color(btn, 0x1A1A1A, 0)
-        end
-
-        lv.obj_add_event_cb(btn, on_btn_click, lv.EVENT_CLICKED)
+local function button_color(key)
+    if key == "AC" or key == "DEL" then
+        return 0xC0392B
+    elseif key == "DEG" or key == "RAD" or key == "=" then
+        return 0x2E86C1
+    elseif key == "/" or key == "*" or key == "-" or key == "+" or key == "^" then
+        return 0x333333
+    elseif key == "sin" or key == "cos" or key == "tan"
+        or key == "asin" or key == "acos" or key == "atan"
+        or key == "sqrt" or key == "ln" or key == "log" or key == "abs"
+        or key == "pi" or key == "e" or key == "ans" then
+        return 0x566573
     end
-end)
+    return 0x1A1A1A
+end
 
-update_display()
+local function button_specs(st)
+    local clear_text = (st.expression == "0" and not st.has_error) and "AC" or "C"
+    local specs = {}
+    for index, key in ipairs(buttons) do
+        specs[#specs + 1] = {
+            kind = "btn",
+            key = "btn" .. index,
+            props = { text = (key == "AC") and clear_text or key },
+            style = { width = 58, height = 20, bg_color = button_color(key) },
+            on = {
+                [lv.EVENT_CLICKED] = function()
+                    handle_key(key)
+                end,
+            },
+        }
+    end
+    return specs
+end
+
+app = uikit.app({
+    state = {
+        expression = expression,
+        last_result = last_result,
+        angle_mode = angle_mode,
+        has_error = has_error,
+    },
+    view = function(st)
+        return {
+            kind = "obj",
+            key = "root",
+            style = { width = 320, height = 240, bg_color = 0xFFFFFF, pad_all = 0, radius = 0 },
+            children = {
+                {
+                    kind = "obj",
+                    key = "display",
+                    style = {
+                        width = 320,
+                        height = 68,
+                        align = { lv.ALIGN_TOP_MID, 0, 0 },
+                        bg_opa = 0,
+                        border_width = 0,
+                        pad_all = 0,
+                    },
+                    children = {
+                        {
+                            kind = "label",
+                            key = "mode",
+                            props = { text = st.angle_mode },
+                            style = { align = { lv.ALIGN_TOP_LEFT, 12, 15 } },
+                        },
+                        {
+                            kind = "label",
+                            key = "hint",
+                            props = { text = "Ans = " .. st.last_result },
+                            style = {
+                                width = 300,
+                                text_align = lv.TEXT_ALIGN_RIGHT,
+                                align = { lv.ALIGN_TOP_RIGHT, -10, 15 },
+                            },
+                        },
+                        {
+                            kind = "label",
+                            key = "expr",
+                            props = { text = trim_expression(st.expression) },
+                            style = {
+                                width = 300,
+                                text_font = font,
+                                text_align = lv.TEXT_ALIGN_RIGHT,
+                                align = { lv.ALIGN_BOTTOM_RIGHT, -10, -2 },
+                            },
+                        },
+                    },
+                },
+                {
+                    kind = "obj",
+                    key = "grid",
+                    props = { flex_flow = lv.FLEX_FLOW_ROW_WRAP },
+                    style = {
+                        width = 320,
+                        height = 172,
+                        align = { lv.ALIGN_BOTTOM_MID, 0, 0 },
+                        pad_all = 4,
+                        pad_row = 4,
+                        pad_column = 4,
+                        bg_opa = 0,
+                        border_width = 0,
+                    },
+                    children = button_specs(st),
+                },
+            },
+        }
+    end,
+})
+
+app.mount(page)
 
 sys.timerLoopStart(function()
     lv.poll_events(10)
+    app.tick()
 end, 16)
 
 sys.run()

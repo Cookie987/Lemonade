@@ -1,10 +1,14 @@
 #ifndef LUA_RUNTIME_STUB
 
+#include <atomic>
 #include <cctype>
 #include <cstring>
 #include <fstream>
+#include <functional>
 #include <limits>
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "esphome/components/network/util.h"
@@ -12,8 +16,11 @@
 #include "esphome/core/log.h"
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 
+#include "esp_heap_caps.h"
 #include "esp_http_client.h"
 
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
@@ -29,6 +36,9 @@ static const char *const TAG = "lua_http";
 static const uint32_t HTTP_DEFAULT_TIMEOUT_MS = 10 * 60 * 1000UL;
 static const size_t HTTP_BUFFER_SIZE = 512;
 static const int HTTP_MAX_REDIRECTS = 5;
+// HTTPS/TLS + Lua + JSON needs a lot of stack; this worker is separate from the Lua task.
+static const uint32_t HTTP_WORKER_STACK = 20480;
+static const size_t HTTP_MAX_INFLIGHT = 4;
 
 struct LuaHttpHeader {
   std::string name;
@@ -50,6 +60,53 @@ struct LuaHttpOptions {
   int callback_ref{LUA_NOREF};
   int userdata_ref{LUA_NOREF};
 };
+
+struct HttpRequest {
+  std::string method;
+  std::string url;
+  std::vector<LuaHttpHeader> headers;
+  std::string body;
+  std::string dst;
+  std::string adapter;
+  std::string ca_pem;
+  std::string client_ca_pem;
+  std::string client_key_pem;
+  std::string client_password;
+  uint32_t timeout_ms{HTTP_DEFAULT_TIMEOUT_MS};
+  bool timeout_forever{false};
+  bool debug{false};
+  bool ipv6{false};
+};
+
+struct HttpResult {
+  int code{-ESP_FAIL};
+  std::vector<LuaHttpHeader> headers;
+  std::string body;
+  size_t body_len{0};
+  bool download{false};
+  bool ok{false};
+};
+
+// One in-flight async request. The worker owns a shared_ptr, the job table owns another
+// one; cancellation just removes the table entry and lets the worker finish/free.
+struct HttpJob {
+  uint32_t id{0};
+  std::string owner;
+  HttpRequest req;
+  HttpResult result;
+  int co_ref{LUA_NOREF};
+  std::atomic<bool> cancelled{false};
+  bool done{false};        // guarded by g_jobs_lock
+  bool dispatched{false};  // guarded by g_jobs_lock
+};
+
+static SemaphoreHandle_t g_jobs_lock = nullptr;
+static std::unordered_map<uint32_t, std::shared_ptr<HttpJob>> g_jobs;
+static uint32_t g_next_job_id = 1;
+
+static void ensure_jobs_lock() {
+  if (g_jobs_lock == nullptr) g_jobs_lock = xSemaphoreCreateMutex();
+}
 
 static std::string to_upper(std::string s) {
   for (auto &ch : s) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
@@ -189,6 +246,54 @@ static bool lua_http_parse_opts(lua_State *L, int idx, LuaHttpOptions &opts, std
   return true;
 }
 
+static bool lua_http_parse_request(lua_State *L, HttpRequest &req, LuaHttpOptions &opts, std::string &error) {
+  size_t method_len = 0;
+  size_t url_len = 0;
+  const char *method_arg = luaL_checklstring(L, 1, &method_len);
+  const char *url_arg = luaL_checklstring(L, 2, &url_len);
+  req.method.assign(method_arg, method_len);
+  req.url.assign(url_arg, url_len);
+
+  if (!lua_http_parse_headers(L, 3, req.headers, error)) {
+    return false;
+  }
+  if (!lua_http_parse_opts(L, 5, opts, error)) {
+    return false;
+  }
+
+  req.timeout_ms = opts.timeout_ms;
+  req.timeout_forever = opts.timeout_forever;
+  // Move (not copy) so that yielding out of http.request cannot leak these strings: the
+  // coroutine's C frame is longjmp'd and its C++ destructors do not run.
+  req.dst = std::move(opts.dst);
+  req.adapter = std::move(opts.adapter);
+  req.debug = opts.debug;
+  req.ipv6 = opts.ipv6;
+
+  if (!lua_isnoneornil(L, 4)) {
+    size_t body_len = 0;
+    const char *body = luaL_checklstring(L, 4, &body_len);
+    req.body.assign(body, body_len);
+  }
+
+  auto copy_arg = [L, &error](int idx, std::string &out) {
+    if (lua_isnoneornil(L, idx)) return;
+    size_t len = 0;
+    const char *value = luaL_checklstring(L, idx, &len);
+    if (value == nullptr) {
+      error = "PEM argument must be a string";
+      return;
+    }
+    out.assign(value, len);
+  };
+  copy_arg(6, req.ca_pem);
+  copy_arg(7, req.client_ca_pem);
+  copy_arg(8, req.client_key_pem);
+  copy_arg(9, req.client_password);
+
+  return error.empty();
+}
+
 static bool lua_http_parse_method(const std::string &method, esp_http_client_method_t &method_idf) {
   const std::string upper = to_upper(method);
   if (upper == "GET") method_idf = HTTP_METHOD_GET;
@@ -265,77 +370,42 @@ static int lua_http_push_error(lua_State *L, int code) {
   return 3;
 }
 
-static int lua_http_request(lua_State *L) {
-  size_t method_len = 0;
-  size_t url_len = 0;
-  const char *method_arg = luaL_checklstring(L, 1, &method_len);
-  const char *url_arg = luaL_checklstring(L, 2, &url_len);
-  std::string method(method_arg, method_len);
-  std::string url(url_arg, url_len);
-  std::vector<LuaHttpHeader> request_headers;
-  std::vector<LuaHttpHeader> response_headers;
-  std::string parse_error;
-  LuaHttpOptions opts;
-
-  if (!lua_http_parse_headers(L, 3, request_headers, parse_error)) {
-    lua_http_cleanup_refs(L, opts);
-    return luaL_error(L, "%s", parse_error.c_str());
-  }
-  if (!lua_http_parse_opts(L, 5, opts, parse_error)) {
-    lua_http_cleanup_refs(L, opts);
-    return luaL_error(L, "%s", parse_error.c_str());
-  }
-
-  size_t body_len = 0;
-  const char *body_ptr = "";
-  if (!lua_isnoneornil(L, 4)) {
-    body_ptr = luaL_checklstring(L, 4, &body_len);
-  }
-  std::string body(body_ptr, body_len);
-
-  size_t ca_len = 0;
-  size_t client_ca_len = 0;
-  size_t client_key_len = 0;
-  size_t client_password_len = 0;
-  const char *ca_pem = nullptr;
-  const char *client_ca_pem = nullptr;
-  const char *client_key_pem = nullptr;
-  const char *client_password = nullptr;
-
-  if (!lua_isnoneornil(L, 6)) ca_pem = luaL_checklstring(L, 6, &ca_len);
-  if (!lua_isnoneornil(L, 7)) client_ca_pem = luaL_checklstring(L, 7, &client_ca_len);
-  if (!lua_isnoneornil(L, 8)) client_key_pem = luaL_checklstring(L, 8, &client_key_len);
-  if (!lua_isnoneornil(L, 9)) client_password = luaL_checklstring(L, 9, &client_password_len);
+// Pure C++ request core, used by both the blocking path (Lua task) and the async worker.
+static void lua_http_perform(const HttpRequest &req, HttpResult &out, const std::function<bool()> &should_abort,
+                             const std::function<bool(size_t, size_t)> &progress) {
+  out.download = !req.dst.empty();
+  out.code = -ESP_FAIL;
+  out.ok = false;
 
   esp_http_client_method_t method_idf = HTTP_METHOD_GET;
-  if (!lua_http_parse_method(method, method_idf)) {
-    lua_http_cleanup_refs(L, opts);
-    return lua_http_push_error(L, -ESP_ERR_INVALID_ARG);
+  if (!lua_http_parse_method(req.method, method_idf)) {
+    out.code = -ESP_ERR_INVALID_ARG;
+    return;
   }
 
   if (!esphome::network::is_connected()) {
-    if (opts.debug) {
+    if (req.debug) {
       ESP_LOGW(TAG, "request skipped because network is disconnected");
     }
-    lua_http_cleanup_refs(L, opts);
-    return lua_http_push_error(L, -ESP_ERR_INVALID_STATE);
+    out.code = -ESP_ERR_INVALID_STATE;
+    return;
   }
 
-  if (!opts.adapter.empty()) {
-    ESP_LOGW(TAG, "adapter option is not implemented yet, ignored: %s", opts.adapter.c_str());
+  if (!req.adapter.empty()) {
+    ESP_LOGW(TAG, "adapter option is not implemented yet, ignored: %s", req.adapter.c_str());
   }
 
-  const bool secure = url.rfind("https://", 0) == 0;
-  if (opts.debug) {
-    ESP_LOGI(TAG, "request %s %s (body=%u bytes, download=%s, ipv6=%s)", method.c_str(), url.c_str(),
-             static_cast<unsigned>(body.size()), opts.dst.empty() ? "no" : "yes", YESNO(opts.ipv6));
+  const bool secure = req.url.rfind("https://", 0) == 0;
+  if (req.debug) {
+    ESP_LOGI(TAG, "request %s %s (body=%u bytes, download=%s, ipv6=%s)", req.method.c_str(), req.url.c_str(),
+             static_cast<unsigned>(req.body.size()), req.dst.empty() ? "no" : "yes", YESNO(req.ipv6));
   }
 
-  LuaHttpEventData event_data{&response_headers, opts.debug};
+  LuaHttpEventData event_data{&out.headers, req.debug};
   esp_http_client_config_t config = {};
-  config.url = url.c_str();
+  config.url = req.url.c_str();
   config.method = method_idf;
-  config.timeout_ms = opts.timeout_forever ? std::numeric_limits<int>::max() : static_cast<int>(opts.timeout_ms);
+  config.timeout_ms = req.timeout_forever ? std::numeric_limits<int>::max() : static_cast<int>(req.timeout_ms);
   config.disable_auto_redirect = true;
   config.max_redirection_count = HTTP_MAX_REDIRECTS;
   config.user_agent = "Lemonade Lua HTTP";
@@ -344,36 +414,36 @@ static int lua_http_request(lua_State *L) {
   config.buffer_size_tx = HTTP_BUFFER_SIZE;
   config.event_handler = lua_http_event_handler;
   config.user_data = &event_data;
-  config.addr_type = opts.ipv6 ? HTTP_ADDR_TYPE_INET6 : HTTP_ADDR_TYPE_UNSPEC;
+  config.addr_type = req.ipv6 ? HTTP_ADDR_TYPE_INET6 : HTTP_ADDR_TYPE_UNSPEC;
 
   if (secure) {
-    if (ca_pem != nullptr && ca_len > 0) {
-      config.cert_pem = ca_pem;
-      config.cert_len = ca_len + 1;
+    if (!req.ca_pem.empty()) {
+      config.cert_pem = req.ca_pem.c_str();
+      config.cert_len = req.ca_pem.size() + 1;
 #if CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
     } else {
       config.crt_bundle_attach = esp_crt_bundle_attach;
 #endif
     }
 
-    if (client_ca_pem != nullptr && client_ca_len > 0) {
-      config.client_cert_pem = client_ca_pem;
-      config.client_cert_len = client_ca_len + 1;
+    if (!req.client_ca_pem.empty()) {
+      config.client_cert_pem = req.client_ca_pem.c_str();
+      config.client_cert_len = req.client_ca_pem.size() + 1;
     }
-    if (client_key_pem != nullptr && client_key_len > 0) {
-      config.client_key_pem = client_key_pem;
-      config.client_key_len = client_key_len + 1;
+    if (!req.client_key_pem.empty()) {
+      config.client_key_pem = req.client_key_pem.c_str();
+      config.client_key_len = req.client_key_pem.size() + 1;
     }
-    if (client_password != nullptr && client_password_len > 0) {
-      config.client_key_password = client_password;
-      config.client_key_password_len = client_password_len;
+    if (!req.client_password.empty()) {
+      config.client_key_password = req.client_password.c_str();
+      config.client_key_password_len = req.client_password.size();
     }
   }
 
   esp_http_client_handle_t client = esp_http_client_init(&config);
   if (client == nullptr) {
-    lua_http_cleanup_refs(L, opts);
-    return lua_http_push_error(L, -ESP_ERR_NO_MEM);
+    out.code = -ESP_ERR_NO_MEM;
+    return;
   }
 
   int result_code = -ESP_FAIL;
@@ -381,30 +451,34 @@ static int lua_http_request(lua_State *L) {
   size_t total_body_len = 0;
   bool chunked = false;
   bool ok = false;
-  const bool download_mode = !opts.dst.empty();
   std::string response_body;
   std::ofstream output;
-  std::string callback_error;
 
-  for (const auto &header : request_headers) {
+  for (const auto &header : req.headers) {
     esp_http_client_set_header(client, header.name.c_str(), header.value.c_str());
   }
 
   do {
-    esphome::lua_runtime::lua_abort_if_ota(L);
+    if (should_abort()) {
+      result_code = -ESP_ERR_INVALID_STATE;
+      break;
+    }
 
-    esp_err_t err = esp_http_client_open(client, static_cast<int>(body.size()));
+    esp_err_t err = esp_http_client_open(client, static_cast<int>(req.body.size()));
     if (err != ESP_OK) {
       result_code = -err;
       break;
     }
 
-    if (!body.empty()) {
-      int remaining = static_cast<int>(body.size());
+    if (!req.body.empty()) {
+      int remaining = static_cast<int>(req.body.size());
       int offset = 0;
       while (remaining > 0) {
-        esphome::lua_runtime::lua_abort_if_ota(L);
-        int written = esp_http_client_write(client, body.data() + offset, remaining);
+        if (should_abort()) {
+          result_code = -ESP_ERR_INVALID_STATE;
+          break;
+        }
+        int written = esp_http_client_write(client, req.body.data() + offset, remaining);
         if (written < 0) {
           result_code = written;
           break;
@@ -424,10 +498,10 @@ static int lua_http_request(lua_State *L) {
     int redirects_left = HTTP_MAX_REDIRECTS;
     while ((result_code == 301 || result_code == 302 || result_code == 303 || result_code == 307 || result_code == 308) &&
            redirects_left > 0) {
-      if (opts.debug) {
+      if (req.debug) {
         ESP_LOGI(TAG, "redirect status=%d", result_code);
       }
-      response_headers.clear();
+      out.headers.clear();
       err = esp_http_client_set_redirection(client);
       if (err != ESP_OK) {
         result_code = -err;
@@ -448,8 +522,8 @@ static int lua_http_request(lua_State *L) {
       break;
     }
 
-    if (download_mode) {
-      output.open(opts.dst, std::ios::binary | std::ios::trunc);
+    if (out.download) {
+      output.open(req.dst, std::ios::binary | std::ios::trunc);
       if (!output.is_open()) {
         result_code = -ESP_FAIL;
         break;
@@ -458,7 +532,7 @@ static int lua_http_request(lua_State *L) {
       response_body.reserve(content_length);
     }
 
-    if (!lua_http_call_progress(L, opts, content_length, total_body_len, callback_error)) {
+    if (progress && !progress(content_length, total_body_len)) {
       result_code = -ESP_FAIL;
       break;
     }
@@ -466,14 +540,17 @@ static int lua_http_request(lua_State *L) {
     uint8_t buffer[HTTP_BUFFER_SIZE];
     uint32_t last_data_time = esphome::millis();
     while (true) {
-      esphome::lua_runtime::lua_abort_if_ota(L);
+      if (should_abort()) {
+        result_code = -ESP_ERR_INVALID_STATE;
+        break;
+      }
       int read_len = esp_http_client_read(client, reinterpret_cast<char *>(buffer), sizeof(buffer));
       esphome::App.feed_wdt();
 
       if (read_len > 0) {
         total_body_len += static_cast<size_t>(read_len);
         last_data_time = esphome::millis();
-        if (download_mode) {
+        if (out.download) {
           output.write(reinterpret_cast<const char *>(buffer), read_len);
           if (!output.good()) {
             result_code = -ESP_FAIL;
@@ -483,7 +560,7 @@ static int lua_http_request(lua_State *L) {
           response_body.append(reinterpret_cast<const char *>(buffer), read_len);
         }
 
-        if (!lua_http_call_progress(L, opts, content_length, total_body_len, callback_error)) {
+        if (progress && !progress(content_length, total_body_len)) {
           result_code = -ESP_FAIL;
           break;
         }
@@ -500,7 +577,7 @@ static int lua_http_request(lua_State *L) {
         break;
       }
 
-      if (!opts.timeout_forever && esphome::millis() - last_data_time >= opts.timeout_ms) {
+      if (!req.timeout_forever && esphome::millis() - last_data_time >= req.timeout_ms) {
         result_code = -ESP_ERR_TIMEOUT;
         break;
       }
@@ -515,32 +592,157 @@ static int lua_http_request(lua_State *L) {
   esp_http_client_close(client);
   esp_http_client_cleanup(client);
 
-  if (!callback_error.empty()) {
-    ESP_LOGE(TAG, "callback error: %s", callback_error.c_str());
-  }
+  out.code = result_code;
+  out.ok = ok;
+  out.body = std::move(response_body);
+  out.body_len = total_body_len;
 
-  if (!ok) {
-    if (opts.debug) {
+  if (req.debug) {
+    if (ok) {
+      ESP_LOGI(TAG, "request finished: code=%d, body=%u bytes, chunked=%s", result_code,
+               static_cast<unsigned>(total_body_len), YESNO(chunked));
+    } else {
       ESP_LOGW(TAG, "request failed: code=%d", result_code);
     }
+  }
+}
+
+static int lua_http_yield_cont(lua_State *L, int status, lua_KContext ctx) {
+  (void) status;
+  (void) ctx;
+  // The resume arguments are on the stack; they become the return values of http.request.
+  return lua_gettop(L);
+}
+
+static void lua_http_worker(void *arg);
+
+// Starts a worker for a request made from a coroutine. Returns 0 when the worker is
+// running (the caller must then yield with lua_http_yield_cont), or 3 with an error result
+// already pushed when the request could not be started.
+static int lua_http_start_async(lua_State *L, HttpRequest &req) {
+  const std::string owner = esphome::lua_runtime::lua_runtime_script_path(L);
+  if (owner.empty()) {
+    return lua_http_push_error(L, -ESP_ERR_INVALID_STATE);
+  }
+
+  ensure_jobs_lock();
+  if (g_jobs_lock == nullptr) {
+    return lua_http_push_error(L, -ESP_ERR_NO_MEM);
+  }
+  auto job = std::make_shared<HttpJob>();
+  job->owner = owner;
+  job->req = std::move(req);
+  lua_pushthread(L);
+  job->co_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+  {
+    xSemaphoreTake(g_jobs_lock, portMAX_DELAY);
+    size_t inflight = 0;
+    for (const auto &entry : g_jobs) {
+      if (!entry.second->done) inflight++;
+    }
+    if (inflight >= HTTP_MAX_INFLIGHT) {
+      xSemaphoreGive(g_jobs_lock);
+      luaL_unref(L, LUA_REGISTRYINDEX, job->co_ref);
+      return lua_http_push_error(L, -ESP_ERR_NO_MEM);
+    }
+    job->id = g_next_job_id++;
+    g_jobs[job->id] = job;
+    xSemaphoreGive(g_jobs_lock);
+  }
+
+  auto *holder = new std::shared_ptr<HttpJob>(job);
+  BaseType_t ok = xTaskCreatePinnedToCoreWithCaps(lua_http_worker, "lua_http", HTTP_WORKER_STACK, holder, 1, nullptr, 0,
+                                                  MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  if (ok != pdPASS) {
+    ok = xTaskCreatePinnedToCore(lua_http_worker, "lua_http", HTTP_WORKER_STACK, holder, 1, nullptr, 0);
+  }
+  if (ok != pdPASS) {
+    delete holder;
+    xSemaphoreTake(g_jobs_lock, portMAX_DELAY);
+    g_jobs.erase(job->id);
+    xSemaphoreGive(g_jobs_lock);
+    luaL_unref(L, LUA_REGISTRYINDEX, job->co_ref);
+    return lua_http_push_error(L, -ESP_ERR_NO_MEM);
+  }
+
+  return 0;
+}
+
+static int lua_http_request(lua_State *L) {
+  HttpRequest req;
+  LuaHttpOptions opts;
+  std::string parse_error;
+
+  if (!lua_http_parse_request(L, req, opts, parse_error)) {
     lua_http_cleanup_refs(L, opts);
-    return lua_http_push_error(L, result_code);
+    return luaL_error(L, "%s", parse_error.c_str());
   }
 
-  if (opts.debug) {
-    ESP_LOGI(TAG, "request finished: code=%d, body=%u bytes, chunked=%s", result_code,
-             static_cast<unsigned>(total_body_len), YESNO(chunked));
+  // Inside a coroutine (e.g. sys.taskInit) the request runs on a worker and this coroutine
+  // is resumed with the result. Progress callbacks need the Lua state during the transfer,
+  // so those requests keep the blocking path.
+  if (lua_isyieldable(L) && opts.callback_ref == LUA_NOREF && opts.userdata_ref == LUA_NOREF) {
+    int started = lua_http_start_async(L, req);
+    if (started == 0) {
+      lua_settop(L, 0);
+      return lua_yieldk(L, 0, 0, lua_http_yield_cont);
+    }
+    return started;
   }
 
-  lua_pushinteger(L, result_code);
-  lua_http_push_headers(L, response_headers);
-  if (download_mode) {
-    lua_pushinteger(L, static_cast<lua_Integer>(total_body_len));
-  } else {
-    lua_pushlstring(L, response_body.data(), response_body.size());
-  }
+  HttpResult result;
+  auto should_abort = [L]() {
+    esphome::lua_runtime::lua_abort_if_ota(L);
+    return false;
+  };
+  auto progress = [L, &opts](size_t content_length, size_t body_length) {
+    std::string callback_error;
+    bool ok = lua_http_call_progress(L, opts, content_length, body_length, callback_error);
+    if (!ok) {
+      ESP_LOGE(TAG, "callback error: %s", callback_error.c_str());
+    }
+    return ok;
+  };
+
+  lua_http_perform(req, result, should_abort, progress);
   lua_http_cleanup_refs(L, opts);
+
+  if (!result.ok) {
+    return lua_http_push_error(L, result.code);
+  }
+
+  lua_pushinteger(L, result.code);
+  lua_http_push_headers(L, result.headers);
+  if (result.download) {
+    lua_pushinteger(L, static_cast<lua_Integer>(result.body_len));
+  } else {
+    lua_pushlstring(L, result.body.data(), result.body.size());
+  }
   return 3;
+}
+
+static void lua_http_worker(void *arg) {
+  auto *holder = static_cast<std::shared_ptr<HttpJob> *>(arg);
+  std::shared_ptr<HttpJob> job = *holder;
+  delete holder;
+
+  HttpResult result;
+  auto should_abort = [&job]() { return job->cancelled.load(std::memory_order_acquire); };
+  lua_http_perform(job->req, result, should_abort, nullptr);
+  job->result = std::move(result);
+
+  {
+    ensure_jobs_lock();
+    if (g_jobs_lock != nullptr) {
+      xSemaphoreTake(g_jobs_lock, portMAX_DELAY);
+      job->done = true;
+      xSemaphoreGive(g_jobs_lock);
+    }
+  }
+
+  esphome::lua_runtime::lua_http_notify(job->owner);
+  vTaskDelete(nullptr);
 }
 
 static const luaL_Reg HTTP_FUNCS[] = {
@@ -550,6 +752,93 @@ static const luaL_Reg HTTP_FUNCS[] = {
 };
 
 }  // namespace
+
+namespace esphome {
+namespace lua_runtime {
+
+// Called from the Lua task (rtos.receive). Takes one finished job for this script and
+// resumes the coroutine that was parked in http.request with (code, headers, body).
+void lua_http_dispatch(lua_State *L, const std::string &owner) {
+  if (g_jobs_lock == nullptr) return;
+
+  while (true) {
+    std::shared_ptr<HttpJob> job;
+    {
+      xSemaphoreTake(g_jobs_lock, portMAX_DELAY);
+      for (auto it = g_jobs.begin(); it != g_jobs.end(); ++it) {
+        if (it->second->owner == owner && it->second->done && !it->second->dispatched) {
+          job = it->second;
+          job->dispatched = true;
+          g_jobs.erase(it);
+          break;
+        }
+      }
+      xSemaphoreGive(g_jobs_lock);
+    }
+    if (!job) return;
+
+    if (job->co_ref == LUA_NOREF) continue;
+
+    lua_rawgeti(L, LUA_REGISTRYINDEX, job->co_ref);
+    lua_State *co = lua_tothread(L, -1);
+    lua_pop(L, 1);
+    if (co == nullptr) {
+      luaL_unref(L, LUA_REGISTRYINDEX, job->co_ref);
+      continue;
+    }
+
+    if (!job->result.ok) {
+      lua_pushinteger(co, job->result.code);
+      lua_pushnil(co);
+      lua_pushnil(co);
+    } else {
+      lua_pushinteger(co, job->result.code);
+      lua_http_push_headers(co, job->result.headers);
+      if (job->result.download) {
+        lua_pushinteger(co, static_cast<lua_Integer>(job->result.body_len));
+      } else {
+        lua_pushlstring(co, job->result.body.data(), job->result.body.size());
+      }
+    }
+
+    int nres = 0;
+    int status = lua_resume(co, L, 3, &nres);
+    if (status == LUA_OK) {
+      lua_settop(co, 0);
+    } else if (status != LUA_YIELD) {
+      const char *err = lua_tostring(co, -1);
+      ESP_LOGE(TAG, "async HTTP coroutine error: %s", err != nullptr ? err : "(unknown)");
+      lua_settop(co, 0);
+    }
+    // On LUA_YIELD the coroutine is kept alive either by the new HTTP job it parked on or
+    // by sys.wait/sys.waitUntil's own reference; on completion/error it is dead.
+    luaL_unref(L, LUA_REGISTRYINDEX, job->co_ref);
+  }
+}
+
+// Called before lua_close: drop every in-flight/completed request of a script and release
+// its coroutine refs. Workers keep their own shared_ptr and abort at their next check.
+void lua_http_cancel_owner(lua_State *L, const std::string &owner) {
+  if (g_jobs_lock == nullptr) return;
+
+  xSemaphoreTake(g_jobs_lock, portMAX_DELAY);
+  for (auto it = g_jobs.begin(); it != g_jobs.end();) {
+    if (it->second->owner == owner) {
+      it->second->cancelled.store(true, std::memory_order_release);
+      if (it->second->co_ref != LUA_NOREF) {
+        luaL_unref(L, LUA_REGISTRYINDEX, it->second->co_ref);
+        it->second->co_ref = LUA_NOREF;
+      }
+      it = g_jobs.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  xSemaphoreGive(g_jobs_lock);
+}
+
+}  // namespace lua_runtime
+}  // namespace esphome
 
 extern "C" int luaopen_http(lua_State *L) {
   luaL_newlib(L, HTTP_FUNCS);

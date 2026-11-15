@@ -28,6 +28,8 @@ local state = {
 }
 
 local refs = {}
+-- 异步请求后可能乱序返回；只让最新一次查询渲染结果。
+local query_epoch = 0
 
 local function with_batch(fn)
     lv.batch_begin()
@@ -382,6 +384,9 @@ local function query_word(word)
         return
     end
 
+    query_epoch = query_epoch + 1
+    local epoch = query_epoch
+
     remember_word(normalized)
     lv.textarea_set_text(refs.input_box, normalized)
     show_keyboard(false)
@@ -394,6 +399,11 @@ local function query_word(word)
         })
         return status, headers, response
     end)
+
+    -- 已经发起了更新的查询：丢弃这次（可能更旧）的结果。
+    if epoch ~= query_epoch then
+        return
+    end
 
     if not ok then
         render_error(normalized, "HTTP 请求异常: " .. tostring(code))
@@ -485,7 +495,7 @@ lv.textarea_set_cursor_click_pos(refs.input_box, true)
 lv.textarea_set_placeholder_text(refs.input_box, "输入单词，例如 hello")
 
 local search_btn, search_label = make_button(page, "查询", 94, 34, 0x1B54A6, function()
-    query_word(lv.textarea_get_text(refs.input_box))
+    sys.taskInit(query_word, lv.textarea_get_text(refs.input_box))
 end)
 lv.obj_align(search_btn, lv.ALIGN_TOP_RIGHT, -12, 34)
 lv.obj_set_style_text_color(search_btn, 0xFFFFFF, 0)
@@ -509,7 +519,7 @@ for i = 1, history_limit do
         local child = lv.obj_get_child(target, 0)
         local word = trim(lv.label_get_text(child))
         if word ~= "" then
-            query_word(word)
+            sys.taskInit(query_word, word)
         end
     end)
     lv.obj_set_style_text_color(btn, 0x1B54A6, 0)
@@ -576,7 +586,7 @@ lv.obj_add_event_cb(refs.keyboard, function(e)
     end
 
     if is_keyboard_ok(text) then
-        query_word(lv.textarea_get_text(refs.input_box))
+        sys.taskInit(query_word, lv.textarea_get_text(refs.input_box))
     end
 end, lv.EVENT_VALUE_CHANGED)
 

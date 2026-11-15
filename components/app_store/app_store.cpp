@@ -391,11 +391,13 @@ bool AppStore::start_worker_(WorkerOp op, const std::string &app_id) {
   // The app-store worker performs network, filesystem, and zip processing. Keep
   // its large stack in PSRAM first so fragmented internal RAM does not prevent
   // task creation after the device has been running for hours.
+  // Pin it to core 0 (radio/system core) so downloads and unzip bursts cannot steal
+  // CPU from the LVGL/UI task on core 1.
   BaseType_t ok = xTaskCreatePinnedToCoreWithCaps(&AppStore::worker_task_entry_, "app_store", WORKER_STACK_SIZE, args, 1,
-                                                  nullptr, tskNO_AFFINITY, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+                                                  nullptr, 0, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (ok != pdPASS) {
     ESP_LOGW(TAG, "Worker create in PSRAM failed, retrying with internal RAM");
-    ok = xTaskCreate(&AppStore::worker_task_entry_, "app_store", WORKER_STACK_SIZE, args, 1, nullptr);
+    ok = xTaskCreatePinnedToCore(&AppStore::worker_task_entry_, "app_store", WORKER_STACK_SIZE, args, 1, nullptr, 0);
   }
   if (ok != pdPASS) {
     delete args;

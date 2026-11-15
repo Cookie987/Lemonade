@@ -136,6 +136,7 @@ binary_sensor:
                   id: page_main
                   animation: FADE_IN
                   time: 200ms
+              - script.execute: statusbar_immersive
 
   - platform: gpio
     id: charge

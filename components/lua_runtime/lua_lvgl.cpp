@@ -28,12 +28,25 @@ void cleanup_lvgl_api(lua_State *) {}
 void show_lua_error_on_app_page(const std::string &, const std::string &) {}
 void set_lvgl_owner_task(void *) {}
 void process_lvgl_jobs() {}
+bool is_app_page_ready(const std::string &) { return true; }
+void request_app_page_launch(const std::string &, lv_obj_t *) {}
+bool cancel_app_page_launch() { return false; }
+void dismiss_launch_cover() {}
+void notify_app_page_ready(const std::string &) {}
+void tick_app_page_launch() {}
+std::string active_app_dir() { return {}; }
+void release_app_page(const std::string &) {}
+bool is_app_launching(const std::string &) { return false; }
+bool is_app_launch_pending() { return false; }
+bool is_any_app_launching() { return false; }
+void rearm_app_page_launch(const std::string &) {}
 
 }  // namespace lua_runtime
 }  // namespace esphome
 
 #else
 #include "lua.hpp"
+#include "lua_runtime.h"
 #include "lvgl.h"
 
 namespace esphome {
@@ -42,6 +55,21 @@ namespace lua_runtime {
 static const char *TAG = "lua_lvgl";
 static SemaphoreHandle_t g_page_lock = nullptr;
 static std::unordered_map<std::string, lv_obj_t *> g_app_pages;
+// Apps whose UI has finished building at least once. A ready app page is shown as soon as
+// its icon is tapped; a not-ready one is shown when the script reports ready (see
+// notify_app_page_ready) instead of showing a half-built page.
+static std::unordered_set<std::string> g_app_ready;
+// Launch / foreground bookkeeping for the lifecycle: an app that has just been requested
+// (and has not been foreground yet) is still building its page; stopping it there aborts
+// the launch and can chain into stopping every app under memory pressure.
+static std::unordered_map<std::string, uint32_t> g_app_launch_at;
+static std::unordered_set<std::string> g_app_foreground;
+static constexpr uint32_t APP_LAUNCH_GRACE_MS = 10000;
+static std::string g_requested_app;
+static lv_obj_t *g_requested_screen = nullptr;
+static uint32_t g_requested_app_at = 0;
+static volatile bool g_app_launch_pending = false;
+static constexpr uint32_t APP_PAGE_READY_TIMEOUT_MS = 3000;
 static const char *LVGL_APP_PAGE_KEY = "lua_lvgl.app_page";
 static const char *LVGL_CTX_KEY = "lua_lvgl.ctx";
 static const char *LVGL_SCRIPT_DIR_KEY = "lua_lvgl.script_dir";
@@ -69,6 +97,7 @@ struct LuaLvglContext {
   QueueHandle_t queue{nullptr};
   volatile bool alive{true};
   bool fatal_error_reported{false};
+  bool app_page_notified{false};
   std::string script_path;
   std::unordered_set<LuaEventCb *> event_cbs;
   std::unordered_map<lv_timer_t *, LuaTimerCb *> timers;
@@ -82,18 +111,26 @@ static void ensure_page_lock() {
 }
 
 void register_app_page(const std::string &app_dir, lv_obj_t *page) {
+  bool cancel_launch = false;
   ensure_page_lock();
   if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
   g_app_pages[app_dir] = page;
+  g_app_ready.erase(app_dir);
+  cancel_launch = g_requested_app == app_dir;
   if (g_page_lock) xSemaphoreGive(g_page_lock);
+  if (cancel_launch) cancel_app_page_launch();
   ESP_LOGD(TAG, "register app page: %s -> %p", app_dir.c_str(), page);
 }
 
 void unregister_app_page(const std::string &app_dir) {
+  bool cancel_launch = false;
   ensure_page_lock();
   if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
   g_app_pages.erase(app_dir);
+  g_app_ready.erase(app_dir);
+  cancel_launch = g_requested_app == app_dir;
   if (g_page_lock) xSemaphoreGive(g_page_lock);
+  if (cancel_launch) cancel_app_page_launch();
   ESP_LOGD(TAG, "unregister app page: %s", app_dir.c_str());
 }
 
@@ -105,6 +142,119 @@ static lv_obj_t *get_app_page(const std::string &app_dir) {
   if (it != g_app_pages.end()) page = it->second;
   if (g_page_lock) xSemaphoreGive(g_page_lock);
   return page;
+}
+
+bool is_app_page_ready(const std::string &app_dir) {
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  bool ready = g_app_ready.find(app_dir) != g_app_ready.end();
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  return ready;
+}
+
+std::string active_app_dir() {
+  lv_obj_t *active = lv_screen_active();
+  if (active == nullptr) return {};
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  std::string dir;
+  for (const auto &entry : g_app_pages) {
+    if (entry.second == active) {
+      dir = entry.first;
+      break;
+    }
+  }
+  // Once an app page has really been on screen, it is no longer "launching": from here on
+  // it may be parked/stopped like any other background app.
+  if (!dir.empty()) g_app_foreground.insert(dir);
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  return dir;
+}
+
+bool is_app_launching(const std::string &app_dir) {
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  bool launching = false;
+  const uint32_t now = lv_tick_get();
+  if (g_app_launch_pending && g_requested_app == app_dir) launching = true;
+  auto it = g_app_launch_at.find(app_dir);
+  if (it != g_app_launch_at.end() && (uint32_t) (now - it->second) < APP_LAUNCH_GRACE_MS) {
+    launching = true;
+  }
+  // A foregrounded app is only protected while a new launch request is pending.
+  if (g_app_foreground.find(app_dir) != g_app_foreground.end() &&
+      !(g_app_launch_pending && g_requested_app == app_dir)) {
+    launching = false;
+  }
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  return launching;
+}
+
+bool is_app_launch_pending() {
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  bool pending = g_app_launch_pending;
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  return pending;
+}
+
+bool is_any_app_launching() {
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  bool launching = g_app_launch_pending;
+  if (!launching) {
+    const uint32_t now = lv_tick_get();
+    for (const auto &entry : g_app_launch_at) {
+      if (g_app_foreground.find(entry.first) != g_app_foreground.end()) continue;
+      if ((uint32_t) (now - entry.second) < APP_LAUNCH_GRACE_MS) {
+        launching = true;
+        break;
+      }
+    }
+  }
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  return launching;
+}
+
+void rearm_app_page_launch(const std::string &app_dir) {
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  g_requested_app = app_dir;
+  // The user already asked for this app; show it when the rebuilt page is ready. A null
+  // screen means "take over whatever is active", since the old launch screen may be gone.
+  g_requested_screen = nullptr;
+  g_requested_app_at = lv_tick_get();
+  g_app_launch_at[app_dir] = g_requested_app_at;
+  g_app_launch_pending = true;
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+}
+
+// Defined further down; declared here because release_app_page (below) dispatches onto the
+// LVGL task through it.
+template<typename F> static void lvgl_call_void(F &&fn);
+
+// Called when an app script has stopped: drop its widgets and mark the page as needing a
+// rebuild, so the next launch builds a fresh UI instead of showing a dead one.
+void release_app_page(const std::string &app_dir) {
+  bool cancel_launch = false;
+  lv_obj_t *page = nullptr;
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  g_app_ready.erase(app_dir);
+  g_app_launch_at.erase(app_dir);
+  g_app_foreground.erase(app_dir);
+  cancel_launch = g_requested_app == app_dir;
+  auto it = g_app_pages.find(app_dir);
+  if (it != g_app_pages.end()) page = it->second;
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+
+  if (cancel_launch) cancel_app_page_launch();
+  if (page == nullptr) return;
+  lvgl_call_void([page]() {
+    if (!lv_obj_is_valid(page)) return;
+    if (lv_screen_active() == page) return;  // never wipe a visible page
+    lv_obj_clean(page);
+  });
 }
 
 static bool is_registered_app_page(lv_obj_t *page) {
@@ -198,6 +348,10 @@ static QueueHandle_t g_lvgl_job_queue = nullptr;
 static void *g_lvgl_owner_task = nullptr;
 static SemaphoreHandle_t g_lvgl_batch_lock = nullptr;
 static std::unordered_map<void *, int> g_lvgl_batch_depths;
+// Whether the outermost batch of a task actually paused the renderer. Batches that build a
+// page which is not the active screen do not need to pause anything (LVGL already drops
+// invalidation for inactive screens), so the home screen can keep animating meanwhile.
+static std::unordered_map<void *, bool> g_lvgl_batch_paused;
 
 struct LvglJobBase {
   TaskHandle_t waiter{nullptr};
@@ -228,6 +382,47 @@ static void ensure_lvgl_job_queue() {
   }
 }
 
+// While a Lua batch that builds the *visible* page is active, LVGL's timer handler is
+// stopped, so the batch runs as one uninterrupted burst of jobs on the LVGL task and is
+// rendered in a single frame instead of the renderer painting a half-built screen every
+// LV_DEF_REFR_PERIOD. Pausing only the display refresh timer is not enough: every
+// invalidation sends LV_EVENT_REFR_REQUEST and LVGL resumes that timer on its own.
+// Batches that build an inactive page skip this entirely (see l_batch_begin), so the home
+// screen keeps animating while an app is being built off-screen.
+static constexpr uint32_t LVGL_RENDER_PAUSE_TIMEOUT_MS = 200;
+static int g_render_pause_refs = 0;
+static bool g_render_pause_released = false;
+static uint32_t g_render_pause_last_progress_at = 0;
+
+static void pause_lvgl_rendering() {
+  if (g_render_pause_refs == 0 || g_render_pause_released) {
+    lv_timer_enable(false);
+    g_render_pause_released = false;
+    g_render_pause_last_progress_at = lv_tick_get();
+  }
+  g_render_pause_refs++;
+}
+
+static void resume_lvgl_rendering() {
+  if (g_render_pause_refs <= 0) return;
+  g_render_pause_refs--;
+  if (g_render_pause_refs > 0) return;
+  g_render_pause_released = false;
+  lv_timer_enable(true);
+}
+
+// Safety net: only a batch that stops making progress (no LVGL job has run for
+// LVGL_RENDER_PAUSE_TIMEOUT_MS) is released. A long build that keeps executing jobs is
+// left alone, otherwise the timer would be re-enabled halfway through the build and every
+// later call would wait for a frame again.
+static void release_stale_lvgl_render_pause() {
+  if (g_render_pause_refs <= 0 || g_render_pause_released) return;
+  uint32_t idle_ms = (uint32_t) (lv_tick_get() - g_render_pause_last_progress_at);
+  if (idle_ms < LVGL_RENDER_PAUSE_TIMEOUT_MS) return;
+  g_render_pause_released = true;
+  lv_timer_enable(true);
+}
+
 void set_lvgl_owner_task(void *task_handle) {
   g_lvgl_owner_task = task_handle;
   ensure_lvgl_job_queue();
@@ -235,10 +430,22 @@ void set_lvgl_owner_task(void *task_handle) {
 
 void process_lvgl_jobs() {
   ensure_lvgl_job_queue();
-  if (g_lvgl_job_queue == nullptr) return;
+  if (g_lvgl_job_queue == nullptr) {
+    release_stale_lvgl_render_pause();
+    return;
+  }
   LvglJobBase *job = nullptr;
   int processed = 0;
-  while (xQueueReceive(g_lvgl_job_queue, &job, 0) == pdTRUE) {
+  const uint32_t start = lv_tick_get();
+  bool first = true;
+  while (true) {
+    // The first receive must not block (an idle UI loop pays nothing). After a job was
+    // handled, wait a tiny bit for the producer's next call: a UI build is a chain of
+    // create/query round trips, and chaining them inside one loop makes construction much
+    // faster than one job per 16 ms frame.
+    TickType_t wait = first ? 0 : pdMS_TO_TICKS(1);
+    if (xQueueReceive(g_lvgl_job_queue, &job, wait) != pdTRUE) break;
+    first = false;
     if (job != nullptr) {
       // Cache the waiter before running: notifying it can wake the Lua task, which may
       // destroy/reuse the stack-allocated job immediately. Never touch the job after that.
@@ -251,8 +458,13 @@ void process_lvgl_jobs() {
         delete job;
       }
     }
-    if (++processed >= 256) break;
+    if (++processed >= 128) break;
+    // Time budget: leave the rest of the frame to LVGL / ESPHome so the cover, status bar
+    // and touch keep running during a large UI build.
+    if ((uint32_t) (lv_tick_get() - start) >= 4) break;
   }
+  if (processed > 0) g_render_pause_last_progress_at = lv_tick_get();
+  release_stale_lvgl_render_pause();
 }
 
 static void wait_job_done(LvglJobBase *job) {
@@ -280,6 +492,27 @@ static void set_lvgl_batch_depth_for_task(void *task, int depth) {
     g_lvgl_batch_depths[task] = depth;
   } else {
     g_lvgl_batch_depths.erase(task);
+  }
+  xSemaphoreGive(g_lvgl_batch_lock);
+}
+
+static bool get_lvgl_batch_paused_for_task(void *task) {
+  ensure_lvgl_job_queue();
+  if (g_lvgl_batch_lock == nullptr || task == nullptr) return false;
+  xSemaphoreTake(g_lvgl_batch_lock, portMAX_DELAY);
+  bool paused = g_lvgl_batch_paused.find(task) != g_lvgl_batch_paused.end();
+  xSemaphoreGive(g_lvgl_batch_lock);
+  return paused;
+}
+
+static void set_lvgl_batch_paused_for_task(void *task, bool paused) {
+  ensure_lvgl_job_queue();
+  if (g_lvgl_batch_lock == nullptr || task == nullptr) return;
+  xSemaphoreTake(g_lvgl_batch_lock, portMAX_DELAY);
+  if (paused) {
+    g_lvgl_batch_paused[task] = true;
+  } else {
+    g_lvgl_batch_paused.erase(task);
   }
   xSemaphoreGive(g_lvgl_batch_lock);
 }
@@ -354,10 +587,286 @@ template<typename F> static auto lvgl_call_ret(F &&fn) -> decltype(fn()) {
   return job.result;
 }
 
+// ------------------------------------------------------------------ launch cover
+// A cold app is built off-screen, so the tap is acknowledged with a short cover: the
+// tapped icon moves to the centre while the rest of the screen fades to white. The cover
+// is a full-screen clickable object on the top layer, so other icons cannot be tapped
+// until the app is shown or the launch is cancelled (Home / power key).
+static lv_obj_t *g_launch_overlay = nullptr;
+static lv_obj_t *g_launch_icon = nullptr;
+static bool g_launch_overlay_fading = false;
+static int32_t g_launch_icon_home_x = 0;
+static int32_t g_launch_icon_home_y = 0;
+
+static void anim_bg_opa_cb(void *var, int32_t value) {
+  lv_obj_set_style_bg_opa(static_cast<lv_obj_t *>(var), (lv_opa_t) value, 0);
+}
+
+static void anim_opa_cb(void *var, int32_t value) {
+  lv_obj_set_style_opa(static_cast<lv_obj_t *>(var), (lv_opa_t) value, 0);
+}
+
+static void delete_launch_overlay() {
+  if (g_launch_overlay == nullptr) return;
+  if (g_launch_icon != nullptr) {
+    lv_anim_del(g_launch_icon, nullptr);
+    g_launch_icon = nullptr;
+  }
+  lv_anim_del(g_launch_overlay, nullptr);
+  lv_obj_del(g_launch_overlay);
+  g_launch_overlay = nullptr;
+  g_launch_overlay_fading = false;
+}
+
+static void launch_overlay_faded_cb(lv_anim_t *a) {
+  (void) a;
+  g_launch_overlay_fading = false;
+  if (g_launch_overlay == nullptr) return;
+  lv_obj_t *overlay = g_launch_overlay;
+  g_launch_overlay = nullptr;
+  g_launch_icon = nullptr;
+  lv_obj_del(overlay);
+}
+
+static void fade_out_launch_overlay(uint32_t delay_ms) {
+  if (g_launch_overlay == nullptr || g_launch_overlay_fading) return;
+  g_launch_overlay_fading = true;
+  if (g_launch_icon != nullptr) {
+    lv_anim_del(g_launch_icon, nullptr);
+    g_launch_icon = nullptr;
+  }
+  lv_anim_del(g_launch_overlay, nullptr);
+  lv_anim_t a;
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, g_launch_overlay);
+  lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+  lv_anim_set_time(&a, 180);
+  lv_anim_set_delay(&a, delay_ms);
+  lv_anim_set_exec_cb(&a, anim_opa_cb);
+  lv_anim_set_completed_cb(&a, launch_overlay_faded_cb);
+  lv_anim_start(&a);
+}
+
+// Cancel path: send the icon back to the spot it came from and let the white cover fade
+// out. The cover stops accepting clicks while it returns, so a new tap can interrupt the
+// animation and start another launch.
+static void return_launch_overlay() {
+  if (g_launch_overlay == nullptr || g_launch_overlay_fading) return;
+  g_launch_overlay_fading = true;
+  lv_obj_clear_flag(g_launch_overlay, LV_OBJ_FLAG_CLICKABLE);
+  if (g_launch_icon != nullptr) lv_anim_del(g_launch_icon, nullptr);
+  lv_anim_del(g_launch_overlay, nullptr);
+
+  lv_anim_t a;
+  if (g_launch_icon != nullptr) {
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, g_launch_icon);
+    lv_anim_set_values(&a, lv_obj_get_x(g_launch_icon), g_launch_icon_home_x);
+    lv_anim_set_time(&a, 220);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) lv_obj_set_x);
+    lv_anim_start(&a);
+
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, g_launch_icon);
+    lv_anim_set_values(&a, lv_obj_get_y(g_launch_icon), g_launch_icon_home_y);
+    lv_anim_set_time(&a, 220);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) lv_obj_set_y);
+    lv_anim_start(&a);
+  }
+
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, g_launch_overlay);
+  lv_anim_set_values(&a, lv_obj_get_style_bg_opa(g_launch_overlay, LV_PART_MAIN), LV_OPA_TRANSP);
+  lv_anim_set_time(&a, 220);
+  lv_anim_set_exec_cb(&a, anim_bg_opa_cb);
+  lv_anim_set_completed_cb(&a, launch_overlay_faded_cb);
+  lv_anim_start(&a);
+}
+
+static void start_launch_overlay(lv_obj_t *icon) {
+  delete_launch_overlay();
+
+  // The cover exists even if the icon cannot be cloned: its main job is to block input
+  // while the app is being built.
+  lv_obj_t *overlay = lv_obj_create(lv_layer_top());
+  if (overlay == nullptr) return;
+  lv_obj_remove_style_all(overlay);
+  lv_obj_set_size(overlay, lv_pct(100), lv_pct(100));
+  lv_obj_set_pos(overlay, 0, 0);
+  lv_obj_set_style_bg_color(overlay, lv_color_white(), 0);
+  lv_obj_set_style_bg_opa(overlay, LV_OPA_TRANSP, 0);
+  lv_obj_add_flag(overlay, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_clear_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
+  lv_obj_move_foreground(overlay);
+  g_launch_overlay = overlay;
+
+  lv_anim_t a;
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, overlay);
+  lv_anim_set_values(&a, LV_OPA_TRANSP, LV_OPA_COVER);
+  lv_anim_set_time(&a, 260);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+  lv_anim_set_exec_cb(&a, anim_bg_opa_cb);
+  lv_anim_start(&a);
+
+  if (icon == nullptr || !lv_obj_is_valid(icon)) return;
+  if (lv_obj_get_screen(icon) != lv_screen_active()) return;
+  const void *src = lv_image_get_src(icon);
+  if (src == nullptr) return;
+
+  lv_area_t coords;
+  lv_obj_get_coords(icon, &coords);
+  int32_t w = coords.x2 - coords.x1 + 1;
+  int32_t h = coords.y2 - coords.y1 + 1;
+  if (w <= 0 || h <= 0) return;
+
+  lv_obj_t *clone = lv_img_create(overlay);
+  if (clone == nullptr) return;
+  lv_img_set_src(clone, src);
+  lv_obj_set_pos(clone, coords.x1, coords.y1);
+  lv_obj_set_size(clone, w, h);
+  g_launch_icon = clone;
+  g_launch_icon_home_x = coords.x1;
+  g_launch_icon_home_y = coords.y1;
+
+  int32_t target_x = (lv_obj_get_width(lv_screen_active()) - w) / 2;
+  int32_t target_y = (lv_obj_get_height(lv_screen_active()) - h) / 2;
+
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, clone);
+  lv_anim_set_values(&a, coords.x1, target_x);
+  lv_anim_set_time(&a, 260);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+  lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) lv_obj_set_x);
+  lv_anim_start(&a);
+
+  lv_anim_init(&a);
+  lv_anim_set_var(&a, clone);
+  lv_anim_set_values(&a, coords.y1, target_y);
+  lv_anim_set_time(&a, 260);
+  lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+  lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) lv_obj_set_y);
+  lv_anim_start(&a);
+}
+
+void request_app_page_launch(const std::string &app_dir, lv_obj_t *icon) {
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  g_requested_app = app_dir;
+  g_app_launch_at[app_dir] = lv_tick_get();
+  // Remember which screen was active when the icon was tapped: if the user navigates
+  // somewhere else (settings, lock screen, another app) while the UI is still building,
+  // the finished page must not steal the screen.
+  g_requested_screen = lv_screen_active();
+  g_requested_app_at = lv_tick_get();
+  g_app_launch_pending = true;
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  lvgl_call_void([icon]() { start_launch_overlay(icon); });
+}
+
+bool cancel_app_page_launch() {
+  bool pending = false;
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  pending = !g_requested_app.empty();
+  g_requested_app.clear();
+  g_requested_screen = nullptr;
+  g_app_launch_pending = false;
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+
+  lvgl_call_void([pending]() {
+    if (pending) {
+      // Animate the icon back to where it came from; the caller restores the page chrome.
+      return_launch_overlay();
+    } else {
+      // Nothing to cancel (e.g. an already-showing page was tapped while the return
+      // animation was still running): drop the cover instead of animating over it.
+      delete_launch_overlay();
+    }
+  });
+  return pending;
+}
+
+// Drops the cover without touching the pending request (used when an already-ready page
+// is opened while a cancelled launch is still animating back).
+void dismiss_launch_cover() {
+  lvgl_call_void([]() { delete_launch_overlay(); });
+}
+
+// Marks an app's UI as built. If that app is the one the user tapped, its page is swapped
+// in now, in a single frame, instead of being shown while it was still under construction.
+// Safe to call from any task: the actual page switch is dispatched onto the LVGL task.
+void notify_app_page_ready(const std::string &app_dir) {
+  bool show = false;
+  lv_obj_t *request_screen = nullptr;
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  g_app_ready.insert(app_dir);
+  if (g_requested_app == app_dir) {
+    request_screen = g_requested_screen;
+    g_requested_screen = nullptr;
+    g_requested_app.clear();
+    g_app_launch_pending = false;
+    show = true;
+  }
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+
+  if (!show) return;
+  lv_obj_t *page = get_app_page(app_dir);
+
+  lvgl_call_void([page, request_screen]() {
+    bool take_over = page != nullptr && lv_obj_is_valid(page) &&
+                     // Do not take over a screen the user navigated to in the meantime.
+                     (request_screen == nullptr || lv_screen_active() == request_screen) &&
+                     lv_screen_active() != page;
+    if (take_over) {
+      lv_scr_load_anim(page, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
+    }
+    // The cover is always released, also when the page could not be shown.
+    fade_out_launch_overlay(take_over ? 200 : 0);
+  });
+}
+
+// Fallback for scripts that never report ready (old apps, hangs): show the page anyway
+// after a timeout so the user is not left on the home screen.
+void tick_app_page_launch() {
+  if (!g_app_launch_pending) return;
+  std::string app_dir;
+  ensure_page_lock();
+  if (g_page_lock) xSemaphoreTake(g_page_lock, portMAX_DELAY);
+  bool timed_out = !g_requested_app.empty() &&
+                   g_app_ready.find(g_requested_app) == g_app_ready.end() &&
+                   (uint32_t) (lv_tick_get() - g_requested_app_at) >= APP_PAGE_READY_TIMEOUT_MS;
+  if (timed_out) app_dir = g_requested_app;
+  if (g_page_lock) xSemaphoreGive(g_page_lock);
+  if (!timed_out) return;
+  ESP_LOGW(TAG, "Lua UI not ready after %u ms, showing app page anyway: %s",
+           (unsigned) APP_PAGE_READY_TIMEOUT_MS, app_dir.c_str());
+  notify_app_page_ready(app_dir);
+}
+
 static int l_batch_begin(lua_State *L) {
-  (void) L;
   void *self = (void *) xTaskGetCurrentTaskHandle();
   int depth = get_lvgl_batch_depth_for_task(self);
+  if (depth == 0) {
+    lv_obj_t *page = nullptr;
+    LuaLvglContext *ctx = get_lvgl_ctx(L);
+    if (ctx != nullptr && !ctx->script_path.empty()) {
+      page = get_app_page(dir_from_path(ctx->script_path));
+    }
+    // Only a batch that builds the page which is currently on screen can expose half-built
+    // frames. A page that is not the active screen is never rendered (LVGL drops
+    // invalidations for inactive screens), so the home screen can keep running meanwhile.
+    bool visible = page != nullptr && lvgl_call_ret([page]() -> bool {
+      return lv_screen_active() == page;
+    });
+    if (visible) {
+      lvgl_call_void([]() { pause_lvgl_rendering(); });
+    }
+    set_lvgl_batch_paused_for_task(self, visible);
+  }
   set_lvgl_batch_depth_for_task(self, depth + 1);
   return 0;
 }
@@ -371,6 +880,10 @@ static int l_batch_end(lua_State *L) {
   set_lvgl_batch_depth_for_task(self, depth);
   if (depth == 0) {
     flush_lvgl_jobs_for_current_task();
+    if (get_lvgl_batch_paused_for_task(self)) {
+      lvgl_call_void([]() { resume_lvgl_rendering(); });
+    }
+    set_lvgl_batch_paused_for_task(self, false);
   }
   return 0;
 }
@@ -648,6 +1161,21 @@ static int l_poll_events(lua_State *L) {
   if (ctx == nullptr || !ctx->alive || ctx->queue == nullptr) {
     lua_pushinteger(L, 0);
     return 1;
+  }
+
+  // Apps that never call sys.run()/rtos.receive (e.g. a bare `while true do
+  // lv.poll_events(100) end` loop) still have to be stoppable and measurable, so this
+  // boundary does the same abort check and memory sampling as rtos.receive.
+  if (esphome::lua_runtime::lua_abort_requested(L)) {
+    luaL_error(L, "Lua script aborted because runtime abort was requested");
+  }
+  esphome::lua_runtime::lua_sample_self_memory(L);
+
+  // The first poll means the app's top-level Lua code (i.e. its UI build) has finished and
+  // it is about to enter the event loop: that is the point where the page can be shown.
+  if (!ctx->app_page_notified) {
+    ctx->app_page_notified = true;
+    notify_app_page_ready(dir_from_path(ctx->script_path));
   }
 
   int timeout = (int) luaL_optinteger(L, 1, 0);
@@ -1107,6 +1635,14 @@ static int l_ui_close_notification(lua_State *L) {
   return 0;
 }
 
+static int l_ui_ready(lua_State *L) {
+  LuaLvglContext *ctx = get_lvgl_ctx(L);
+  if (ctx != nullptr && !ctx->script_path.empty()) {
+    notify_app_page_ready(dir_from_path(ctx->script_path));
+  }
+  return 0;
+}
+
 static int l_ui_font14(lua_State *L) {
   const lv_font_t *font = LV_FONT_DEFAULT;
   if (font == nullptr) {
@@ -1148,6 +1684,9 @@ void show_lua_error_on_app_page(const std::string &script_path, const std::strin
     lv_obj_set_style_text_color(detail, lv_color_hex(0xFFFFFF), 0);
     lv_obj_align(detail, LV_ALIGN_TOP_LEFT, 20, 68);
   });
+
+  // A failed app must become visible even though its script never reported ready.
+  notify_app_page_ready(app_dir);
 }
 
 static std::string join_path(const std::string &base, const std::string &relative) {
@@ -1721,6 +2260,8 @@ void register_lvgl_api(lua_State *L, const std::string &script_path) {
   lua_setfield(L, -2, "show_notification");
   lua_pushcfunction(L, l_ui_close_notification);
   lua_setfield(L, -2, "close_notification");
+  lua_pushcfunction(L, l_ui_ready);
+  lua_setfield(L, -2, "ready");
   lua_pushcfunction(L, l_ui_font14);
   lua_setfield(L, -2, "font14");
   lua_setglobal(L, "ui");
@@ -1730,6 +2271,12 @@ void cleanup_lvgl_api(lua_State *L) {
   LuaLvglContext *ctx = get_lvgl_ctx(L);
   if (ctx == nullptr) return;
   ctx->alive = false;
+
+  // A script that errored or was aborted while inside lv.batch_begin() would otherwise
+  // leave the display refresh paused.
+  set_lvgl_batch_depth_for_task((void *) xTaskGetCurrentTaskHandle(), 0);
+  set_lvgl_batch_paused_for_task((void *) xTaskGetCurrentTaskHandle(), false);
+  lvgl_call_void([]() { resume_lvgl_rendering(); });
 
   for (auto &entry : ctx->timers) {
     LuaTimerCb *cb = entry.second;

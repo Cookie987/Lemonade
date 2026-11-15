@@ -34,6 +34,9 @@ local state = {
     affinity_detail = false,
 }
 
+-- 异步请求可能乱序返回；每个页面只让最新一次请求更新状态。
+local summary_epoch, badges_epoch, affinity_epoch = 0, 0, 0
+
 local function with_batch(fn)
     lv.batch_begin()
     local ok, result = pcall(fn)
@@ -624,12 +627,18 @@ local function render_current()
 end
 
 local function refresh_summary()
+    summary_epoch = summary_epoch + 1
+    local epoch = summary_epoch
+
     show_tab("summary")
     set_loading(true, "正在刷新总览...")
     set_body("正在请求 /api/device-social/summary")
     lv.poll_events(10)
 
     local payload, err = request_json("/api/device-social/summary")
+    if epoch ~= summary_epoch then
+        return
+    end
     set_loading(false, err and "刷新失败" or "总览已更新")
     if err then
         set_body(err)
@@ -640,12 +649,18 @@ local function refresh_summary()
 end
 
 local function refresh_badges()
+    badges_epoch = badges_epoch + 1
+    local epoch = badges_epoch
+
     show_tab("badges")
     set_loading(true, "正在刷新徽章...")
     set_body("正在请求 /api/device-social/badges")
     lv.poll_events(10)
 
     local payload, err = request_json("/api/device-social/badges")
+    if epoch ~= badges_epoch then
+        return
+    end
     set_loading(false, err and "刷新失败" or "徽章已更新")
     if err then
         set_body(err)
@@ -665,12 +680,18 @@ local function query_affinity()
     if fskv then
         fskv.set("last_target", target)
     end
+    affinity_epoch = affinity_epoch + 1
+    local epoch = affinity_epoch
+
     show_tab("affinity")
     set_loading(true, "正在查询好友详情...")
     set_body("正在请求 /api/device-social/affinity/" .. target)
     lv.poll_events(10)
 
     local payload, err = request_json("/api/device-social/affinity/" .. urlencode(target))
+    if epoch ~= affinity_epoch then
+        return
+    end
     set_loading(false, err and "查询失败" or "好友详情已更新")
     if err then
         set_body(err)
@@ -717,12 +738,12 @@ if fskv then
 end
 
 refs.summary_tab, refs.summary_tab_label = make_button(page, "总览", 88, 28, COLOR_PRIMARY, 0xFFFFFF, function()
-    refresh_summary()
+    sys.taskInit(refresh_summary)
 end)
 lv.obj_align(refs.summary_tab, lv.ALIGN_TOP_LEFT, 12, 34)
 
 refs.badges_tab, refs.badges_tab_label = make_button(page, "徽章", 88, 28, COLOR_SOFT, COLOR_PRIMARY_DARK, function()
-    refresh_badges()
+    sys.taskInit(refresh_badges)
 end)
 lv.obj_align(refs.badges_tab, lv.ALIGN_TOP_LEFT, 116, 34)
 
@@ -765,7 +786,7 @@ lv.textarea_set_text(refs.target_input, state.target)
 
 local query_btn = make_button(refs.target_panel, "查询", 96, 34, COLOR_PRIMARY, 0xFFFFFF, function()
     show_keyboard(false)
-    query_affinity()
+    sys.taskInit(query_affinity)
 end)
 lv.obj_align(query_btn, lv.ALIGN_RIGHT_MID, 0, 0)
 
@@ -796,7 +817,7 @@ lv.obj_add_event_cb(refs.keyboard, function(e)
         show_keyboard(false)
     elseif is_keyboard_ok(text) then
         show_keyboard(false)
-        query_affinity()
+        sys.taskInit(query_affinity)
     end
 end, lv.EVENT_VALUE_CHANGED)
 
@@ -808,10 +829,16 @@ lv.obj_add_event_cb(page, function(e)
 end, lv.EVENT_SCREEN_UNLOAD_START)
 
 show_tab("summary")
-refresh_summary()
 
 sys.timerLoopStart(function()
     lv.poll_events(10)
 end, 16)
+
+-- 不要在 sys.run() 之前同步发 HTTP：请求会占住 Lua 任务，页面来不及进入事件循环，
+-- 看起来就像整个界面卡死。先让 poll 定时器把页面显示/标记 ready，再发起首次刷新。
+-- HTTP 现在在协程里会自动走 worker（异步），所以用 taskInit 包住刷新流程。
+sys.timerStart(function()
+    sys.taskInit(refresh_summary)
+end, 80)
 
 sys.run()
