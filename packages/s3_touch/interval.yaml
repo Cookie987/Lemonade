@@ -36,6 +36,33 @@ interval:
   #         ESP_LOGI("DEBUG", "========================================");
   #     - script.execute: statusbar_update
 
+  # - interval: 5s
+  #   then:
+  #     - lambda: |-
+  #         esp_pm_dump_locks(stdout);
+  #     - lambda: |-
+  #         static char buf[1024];
+  #         buf[0] = 0;
+  #         FILE *f = fmemopen(buf, sizeof(buf), "w");
+  #         if (f == nullptr) return;
+  #         esp_pm_impl_dump_stats(f);
+  #         fclose(f);
+  #         ESP_LOGI("PM", "\n%s", buf);
+  # - interval: 1s
+  #   then:
+  #     - lambda: |-
+  #         static uint64_t last_cyc = 0;
+  #         static int64_t last_us = 0;
+  #         uint64_t cyc = esp_cpu_get_cycle_count();
+  #         int64_t us = esp_timer_get_time();
+  #         if (last_us != 0 && us > last_us) {
+  #           // cycles per microsecond == MHz
+  #           uint32_t mhz = (uint32_t)((cyc - last_cyc) / (uint64_t)(us - last_us));
+  #           ESP_LOGW("FREQ", "CPU now ~%u MHz", mhz);
+  #         }
+  #         last_cyc = cyc;
+  #         last_us = us;
+
   # keepalive
   - interval: 120s
     then:

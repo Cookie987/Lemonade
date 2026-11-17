@@ -1,6 +1,10 @@
 esphome:
   name: "${lemonade_device_name}"
   friendly_name: ${lemonade_device_friendly_name}
+  # build_flags:
+  #   - -DLV_USE_SYSMON=1
+  #   - -DLV_USE_PERF_MONITOR=1
+  #   - -DLV_USE_OBSERVER=1
   platformio_options:
     upload_speed: 1152000
     # JPEGDEC 的 library.properties 里有 depends=bb_spi_lcd，
@@ -21,10 +25,10 @@ esphome:
     - <mbedtls/base64.h>
     - <fstream>
     - <dirent.h>
-    - <regex>
     - <vector>
     - <algorithm>
     - <NimBLEDevice.h>
+    - <esp_private/pm_impl.h>
   on_boot:
     - priority: 850
       then:
@@ -175,6 +179,7 @@ esp32:
       - espressif/esp-dsp~1.7.1
       - h2zero/esp-nimble-cpp~2.5.0
     advanced:
+      compiler_optimization: PERF
       execute_from_psram: false
       disable_vfs_support_termios: false
       disable_vfs_support_select: false
@@ -203,6 +208,7 @@ esp32:
       CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM: '6'
       CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM: '6'
       CONFIG_ESP_WIFI_RX_BA_WIN: '12'
+      CONFIG_ESP_WIFI_SLP_IRAM_OPT: y
       CONFIG_SPIRAM_TIMING_TUNING_POINT_VIA_TEMPERATURE_SENSOR: n
 
 psram:
@@ -226,7 +232,7 @@ power_management:
   power_down_flash: false
   power_down_peripherals: true
   esphome_locks: true
-  profiling: false
+  profiling: true
   trace: false
 
 debug:

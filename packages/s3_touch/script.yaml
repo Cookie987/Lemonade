@@ -113,14 +113,14 @@ script:
           lvgl_id: lvgl_1
       - light.turn_off:
           id: backlight
-          transition_length: 0.2s
-      - delay: 200ms
+          transition_length: 0.1s
+      - delay: 100ms
       # display off
       - lambda: id(watchface)->set_command(0x28);
       # sleep in
       - lambda: id(watchface)->set_command(0x10);
       # slow down main loop
-      - lambda: App.set_loop_interval(150);
+      - lambda: App.set_loop_interval(200);
       - switch.turn_off: switch_powermanage_lock_apb
 
   - id: wakeup_script
@@ -130,17 +130,16 @@ script:
       - lambda: App.set_loop_interval(16);
       - lambda: id(is_sleeping)=false;
       # sleep out
-      - lambda: id(watchface)->set_command(0x11);
-      - light.turn_on:
-          id: backlight
-          transition_length: 0.2s
-      # - delay: 200ms
-      # display on
-      - lambda: id(watchface)->set_command(0x29);
       - component.resume: touch_panel
       - lvgl.resume:
           lvgl_id: lvgl_1
+      - lambda: id(watchface)->set_command(0x11);
       - script.execute: security_after_wakeup
+      - light.turn_on:
+          id: backlight
+          transition_length: 0.2s
+      # display on
+      - lambda: id(watchface)->set_command(0x29);
 
   - id: sdcard_init
     mode: single
@@ -641,7 +640,7 @@ script:
           then:
             - lvgl.resume:
                 lvgl_id: lvgl_1
-            - lambda: |
+            - lambda: |-
                 std::string log;
                 static bool first_time = true;
                 if (!first_time) return;
@@ -649,8 +648,8 @@ script:
                 #ifdef USE_ESP32_CRASH_HANDLER
                 if (esphome::esp32::crash_handler_has_data()) {
                   log += "检测到系统非正常退出。\n"
-                          "请联系 Lemonade OS 开发者并提供此日志以协助诊断问题。\n"
-                          "此信息存储于硬件暂存区，需彻底断电（关闭设备再打开设备）后方可清除。\n";
+                        "请联系 Lemonade OS 开发者并提供此日志以协助诊断问题。\n"
+                        "此信息存储于硬件暂存区，需彻底断电（关闭设备再打开设备）后方可清除。\n";
                 }
                 #endif
                 if (log.empty()) {
@@ -659,11 +658,43 @@ script:
                 if (!id(previous_crash_log).empty()) {
                   log += "\n\n";
                   log += id(previous_crash_log);
-                  log = std::regex_replace(log, std::regex(R"(\[\d+(;\d+)*m|\[E\]|esp32\.crash:)"), "");
+                  // Remove ANSI color sequences, [E] and esp32.crash:
+                  size_t read = 0;
+                  size_t write = 0;
+                  while (read < log.size()) {
+                    // ANSI-style sequence: [digits(;digits)*m
+                    if (log[read] == '[') {
+                      size_t j = read + 1;
+                      while (j < log.size() &&
+                            ((log[j] >= '0' && log[j] <= '9') ||
+                              log[j] == ';')) {
+                        ++j;
+                      }
+                      if (j > read + 1 &&
+                          j < log.size() &&
+                          log[j] == 'm') {
+                        read = j + 1;
+                        continue;
+                      }
+                      // [E]
+                      if (log.compare(read, 3, "[E]") == 0) {
+                        read += 3;
+                        continue;
+                      }
+                    }
+                    // esp32.crash:
+                    if (log.compare(read, 12, "esp32.crash:") == 0) {
+                      read += 12;
+                      continue;
+                    }
+                    log[write++] = log[read++];
+                  }
+                  log.resize(write);
                 }
                 lv_label_set_text(id(lbl_previous_error_log), log.c_str());
                 lv_obj_scroll_to_y(id(obj_previous_error_log), 0, LV_ANIM_OFF);
                 lv_scr_load_anim(system_setting_previous_error_page->obj, LV_SCR_LOAD_ANIM_FADE_IN, 200, 0, false);
+
 
   # 创建或修改通知
   # para1: 新的通知内容

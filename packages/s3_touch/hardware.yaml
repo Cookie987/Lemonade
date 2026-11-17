@@ -47,6 +47,7 @@ touchscreen:
               lambda: 'return !id(is_sleeping);'
             then:
               - switch.turn_on: switch_powermanage_lock_apb
+              - lambda: App.set_loop_interval(2);
     on_update:
       then:
         - if:
@@ -66,7 +67,7 @@ i2c:
   scl: GPIO9
   scan: false
   id: bus_a
-  frequency: 20kHz
+  frequency: 400kHz
 
 spi:
   - id: spi_bus0

@@ -410,8 +410,6 @@ script:
             - script.execute: security_render_lock_screen
             - lvgl.page.show:
                 id: page_lock_screen
-                animation: FADE_IN
-                time: 200ms
 
   - id: security_check_idle
     mode: restart
