@@ -1357,6 +1357,20 @@ void LuaRuntime::abort_all() {
 #ifndef LUA_RUNTIME_STUB
   g_abort_generation++;
   ESP_LOGI(TAG, "Requested abort for all running Lua scripts");
+
+  // Bumping the generation alone is not enough: a parked (suspended) task never runs, so it
+  // would never observe the new generation, keep its run path claimed and stay listed as
+  // "stopping" forever. Wake every script explicitly so each one exits at its next
+  // boundary.
+  std::vector<std::string> paths;
+  ensure_lifecycle_locks();
+  if (g_ctx_lock != nullptr) {
+    xSemaphoreTake(g_ctx_lock, portMAX_DELAY);
+    paths.reserve(g_ctx_by_path.size());
+    for (const auto &entry : g_ctx_by_path) paths.push_back(entry.first);
+    xSemaphoreGive(g_ctx_lock);
+  }
+  for (const auto &path : paths) stop_app_script(path);
 #endif
 }
 
@@ -1416,7 +1430,9 @@ std::vector<LuaAppInfo> LuaRuntime::list_apps() {
     info.lua_bytes = ctx->lua_bytes;
     info.stack_bytes = ctx->stack_bytes;
     info.parked = ctx->parked;
-    info.aborting = ctx->abort_requested || ctx->abort_generation != g_abort_generation;
+    // Only an explicit stop (per-app stop or abort_all, which now sets the flag) counts as
+    // "stopping". A stale generation mismatch must not keep every app stuck on it.
+    info.aborting = ctx->abort_requested;
     if (ctx->started_at != 0) info.running_ms = (uint32_t) (now - ctx->started_at);
     apps.push_back(std::move(info));
   }
