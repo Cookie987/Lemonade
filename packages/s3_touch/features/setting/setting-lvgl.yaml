@@ -2385,7 +2385,7 @@ lvgl:
             action: 0
         - script.execute: refresh_wifi_list
         - lambda: |
-            if (wifi::global_wifi_component != nullptr) {
+            if (wifi::global_wifi_component != nullptr && id(wifi_switch).state == true) {
               wifi::global_wifi_component->start_scanning();
             }
       widgets:
@@ -2434,11 +2434,16 @@ lvgl:
             on_release:
               then:
                 - lambda: |
-                    if (wifi::global_wifi_component != nullptr) {
+                    if (wifi::global_wifi_component != nullptr && id(wifi_switch).state == true) {
                       wifi::global_wifi_component->start_scanning();
                     }
                     lv_obj_clean(id(list_scanned_wifi));
-                    lv_list_add_text(id(list_scanned_wifi), "正在扫描……");
+                    if (id(wifi_switch).state == true) {
+                      lv_list_add_text(id(list_scanned_wifi), "正在扫描……");
+                    }
+                    else {
+                      lv_list_add_text(id(list_scanned_wifi), "Wi-Fi 已关闭");
+                    }
             widgets:
               - label:
                   align: CENTER
