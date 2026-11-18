@@ -2,7 +2,6 @@
 
 local sys = require("sys")
 local lv = lvgl
-local uikit = require("uikit")
 
 local page = lv.app_page()
 if not page then return end
@@ -65,7 +64,6 @@ local state = {
     animating = false,
 }
 
-local app
 local update_board_ui
 
 local function with_batch(fn)
@@ -467,18 +465,36 @@ local function set_overlay_visible(visible)
 end
 
 update_board_ui = function()
-    if app then
-        app.set_state({
-            board = state.board,
-            score = state.score,
-            best = get_best_tile(state.board),
-            game_over = state.game_over,
-        })
-    end
+    with_batch(function()
+        for row = 1, MATRIX_SIZE do
+            for col = 1, MATRIX_SIZE do
+                local exp = state.board[row][col]
+                local tile = state.tiles[row][col]
+                local label = state.tile_labels[row][col]
+
+                set_tile_empty_cover(tile, false)
+                lv.obj_set_style_bg_color(tile, get_tile_color(exp), 0)
+                lv.obj_set_style_text_color(tile, get_tile_text_color(exp), 0)
+                lv.label_set_text(label, board_value_text(exp))
+            end
+        end
+
+        lv.label_set_text(state.score_label, tostring(state.score))
+        lv.label_set_text(state.best_label, tostring(get_best_tile(state.board)))
+
+        if state.game_over then
+            lv.label_set_text(state.overlay_label, "游戏结束\n点击新游戏重新开始")
+            set_overlay_visible(not state.animating)
+        else
+            local best = get_best_tile(state.board)
+            set_overlay_visible(false)
+        end
+    end)
 end
 
 local function new_game()
     dbg("new_game")
+    clear_animations()
     state.score = 0
     state.game_over = false
     state.board = {}
@@ -490,9 +506,15 @@ local function new_game()
         end
     end
 
-    add_random(state.board)
-    add_random(state.board)
+    local spawned = {}
+    spawned[#spawned + 1] = add_random(state.board)
+    spawned[#spawned + 1] = add_random(state.board)
     update_board_ui()
+    local animations = {}
+    for index = 1, #spawned do
+        add_spawn_animation(animations, spawned[index])
+    end
+    start_animations(animations)
 end
 
 local function attempt_move(move_fn)
@@ -507,10 +529,18 @@ local function attempt_move(move_fn)
         return
     end
 
+    if state.animating then
+        clear_animations()
+    end
+
+    local animations = {}
     dbg("attempt_move success score=", state.score)
-    add_random(state.board)
+    local spawned_tile = add_random(state.board)
+    add_spawn_animation(animations, spawned_tile)
+    state.animating = #animations > 0
     state.game_over = is_game_over(state.board)
     update_board_ui()
+    start_animations(animations)
 end
 
 local function gesture_move(dir)
@@ -631,180 +661,154 @@ local function on_board_touch(e)
     end
 end
 
-app = uikit.app({
-    state = { score = state.score, best = 0, game_over = false, board = state.board },
-    view = function(st)
-        local board = st.board or {}
-        local tiles = {}
-        for row = 1, MATRIX_SIZE do
-            for col = 1, MATRIX_SIZE do
-                local exp = (board[row] and board[row][col]) or 0
-                tiles[#tiles + 1] = {
-                    kind = "obj",
-                    key = "tile:" .. row .. ":" .. col,
-                    style = {
-                        width = TILE_SIZE,
-                        height = TILE_SIZE,
-                        bg_color = get_tile_color(exp),
-                        border_width = 0,
-                        radius = 6,
-                        shadow_width = 0,
-                    },
-                    children = {
-                        {
-                            kind = "label",
-                            key = "text",
-                            props = { text = board_value_text(exp) },
-                            style = { text_color = get_tile_text_color(exp), align = { lv.ALIGN_CENTER, 0, 0 } },
-                        },
-                    },
-                }
-            end
+with_batch(function()
+    lv.obj_set_style_bg_color(page, COLORS.bg, 0)
+    lv.obj_set_style_bg_grad_color(page, 0xF3EEE6, 0)
+    lv.obj_set_style_bg_grad_dir(page, lv.GRAD_DIR_VER, 0)
+    lv.obj_set_style_border_width(page, 0, 0)
+    lv.obj_clear_flag(page, lv.FLAG_SCROLLABLE)
+
+    local score_panel = lv.obj_create(page)
+    lv.obj_set_size(score_panel, 58, 34)
+    lv.obj_align(score_panel, lv.ALIGN_TOP_LEFT, 15, 48)
+    lv.obj_set_style_bg_color(score_panel, COLORS.panel, 0)
+    lv.obj_set_style_border_width(score_panel, 0, 0)
+    lv.obj_set_style_radius(score_panel, 8, 0)
+    lv.obj_set_style_pad_all(score_panel, 2, 0)
+
+    local score_title = lv.label_create(score_panel)
+    lv.label_set_text(score_title, "分数")
+    lv.obj_set_style_text_color(score_title, COLORS.text_light, 0)
+    -- lv.obj_set_style_text_font(score_title, lv.font_montserrat_10, 0)
+    lv.obj_align(score_title, lv.ALIGN_TOP_MID, 0, 0)
+
+    state.score_label = lv.label_create(score_panel)
+    lv.label_set_text(state.score_label, "0")
+    lv.obj_set_style_text_color(state.score_label, COLORS.text_light, 0)
+    -- lv.obj_set_style_text_font(state.score_label, lv.font_montserrat_16, 0)
+    lv.obj_align(state.score_label, lv.ALIGN_BOTTOM_MID, 0, -1)
+
+    local best_panel = lv.obj_create(page)
+    lv.obj_set_size(best_panel, 58, 34)
+    lv.obj_align(best_panel, lv.ALIGN_TOP_LEFT, 15, 88)
+    lv.obj_set_style_bg_color(best_panel, COLORS.panel, 0)
+    lv.obj_set_style_border_width(best_panel, 0, 0)
+    lv.obj_set_style_radius(best_panel, 8, 0)
+    lv.obj_set_style_pad_all(best_panel, 2, 0)
+
+    local best_title = lv.label_create(best_panel)
+    lv.label_set_text(best_title, "最大数")
+    lv.obj_set_style_text_color(best_title, COLORS.text_light, 0)
+    -- lv.obj_set_style_text_font(best_title, lv.font_montserrat_10, 0)
+    lv.obj_align(best_title, lv.ALIGN_TOP_MID, 0, 0)
+
+    state.best_label = lv.label_create(best_panel)
+    lv.label_set_text(state.best_label, "0")
+    lv.obj_set_style_text_color(state.best_label, COLORS.text_light, 0)
+    -- lv.obj_set_style_text_font(state.best_label, lv.font_montserrat_16, 0)
+    lv.obj_align(state.best_label, lv.ALIGN_BOTTOM_MID, 0, -1)
+
+    local restart_btn = lv.btn_create(page)
+    lv.obj_set_size(restart_btn, 72, 26)
+    lv.obj_align(restart_btn, lv.ALIGN_TOP_LEFT, 15, 128)
+    lv.obj_set_style_bg_color(restart_btn, COLORS.restart, 0)
+    lv.obj_set_style_border_width(restart_btn, 0, 0)
+    lv.obj_set_style_radius(restart_btn, 8, 0)
+    lv.obj_set_style_shadow_width(restart_btn, 0, 0)
+
+    local restart_label = lv.label_create(restart_btn)
+    lv.label_set_text(restart_label, "新游戏")
+    lv.obj_set_style_text_color(restart_label, COLORS.text_light, 0)
+    lv.obj_center(restart_label)
+
+    local board_panel = lv.obj_create(page)
+    lv.obj_set_size(board_panel, BOARD_SIZE, BOARD_SIZE)
+    lv.obj_align(board_panel, lv.ALIGN_BOTTOM_MID, BOARD_X_OFFSET, -8)
+    lv.obj_set_style_bg_color(board_panel, COLORS.panel, 0)
+    lv.obj_set_style_border_width(board_panel, 0, 0)
+    lv.obj_set_style_radius(board_panel, 12, 0)
+    lv.obj_set_style_pad_all(board_panel, BOARD_PAD, 0)
+    lv.obj_set_style_pad_gap(board_panel, TILE_GAP, 0)
+    lv.obj_set_flex_flow(board_panel, lv.FLEX_FLOW_ROW_WRAP)
+    lv.obj_set_style_shadow_width(board_panel, 8, 0)
+    lv.obj_set_style_shadow_color(board_panel, COLORS.panel_shadow, 0)
+    lv.obj_set_style_shadow_opa(board_panel, lv.OPA_COVER, 0)
+    lv.obj_set_style_shadow_ofs_y(board_panel, 2, 0)
+
+    for row = 1, MATRIX_SIZE do
+        state.tiles[row] = {}
+        state.tile_labels[row] = {}
+        for col = 1, MATRIX_SIZE do
+            local tile = lv.obj_create(board_panel)
+            lv.obj_set_size(tile, TILE_SIZE, TILE_SIZE)
+            lv.obj_set_style_bg_color(tile, COLORS.tile_empty, 0)
+            lv.obj_set_style_border_width(tile, 0, 0)
+            lv.obj_set_style_radius(tile, 6, 0)
+            lv.obj_set_style_shadow_width(tile, 0, 0)
+            lv.obj_set_style_transform_pivot_x(tile, math.floor(TILE_SIZE / 2), 0)
+            lv.obj_set_style_transform_pivot_y(tile, math.floor(TILE_SIZE / 2), 0)
+            lv.obj_set_style_transform_scale(tile, TILE_ZOOM_DEFAULT, 0)
+            lv.obj_clear_flag(tile, lv.FLAG_SCROLLABLE)
+            lv.obj_add_flag(tile, lv.FLAG_CLICKABLE)
+
+            local label = lv.label_create(tile)
+            lv.label_set_text(label, "")
+            -- lv.obj_set_style_text_font(label, lv.font_montserrat_18, 0)
+            lv.obj_center(label)
+
+            lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_PRESSED)
+            lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_PRESSING)
+            lv.obj_add_event_cb(tile, on_board_touch, lv.EVENT_RELEASED)
+
+            state.tiles[row][col] = tile
+            state.tile_labels[row][col] = label
         end
-        tiles[#tiles + 1] = {
-            kind = "obj",
-            key = "overlay",
-            props = { hidden = not st.game_over, ignore_layout = true, clickable = true },
-            style = {
-                width = BOARD_SIZE - 16,
-                height = BOARD_SIZE - 16,
-                align = { lv.ALIGN_CENTER, 0, 0 },
-                bg_color = 0xF2E9DC,
-                bg_opa = 220,
-                border_width = 0,
-                radius = 10,
-            },
-            children = {
-                {
-                    kind = "label",
-                    key = "text",
-                    props = { text = "游戏结束\n点击新游戏重新开始" },
-                    style = { text_color = COLORS.text_dark, text_align = lv.TEXT_ALIGN_CENTER, align = { lv.ALIGN_CENTER, 0, 0 } },
-                },
-            },
-            on = {
-                [lv.EVENT_PRESSED] = on_board_touch,
-                [lv.EVENT_PRESSING] = on_board_touch,
-                [lv.EVENT_RELEASED] = on_board_touch,
-            },
-        }
-        return {
-            kind = "obj",
-            key = "root",
-            props = { scrollable = false },
-            style = {
-                width = 320,
-                height = 240,
-                pad_all = 0,
-                radius = 0,
-                bg_color = COLORS.bg,
-                bg_grad_color = 0xF3EEE6,
-                bg_grad_dir = lv.GRAD_DIR_VER,
-                border_width = 0,
-            },
-            children = {
-                {
-                    kind = "obj",
-                    key = "score",
-                    style = {
-                        width = 58,
-                        height = 34,
-                        align = { lv.ALIGN_TOP_LEFT, 15, 48 },
-                        bg_color = COLORS.panel,
-                        border_width = 0,
-                        radius = 8,
-                        pad_all = 2,
-                    },
-                    children = {
-                        { kind = "label", key = "title", props = { text = "分数" }, style = { text_color = COLORS.text_light, align = { lv.ALIGN_TOP_MID, 0, 0 } } },
-                        { kind = "label", key = "value", props = { text = tostring(st.score) }, style = { text_color = COLORS.text_light, align = { lv.ALIGN_BOTTOM_MID, 0, -1 } } },
-                    },
-                },
-                {
-                    kind = "obj",
-                    key = "best",
-                    style = {
-                        width = 58,
-                        height = 34,
-                        align = { lv.ALIGN_TOP_LEFT, 15, 88 },
-                        bg_color = COLORS.panel,
-                        border_width = 0,
-                        radius = 8,
-                        pad_all = 2,
-                    },
-                    children = {
-                        { kind = "label", key = "title", props = { text = "最大数" }, style = { text_color = COLORS.text_light, align = { lv.ALIGN_TOP_MID, 0, 0 } } },
-                        { kind = "label", key = "value", props = { text = tostring(st.best) }, style = { text_color = COLORS.text_light, align = { lv.ALIGN_BOTTOM_MID, 0, -1 } } },
-                    },
-                },
-                {
-                    kind = "btn",
-                    key = "restart",
-                    style = {
-                        width = 72,
-                        height = 26,
-                        align = { lv.ALIGN_TOP_LEFT, 15, 128 },
-                        bg_color = COLORS.restart,
-                        border_width = 0,
-                        radius = 8,
-                        shadow_width = 0,
-                    },
-                    children = {
-                        {
-                            kind = "label",
-                            key = "text",
-                            props = { text = "新游戏" },
-                            style = { text_color = COLORS.text_light, align = { lv.ALIGN_CENTER, 0, 0 } },
-                        },
-                    },
-                    on = {
-                        [lv.EVENT_CLICKED] = function()
-                            new_game()
-                        end,
-                    },
-                },
-                {
-                    kind = "obj",
-                    key = "board",
-                    props = { flex_flow = lv.FLEX_FLOW_ROW_WRAP, clickable = true },
-                    style = {
-                        width = BOARD_SIZE,
-                        height = BOARD_SIZE,
-                        align = { lv.ALIGN_BOTTOM_MID, BOARD_X_OFFSET, -8 },
-                        bg_color = COLORS.panel,
-                        border_width = 0,
-                        radius = 12,
-                        pad_all = BOARD_PAD,
-                        pad_row = TILE_GAP,
-                        pad_column = TILE_GAP,
-                        shadow_width = 8,
-                        shadow_color = COLORS.panel_shadow,
-                    },
-                    children = tiles,
-                    on = {
-                        [lv.EVENT_PRESSED] = on_board_touch,
-                        [lv.EVENT_PRESSING] = on_board_touch,
-                        [lv.EVENT_RELEASED] = on_board_touch,
-                    },
-                },
-            },
-        }
-    end,
-})
-
-app.mount(page)
-
-lv.obj_add_event_cb(page, function(e)
-    if lv.event_get_code(e) == lv.EVENT_SCREEN_UNLOAD_START then
-        collectgarbage("collect")
     end
-end, lv.EVENT_SCREEN_UNLOAD_START)
+
+    state.overlay = lv.obj_create(board_panel)
+    lv.obj_set_size(state.overlay, BOARD_SIZE - 16, BOARD_SIZE - 16)
+    lv.obj_add_flag(state.overlay, lv.FLAG_IGNORE_LAYOUT)
+    lv.obj_align(state.overlay, lv.ALIGN_CENTER, 0, 0)
+    lv.obj_set_style_bg_color(state.overlay, 0xF2E9DC, 0)
+    lv.obj_set_style_bg_opa(state.overlay, 220, 0)
+    lv.obj_set_style_border_width(state.overlay, 0, 0)
+    lv.obj_set_style_radius(state.overlay, 10, 0)
+
+    state.overlay_label = lv.label_create(state.overlay)
+    lv.label_set_text(state.overlay_label, "游戏结束")
+    lv.obj_set_style_text_color(state.overlay_label, COLORS.text_dark, 0)
+    -- lv.obj_set_style_text_font(state.overlay_label, lv.font_montserrat_22, 0)
+    lv.obj_set_style_text_align(state.overlay_label, lv.TEXT_ALIGN_CENTER, 0)
+    lv.obj_center(state.overlay_label)
+    lv.obj_add_flag(state.overlay, lv.FLAG_HIDDEN)
+    lv.obj_add_flag(state.overlay, lv.FLAG_CLICKABLE)
+    lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_PRESSED)
+    lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_PRESSING)
+    lv.obj_add_event_cb(state.overlay, on_board_touch, lv.EVENT_RELEASED)
+
+    lv.obj_add_event_cb(restart_btn, function(e)
+        if lv.event_get_code(e) == lv.EVENT_CLICKED then
+            new_game()
+        end
+    end, lv.EVENT_CLICKED)
+
+    lv.obj_add_flag(board_panel, lv.FLAG_CLICKABLE)
+    lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_PRESSED)
+    lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_PRESSING)
+    lv.obj_add_event_cb(board_panel, on_board_touch, lv.EVENT_RELEASED)
+
+    lv.obj_add_event_cb(page, function(e)
+        if lv.event_get_code(e) == lv.EVENT_SCREEN_UNLOAD_START then
+            clear_animations()
+            collectgarbage("collect")
+        end
+    end, lv.EVENT_SCREEN_UNLOAD_START)
+end)
 
 new_game()
 
 sys.timerLoopStart(function()
     lv.poll_events(10)
-    app.tick()
 end, 16)
 
 sys.run()
