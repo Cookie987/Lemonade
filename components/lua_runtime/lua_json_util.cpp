@@ -108,7 +108,10 @@ bool lua_value_to_json(lua_State *L, int idx, JsonVariant out, int depth, std::s
           return false;
         }
 
-        JsonVariant member = obj[key.c_str()];
+        // to<JsonVariant>() creates the member and returns a variant bound to it.
+        // Assigning obj[key] to a JsonVariant instead would only bind to an
+        // already existing member and silently drop every new key.
+        JsonVariant member = obj[key.c_str()].to<JsonVariant>();
         if (!lua_value_to_json(L, -1, member, depth + 1, err)) {
           lua_pop(L, 2);
           return false;

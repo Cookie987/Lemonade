@@ -157,6 +157,38 @@ bool read_file_text(const std::string &path, std::string &body, std::string &err
   return true;
 }
 
+// Rolls back an interrupted write. A power loss can leave either a *.tmp with the
+// new (maybe partial) content, or a missing main file plus a *.bak holding the
+// previous content. The backup wins, because it is known to be complete.
+void recover_store(const std::string &path) {
+  const std::string tmp_path = path + ".tmp";
+  const std::string bak_path = path + ".bak";
+
+  if (!path_exists(path) && path_exists(bak_path)) {
+    if (rename(bak_path.c_str(), path.c_str()) != 0) {
+      ESP_LOGW(TAG, "backup restore failed for %s", path.c_str());
+      return;  // keep both files, a later write will retry
+    }
+    ESP_LOGW(TAG, "restored %s from backup", path.c_str());
+  }
+
+  unlink(tmp_path.c_str());
+  if (path_exists(path)) {
+    unlink(bak_path.c_str());
+  }
+}
+
+// Moves an unreadable store aside, so a truncated file can no longer block writes.
+bool quarantine_store(const std::string &path) {
+  const std::string bad_path = path + ".bad";
+  unlink(bad_path.c_str());
+  return rename(path.c_str(), bad_path.c_str()) == 0;
+}
+
+// Writes are staged: new content goes to *.tmp, the current file is kept as *.bak
+// until the final rename succeeded. A failed rename or a power loss therefore
+// always leaves one complete copy on disk (see recover_store), instead of losing
+// both the old and the new file.
 bool write_file_text(const std::string &path, const std::string &body, std::string &error) {
   if (!ensure_parent_dir(path)) {
     error = "mkdir failed";
@@ -164,6 +196,8 @@ bool write_file_text(const std::string &path, const std::string &body, std::stri
   }
 
   const std::string tmp_path = path + ".tmp";
+  const std::string bak_path = path + ".bak";
+
   {
     std::ofstream output(tmp_path, std::ios::binary | std::ios::trunc);
     if (!output.is_open()) {
@@ -179,21 +213,41 @@ bool write_file_text(const std::string &path, const std::string &body, std::stri
     }
   }
 
-  unlink(path.c_str());
+  const bool had_previous = path_exists(path);
+  if (had_previous) {
+    unlink(bak_path.c_str());
+    if (rename(path.c_str(), bak_path.c_str()) != 0) {
+      // Never drop the previous store: keep it and report the failure.
+      error = "backup failed";
+      unlink(tmp_path.c_str());
+      return false;
+    }
+  }
+
   if (rename(tmp_path.c_str(), path.c_str()) != 0) {
     error = "rename failed";
     unlink(tmp_path.c_str());
+    if (had_previous) {
+      rename(bak_path.c_str(), path.c_str());
+    }
     return false;
+  }
+
+  if (had_previous) {
+    unlink(bak_path.c_str());
   }
   return true;
 }
 
-bool load_store(const std::string &path, JsonDocument &doc, std::string &error, bool allow_missing = false) {
+// Loads the store. A missing, empty or corrupt file yields an empty object (the
+// broken file is quarantined as *.bad) instead of a hard failure, so a single bad
+// write can't make every later read and write fail until the app is reset.
+// Returns false only on a real IO error, so a transient SD failure never clobbers
+// an intact store.
+bool load_store(const std::string &path, JsonDocument &doc, std::string &error) {
+  recover_store(path);
+
   if (!path_exists(path)) {
-    if (!allow_missing) {
-      error = "store missing";
-      return false;
-    }
     doc.to<JsonObject>();
     return true;
   }
@@ -202,20 +256,34 @@ bool load_store(const std::string &path, JsonDocument &doc, std::string &error, 
   if (!read_file_text(path, body, error)) {
     return false;
   }
+
+  bool corrupt = false;
   if (body.empty()) {
     error = "store empty";
-    return false;
+    corrupt = true;
+  } else {
+    DeserializationError rc = deserializeJson(doc, body);
+    if (rc) {
+      error = rc.c_str();
+      corrupt = true;
+    } else if (!doc.is<JsonObject>()) {
+      error = "store root must be object";
+      corrupt = true;
+    }
   }
 
-  DeserializationError rc = deserializeJson(doc, body);
-  if (rc) {
-    error = rc.c_str();
-    return false;
+  if (!corrupt) {
+    return true;
   }
-  if (!doc.is<JsonObject>()) {
-    error = "store root must be object";
-    return false;
+
+  doc.clear();
+  doc.to<JsonObject>();
+  if (quarantine_store(path)) {
+    ESP_LOGW(TAG, "corrupt store %s (%s), reset to empty", path.c_str(), error.c_str());
+  } else {
+    ESP_LOGW(TAG, "corrupt store %s (%s), quarantine failed", path.c_str(), error.c_str());
   }
+  error.clear();
   return true;
 }
 
@@ -230,26 +298,27 @@ bool is_supported_root_value(lua_State *L, int idx) {
   return type == LUA_TSTRING || type == LUA_TNUMBER || type == LUA_TBOOLEAN || type == LUA_TTABLE;
 }
 
-bool lua_fskv_value_to_json(lua_State *L, int idx, JsonVariant out, std::string &error) {
+// Encodes a Lua value into the given (fresh) document and enforces the per-value
+// limit. The value is encoded before the store is touched, so a rejected value
+// never modifies the store.
+bool encode_lua_value(lua_State *L, int idx, JsonDocument &out, std::string &error) {
   if (!is_supported_root_value(L, idx)) {
     error = "unsupported value type";
     return false;
   }
 
-  JsonDocument temp;
-  JsonVariant root = temp.to<JsonVariant>();
+  JsonVariant root = out.to<JsonVariant>();
   if (!lua_value_to_json(L, idx, root, 0, error)) {
     return false;
   }
-
-  std::string encoded;
-  serializeJson(temp, encoded);
-  if (encoded.size() > FSKV_MAX_VALUE_BYTES) {
+  if (out.overflowed()) {
+    error = "out of memory";
+    return false;
+  }
+  if (measureJson(out) > FSKV_MAX_VALUE_BYTES) {
     error = "value too large";
     return false;
   }
-
-  out.set(temp.as<JsonVariantConst>());
   return true;
 }
 
@@ -283,6 +352,9 @@ bool ensure_store_ready(lua_State *L, std::string &package_name, std::string &da
     error = "mkdir failed";
     return false;
   }
+  // Restore an interrupted write before deciding whether the store is missing,
+  // otherwise creating a fresh store would discard a recoverable backup.
+  recover_store(file_path);
   if (create_if_missing && !path_exists(file_path)) {
     JsonDocument doc;
     doc.to<JsonObject>();
@@ -321,6 +393,11 @@ int l_fskv_init(lua_State *L) {
   std::string file_path;
   std::string error;
   bool ok = ensure_store_ready(L, package_name, data_dir, file_path, true, error);
+  if (ok) {
+    // Validate the file here as well: an unusable store must not report success.
+    JsonDocument probe;
+    ok = load_store(file_path, probe, error);
+  }
   if (!ok) {
     ESP_LOGW(TAG, "init failed: %s", error.c_str());
   }
@@ -348,17 +425,25 @@ int l_fskv_set(lua_State *L) {
     return 1;
   }
 
+  JsonDocument value;
+  if (!encode_lua_value(L, 2, value, error)) {
+    ESP_LOGW(TAG, "set encode failed for %s: %s", key.c_str(), error.c_str());
+    lua_pushboolean(L, 0);
+    return 1;
+  }
+
   JsonDocument doc;
-  if (!load_store(file_path, doc, error, true)) {
+  if (!load_store(file_path, doc, error)) {
     ESP_LOGW(TAG, "set load failed for %s: %s", key.c_str(), error.c_str());
     lua_pushboolean(L, 0);
     return 1;
   }
 
   JsonObject root = doc.as<JsonObject>();
-  JsonVariant slot = root[key.c_str()];
-  if (!lua_fskv_value_to_json(L, 2, slot, error)) {
-    ESP_LOGW(TAG, "set encode failed for %s: %s", key.c_str(), error.c_str());
+  // Write through the member proxy. Assigning root[key] to a JsonVariant first
+  // would only bind to an already existing member and silently drop new keys.
+  if (!root[key.c_str()].set(value.as<JsonVariantConst>())) {
+    ESP_LOGW(TAG, "set failed for %s: store overflow", key.c_str());
     lua_pushboolean(L, 0);
     return 1;
   }
@@ -399,25 +484,35 @@ int l_fskv_sett(lua_State *L) {
   }
 
   JsonDocument doc;
-  if (!load_store(file_path, doc, error, true)) {
+  if (!load_store(file_path, doc, error)) {
     ESP_LOGW(TAG, "sett load failed for %s.%s: %s", key.c_str(), subkey.c_str(), error.c_str());
+    lua_pushboolean(L, 0);
+    return 1;
+  }
+
+  JsonDocument value;
+  if (!deleting && !encode_lua_value(L, 3, value, error)) {
+    ESP_LOGW(TAG, "sett encode failed for %s.%s: %s", key.c_str(), subkey.c_str(), error.c_str());
     lua_pushboolean(L, 0);
     return 1;
   }
 
   JsonObject root = doc.as<JsonObject>();
   if (deleting) {
+    // Only an existing table can lose a member, so the key must not be created.
     JsonVariant slot = root[key.c_str()];
     if (slot.is<JsonObject>()) {
-      JsonObject table_obj = slot.as<JsonObject>();
-      table_obj.remove(subkey.c_str());
+      slot.as<JsonObject>().remove(subkey.c_str());
     }
   } else {
-    JsonVariant slot = root[key.c_str()];
-    JsonObject table_obj = slot.is<JsonObject>() ? slot.as<JsonObject>() : slot.to<JsonObject>();
-    JsonVariant member = table_obj[subkey.c_str()];
-    if (!lua_fskv_value_to_json(L, 3, member, error)) {
-      ESP_LOGW(TAG, "sett encode failed for %s.%s: %s", key.c_str(), subkey.c_str(), error.c_str());
+    // to<JsonObject>() creates the parent key when it is missing; it is only used
+    // when the slot is not a table yet, so an existing table keeps its members.
+    JsonObject table_obj = root[key.c_str()].is<JsonObject>()
+                               ? root[key.c_str()].as<JsonObject>()
+                               : root[key.c_str()].to<JsonObject>();
+    // Write through the member proxy, otherwise new subkeys are silently dropped.
+    if (!table_obj[subkey.c_str()].set(value.as<JsonVariantConst>())) {
+      ESP_LOGW(TAG, "sett failed for %s.%s: store overflow", key.c_str(), subkey.c_str());
       lua_pushboolean(L, 0);
       return 1;
     }
@@ -451,7 +546,7 @@ int l_fskv_get(lua_State *L) {
   }
 
   JsonDocument doc;
-  if (!load_store(file_path, doc, error, true)) {
+  if (!load_store(file_path, doc, error)) {
     ESP_LOGW(TAG, "get load failed for %s: %s", key.c_str(), error.c_str());
     lua_pushnil(L);
     return 1;
@@ -508,7 +603,7 @@ int l_fskv_del(lua_State *L) {
   }
 
   JsonDocument doc;
-  if (!load_store(file_path, doc, error, true)) {
+  if (!load_store(file_path, doc, error)) {
     ESP_LOGW(TAG, "del load failed for %s: %s", key.c_str(), error.c_str());
     lua_pushboolean(L, 0);
     return 1;
@@ -577,7 +672,7 @@ int l_fskv_iter(lua_State *L) {
   }
 
   JsonDocument doc;
-  if (!load_store(file_path, doc, error, true)) {
+  if (!load_store(file_path, doc, error)) {
     ESP_LOGW(TAG, "iter load failed: %s", error.c_str());
     lua_pushnil(L);
     return 1;
@@ -627,7 +722,7 @@ int l_fskv_status(lua_State *L) {
 
   JsonDocument doc;
   size_t count = 0;
-  if (load_store(file_path, doc, error, true)) {
+  if (load_store(file_path, doc, error)) {
     count = doc.as<JsonObjectConst>().size();
   } else {
     ESP_LOGW(TAG, "status load failed: %s", error.c_str());
