@@ -35,6 +35,36 @@ bool is_array_table(lua_State *L, int idx, size_t *len) {
   return true;
 }
 
+// Best-effort accounting of the bytes the encoder is about to copy into the
+// document. Its only job is to refuse a payload that is already certain to be too
+// large *before* it is copied, so a single huge Lua string (one big allocation)
+// can no longer be materialized just to be rejected afterwards.
+//
+// The charges are deliberate lower bounds: every node costs at least two bytes of
+// JSON ("1," / "null" / a separator), and a string costs exactly its length plus
+// quotes. A lower bound can only let something through, never reject a value that
+// would have fitted, so the exact limit stays with measureJson() in the caller.
+class EncodeContext {
+ public:
+  explicit EncodeContext(const JsonEncodeOptions &options) : options_(options) {}
+
+  bool consume(size_t bytes) {
+    if (options_.max_bytes == 0) return true;
+    if (bytes > options_.max_bytes - used_) return false;
+    used_ += bytes;
+    return true;
+  }
+
+  bool strict_table_keys() const { return options_.strict_table_keys; }
+
+ private:
+  const JsonEncodeOptions &options_;
+  size_t used_{0};
+};
+
+// Smallest possible JSON contribution of a scalar or of a member key.
+constexpr size_t JSON_NODE_MIN_BYTES = 2;
+
 }  // namespace
 
 void push_lua_json_null(lua_State *L) { lua_pushlightuserdata(L, &JSON_NULL_SENTINEL); }
@@ -43,9 +73,19 @@ bool is_lua_json_null(lua_State *L, int idx) {
   return lua_islightuserdata(L, idx) && lua_touserdata(L, idx) == &JSON_NULL_SENTINEL;
 }
 
-bool lua_value_to_json(lua_State *L, int idx, JsonVariant out, int depth, std::string &err) {
+static bool lua_value_to_json_impl(lua_State *L, int idx, JsonVariant out, int depth, std::string &err,
+                                   EncodeContext &ctx) {
   if (depth > LUA_JSON_MAX_DEPTH) {
     err = "too many nested levels";
+    return false;
+  }
+
+  // Every level keeps the key/value pair of the table it walks on the Lua stack, so
+  // a deep table relies on the stack growing while the iteration is in progress.
+  // Reserve the worst case up front instead: that growth is what corrupted the
+  // state (and crashed on lua_close) once nesting got deep enough.
+  if (!lua_checkstack(L, 2 * (LUA_JSON_MAX_DEPTH - depth) + 8)) {
+    err = "out of stack space";
     return false;
   }
 
@@ -53,23 +93,52 @@ bool lua_value_to_json(lua_State *L, int idx, JsonVariant out, int depth, std::s
   const int t = lua_type(L, idx);
   switch (t) {
     case LUA_TNIL:
+      if (!ctx.consume(JSON_NODE_MIN_BYTES)) {
+        err = "value too large";
+        return false;
+      }
       out.set(nullptr);
       return true;
     case LUA_TBOOLEAN:
+      if (!ctx.consume(JSON_NODE_MIN_BYTES)) {
+        err = "value too large";
+        return false;
+      }
       out.set(lua_toboolean(L, idx) != 0);
       return true;
     case LUA_TNUMBER:
+      if (!ctx.consume(JSON_NODE_MIN_BYTES)) {
+        err = "value too large";
+        return false;
+      }
       if (lua_isinteger(L, idx)) {
         out.set(static_cast<int64_t>(lua_tointeger(L, idx)));
       } else {
         out.set(static_cast<double>(lua_tonumber(L, idx)));
       }
       return true;
-    case LUA_TSTRING:
-      out.set(lua_tostring(L, idx));
+    case LUA_TSTRING: {
+      size_t len = 0;
+      const char *value = lua_tolstring(L, idx, &len);
+      // Reject before copying: this is the allocation that would otherwise blow up.
+      if (!ctx.consume(len + 2)) {  // exact: the string plus its quotes
+        err = "value too large";
+        return false;
+      }
+      // JSON cannot carry a NUL, and silently truncating would corrupt the value.
+      if (value != nullptr && memchr(value, '\0', len) != nullptr) {
+        err = "string contains a NUL byte";
+        return false;
+      }
+      out.set(value != nullptr ? value : "");
       return true;
+    }
     case LUA_TLIGHTUSERDATA:
       if (is_lua_json_null(L, idx)) {
+        if (!ctx.consume(JSON_NODE_MIN_BYTES)) {
+          err = "value too large";
+          return false;
+        }
         out.set(nullptr);
         return true;
       }
@@ -82,7 +151,7 @@ bool lua_value_to_json(lua_State *L, int idx, JsonVariant out, int depth, std::s
         for (size_t i = 1; i <= arr_len; i++) {
           lua_geti(L, idx, static_cast<lua_Integer>(i));
           JsonVariant item = arr.add<JsonVariant>();
-          if (!lua_value_to_json(L, -1, item, depth + 1, err)) {
+          if (!lua_value_to_json_impl(L, -1, item, depth + 1, err, ctx)) {
             lua_pop(L, 1);
             return false;
           }
@@ -98,6 +167,13 @@ bool lua_value_to_json(lua_State *L, int idx, JsonVariant out, int depth, std::s
         if (lua_type(L, -2) == LUA_TSTRING) {
           key = lua_tostring(L, -2);
         } else if (lua_type(L, -2) == LUA_TNUMBER) {
+          if (ctx.strict_table_keys()) {
+            // This table is not a contiguous 1..n array, so its numeric keys would
+            // be stored as strings and come back as strings.
+            err = "table is neither a contiguous array nor a string-keyed table";
+            lua_pop(L, 2);
+            return false;
+          }
           size_t key_len = 0;
           const char *key_str = luaL_tolstring(L, -2, &key_len);
           key.assign(key_str, key_len);
@@ -108,11 +184,18 @@ bool lua_value_to_json(lua_State *L, int idx, JsonVariant out, int depth, std::s
           return false;
         }
 
+        // The key plus its quotes: a lower bound, like every charge here.
+        if (!ctx.consume(key.size() + 2)) {
+          err = "value too large";
+          lua_pop(L, 2);
+          return false;
+        }
+
         // to<JsonVariant>() creates the member and returns a variant bound to it.
         // Assigning obj[key] to a JsonVariant instead would only bind to an
         // already existing member and silently drop every new key.
         JsonVariant member = obj[key.c_str()].to<JsonVariant>();
-        if (!lua_value_to_json(L, -1, member, depth + 1, err)) {
+        if (!lua_value_to_json_impl(L, -1, member, depth + 1, err, ctx)) {
           lua_pop(L, 2);
           return false;
         }
@@ -124,6 +207,18 @@ bool lua_value_to_json(lua_State *L, int idx, JsonVariant out, int depth, std::s
       err = "unsupported lua type: " + std::string(lua_typename(L, t));
       return false;
   }
+}
+
+bool lua_value_to_json(lua_State *L, int idx, JsonVariant out, int depth, std::string &err) {
+  const JsonEncodeOptions options{};
+  EncodeContext ctx(options);
+  return lua_value_to_json_impl(L, idx, out, depth, err, ctx);
+}
+
+bool lua_value_to_json_ex(lua_State *L, int idx, JsonVariant out, const JsonEncodeOptions &options,
+                          std::string &err) {
+  EncodeContext ctx(options);
+  return lua_value_to_json_impl(L, idx, out, 0, err, ctx);
 }
 
 bool json_value_to_lua(lua_State *L, JsonVariantConst in, int depth, std::string &err) {

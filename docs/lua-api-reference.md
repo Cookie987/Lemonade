@@ -157,7 +157,7 @@ end
 - `fskv.get(key[, subkey]) -> value|nil`
 - `fskv.del(key) -> boolean`
 - `fskv.clear() -> boolean`
-- `fskv.iter() -> iterator|nil`
+- `fskv.iter() -> iterator|nil`：store 为空时返回 `nil`。
 - `fskv.next(iterator) -> key|nil`
 - `fskv.status() -> file_size, volume_total, key_count`
 
@@ -174,8 +174,13 @@ end
 
 限制：
 
-- 单个值 JSON 编码后最大约 4095 字节。
+- 单个值 JSON 编码后最大约 4095 字节，整个 store 最大 64 KiB。
 - 表会通过 JSON 保存，函数、userdata、thread 不支持。
+- key 与 subkey 必须是长度大于 0 的字符串（或数字），不能含 `\0`；不满足时返回 `false` / `nil`。
+- 值中含 `\0` 的字符串会被拒绝（JSON 无法表示，静默截断会损坏数据）。
+- 表要么是 `1..n` 连续数组，要么全部用字符串键。混合或稀疏的数字键会被拒绝，因为经 JSON 往返后会变成字符串键（`t[1]` 变成 `nil`）。
+- `fskv.sett()` 要求目标 key 不存在或已是表；若它当前是字符串/数组等非表值，会返回 `false` 而不会覆盖。
+- `fskv.set(key, nil)` 返回 `false`；删除请用 `fskv.del(key)`。
 
 ## `json`
 

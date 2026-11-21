@@ -1,6 +1,7 @@
 #include "lua_fskv.h"
 
 #include <fstream>
+#include <cstdint>
 #include <cstring>
 #include <new>
 #include <sstream>
@@ -47,8 +48,16 @@ static const char *FSKV_DATA_DIR_KEY = "lua_fskv.data_dir";
 static const char *FSKV_FILE_KEY = "lua_fskv.file";
 static const char *FSKV_ITER_MT = "lua_fskv.iter";
 static constexpr size_t FSKV_MAX_VALUE_BYTES = 4095;
+// The store is one JSON file that is loaded and rewritten as a whole on every
+// mutation, so its size has to be bounded: an unbounded file would make every
+// operation slower and would need an unbounded buffer to parse.
+static constexpr size_t FSKV_MAX_STORE_BYTES = 64 * 1024;
 
-static SemaphoreHandle_t g_fskv_lock = nullptr;
+// Statically allocated so the lock exists before any app can run: a lazily created
+// mutex could be built twice when two app tasks hit fskv at the same time, which
+// would silently drop the mutual exclusion.
+static StaticSemaphore_t g_fskv_lock_storage;
+static SemaphoreHandle_t g_fskv_lock = xSemaphoreCreateMutexStatic(&g_fskv_lock_storage);
 
 class LockGuard {
  public:
@@ -72,12 +81,6 @@ struct FskvIter {
   std::vector<std::string> keys;
   size_t index{0};
 };
-
-void ensure_fskv_lock() {
-  if (g_fskv_lock == nullptr) {
-    g_fskv_lock = xSemaphoreCreateMutex();
-  }
-}
 
 void set_registry_string(lua_State *L, const char *key, const std::string &value) {
   lua_pushlightuserdata(L, (void *) key);
@@ -244,8 +247,12 @@ bool write_file_text(const std::string &path, const std::string &body, std::stri
 // write can't make every later read and write fail until the app is reset.
 // Returns false only on a real IO error, so a transient SD failure never clobbers
 // an intact store.
-bool load_store(const std::string &path, JsonDocument &doc, std::string &error) {
+// When `raw` is given it receives the file content that was parsed, which lets a
+// later save skip rewriting an unchanged store.
+bool load_store(const std::string &path, JsonDocument &doc, std::string &error, std::string *raw = nullptr) {
   recover_store(path);
+
+  if (raw != nullptr) raw->clear();
 
   if (!path_exists(path)) {
     doc.to<JsonObject>();
@@ -262,8 +269,20 @@ bool load_store(const std::string &path, JsonDocument &doc, std::string &error) 
     error = "store empty";
     corrupt = true;
   } else {
+    if (body.size() > FSKV_MAX_STORE_BYTES) {
+      // Written by an older build or by hand: still parse it (dropping it would
+      // lose data), the write side enforces the limit from now on.
+      ESP_LOGW(TAG, "store %s is %u bytes, above the %u byte limit", path.c_str(),
+               static_cast<unsigned>(body.size()), static_cast<unsigned>(FSKV_MAX_STORE_BYTES));
+    }
     DeserializationError rc = deserializeJson(doc, body);
     if (rc) {
+      if (rc == DeserializationError::NoMemory) {
+        // Transient out of memory: never quarantine a file that may be perfectly
+        // valid, or the data would be gone for good.
+        error = rc.c_str();
+        return false;
+      }
       error = rc.c_str();
       corrupt = true;
     } else if (!doc.is<JsonObject>()) {
@@ -273,6 +292,7 @@ bool load_store(const std::string &path, JsonDocument &doc, std::string &error) 
   }
 
   if (!corrupt) {
+    if (raw != nullptr) *raw = body;
     return true;
   }
 
@@ -287,9 +307,20 @@ bool load_store(const std::string &path, JsonDocument &doc, std::string &error) 
   return true;
 }
 
-bool save_store(const std::string &path, JsonDocument &doc, std::string &error) {
+// Serializes the store and writes it back. A store that would exceed
+// FSKV_MAX_STORE_BYTES is rejected before the file is touched, and a store whose
+// content did not change is not written at all.
+bool save_store(const std::string &path, JsonDocument &doc, std::string &error,
+                const std::string *previous = nullptr) {
   std::string body;
   serializeJson(doc, body);
+  if (body.size() > FSKV_MAX_STORE_BYTES) {
+    error = "store too large";
+    return false;
+  }
+  if (previous != nullptr && *previous == body) {
+    return true;  // nothing changed, spare the SD card the rewrite
+  }
   return write_file_text(path, body, error);
 }
 
@@ -300,21 +331,32 @@ bool is_supported_root_value(lua_State *L, int idx) {
 
 // Encodes a Lua value into the given (fresh) document and enforces the per-value
 // limit. The value is encoded before the store is touched, so a rejected value
-// never modifies the store.
+// never modifies the store, and a value that is already certain to be too large is
+// refused while encoding instead of after a huge copy.
+//
+// strict_table_keys: the store round-trips through JSON, so a table that is neither
+// a contiguous array nor a string-keyed table would come back with string keys
+// (t[1] turning into nil). Refusing it is better than storing something that reads
+// back differently.
 bool encode_lua_value(lua_State *L, int idx, JsonDocument &out, std::string &error) {
   if (!is_supported_root_value(L, idx)) {
     error = "unsupported value type";
     return false;
   }
 
+  JsonEncodeOptions options;
+  options.max_bytes = FSKV_MAX_VALUE_BYTES;
+  options.strict_table_keys = true;
+
   JsonVariant root = out.to<JsonVariant>();
-  if (!lua_value_to_json(L, idx, root, 0, error)) {
+  if (!lua_value_to_json_ex(L, idx, root, options, error)) {
     return false;
   }
   if (out.overflowed()) {
     error = "out of memory";
     return false;
   }
+  // Exact check: the budget used during encoding is only a lower bound.
   if (measureJson(out) > FSKV_MAX_VALUE_BYTES) {
     error = "value too large";
     return false;
@@ -329,6 +371,8 @@ bool get_fskv_context(lua_State *L, std::string &package_name, std::string &data
   return !package_name.empty() && !data_dir.empty() && !file_path.empty();
 }
 
+// Accepts a non-empty string or number. An embedded NUL byte is rejected: the key
+// reaches the JSON layer as a C string, so "a\0b" would silently alias "a".
 bool get_fskv_key(lua_State *L, int idx, std::string &key) {
   if (!lua_isstring(L, idx)) {
     return false;
@@ -336,6 +380,9 @@ bool get_fskv_key(lua_State *L, int idx, std::string &key) {
   size_t len = 0;
   const char *value = lua_tolstring(L, idx, &len);
   if (value == nullptr || len == 0) {
+    return false;
+  }
+  if (memchr(value, '\0', len) != nullptr) {
     return false;
   }
   key.assign(value, len);
@@ -372,20 +419,26 @@ size_t file_size_or_zero(const std::string &path) {
   return static_cast<size_t>(st.st_size);
 }
 
+// Total capacity of the volume holding `path`, 0 when unknown. Goes through
+// esp_vfs_fat_info() so the query takes the same FatFs lock as every other file
+// operation instead of touching the FATFS structure from a foreign task.
 size_t volume_total_or_zero(const std::string &path) {
-  if (!starts_with(path, SDCARD_MOUNT_POINT)) return 0;
+  // Require the mount point to be a path prefix with a separator, so "/sdcardX"
+  // is not mistaken for "/sdcard".
+  if (!starts_with(path, std::string(SDCARD_MOUNT_POINT) + "/")) return 0;
 
-  FATFS *fs = nullptr;
-  DWORD free_clusters = 0;
-  FRESULT res = f_getfree(SDCARD_MOUNT_POINT, &free_clusters, &fs);
-  if (res != FR_OK || fs == nullptr) return 0;
-
-  DWORD total_sectors = (fs->n_fatent - 2U) * fs->csize;
-  return static_cast<size_t>(total_sectors) * FF_SS_SDCARD;
+  uint64_t total_bytes = 0;
+  uint64_t free_bytes = 0;
+  if (esp_vfs_fat_info(SDCARD_MOUNT_POINT, &total_bytes, &free_bytes) != ESP_OK) {
+    return 0;
+  }
+  if (total_bytes > static_cast<uint64_t>(SIZE_MAX)) {
+    return SIZE_MAX;
+  }
+  return static_cast<size_t>(total_bytes);
 }
 
 int l_fskv_init(lua_State *L) {
-  ensure_fskv_lock();
   LockGuard lock(g_fskv_lock);
 
   std::string package_name;
@@ -412,19 +465,9 @@ int l_fskv_set(lua_State *L) {
     return 1;
   }
 
-  ensure_fskv_lock();
-  LockGuard lock(g_fskv_lock);
-
-  std::string package_name;
-  std::string data_dir;
-  std::string file_path;
+  // Encode before taking the lock: this only touches the caller's Lua state and a
+  // local document, so it does not need to block other apps' fskv calls.
   std::string error;
-  if (!ensure_store_ready(L, package_name, data_dir, file_path, true, error)) {
-    ESP_LOGW(TAG, "set failed for %s: %s", key.c_str(), error.c_str());
-    lua_pushboolean(L, 0);
-    return 1;
-  }
-
   JsonDocument value;
   if (!encode_lua_value(L, 2, value, error)) {
     ESP_LOGW(TAG, "set encode failed for %s: %s", key.c_str(), error.c_str());
@@ -432,8 +475,20 @@ int l_fskv_set(lua_State *L) {
     return 1;
   }
 
+  LockGuard lock(g_fskv_lock);
+
+  std::string package_name;
+  std::string data_dir;
+  std::string file_path;
+  if (!ensure_store_ready(L, package_name, data_dir, file_path, true, error)) {
+    ESP_LOGW(TAG, "set failed for %s: %s", key.c_str(), error.c_str());
+    lua_pushboolean(L, 0);
+    return 1;
+  }
+
   JsonDocument doc;
-  if (!load_store(file_path, doc, error)) {
+  std::string raw;
+  if (!load_store(file_path, doc, error, &raw)) {
     ESP_LOGW(TAG, "set load failed for %s: %s", key.c_str(), error.c_str());
     lua_pushboolean(L, 0);
     return 1;
@@ -448,7 +503,7 @@ int l_fskv_set(lua_State *L) {
     return 1;
   }
 
-  bool ok = save_store(file_path, doc, error);
+  bool ok = save_store(file_path, doc, error, &raw);
   if (!ok) {
     ESP_LOGW(TAG, "set save failed for %s: %s", key.c_str(), error.c_str());
   }
@@ -470,13 +525,20 @@ int l_fskv_sett(lua_State *L) {
     return 1;
   }
 
-  ensure_fskv_lock();
+  // Encode before taking the lock, same reasoning as in l_fskv_set().
+  std::string error;
+  JsonDocument value;
+  if (!deleting && !encode_lua_value(L, 3, value, error)) {
+    ESP_LOGW(TAG, "sett encode failed for %s.%s: %s", key.c_str(), subkey.c_str(), error.c_str());
+    lua_pushboolean(L, 0);
+    return 1;
+  }
+
   LockGuard lock(g_fskv_lock);
 
   std::string package_name;
   std::string data_dir;
   std::string file_path;
-  std::string error;
   if (!ensure_store_ready(L, package_name, data_dir, file_path, true, error)) {
     ESP_LOGW(TAG, "sett failed for %s.%s: %s", key.c_str(), subkey.c_str(), error.c_str());
     lua_pushboolean(L, 0);
@@ -484,15 +546,9 @@ int l_fskv_sett(lua_State *L) {
   }
 
   JsonDocument doc;
-  if (!load_store(file_path, doc, error)) {
+  std::string raw;
+  if (!load_store(file_path, doc, error, &raw)) {
     ESP_LOGW(TAG, "sett load failed for %s.%s: %s", key.c_str(), subkey.c_str(), error.c_str());
-    lua_pushboolean(L, 0);
-    return 1;
-  }
-
-  JsonDocument value;
-  if (!deleting && !encode_lua_value(L, 3, value, error)) {
-    ESP_LOGW(TAG, "sett encode failed for %s.%s: %s", key.c_str(), subkey.c_str(), error.c_str());
     lua_pushboolean(L, 0);
     return 1;
   }
@@ -505,11 +561,16 @@ int l_fskv_sett(lua_State *L) {
       slot.as<JsonObject>().remove(subkey.c_str());
     }
   } else {
-    // to<JsonObject>() creates the parent key when it is missing; it is only used
-    // when the slot is not a table yet, so an existing table keeps its members.
-    JsonObject table_obj = root[key.c_str()].is<JsonObject>()
-                               ? root[key.c_str()].as<JsonObject>()
-                               : root[key.c_str()].to<JsonObject>();
+    JsonVariant slot = root[key.c_str()];
+    if (!slot.isUnbound() && !slot.isNull() && !slot.is<JsonObject>()) {
+      // Overwriting a scalar or an array with a table would drop data silently.
+      ESP_LOGW(TAG, "sett failed for %s.%s: existing value is not a table", key.c_str(), subkey.c_str());
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+    // to<JsonObject>() creates the parent key when it is missing; an existing table
+    // keeps its members.
+    JsonObject table_obj = slot.is<JsonObject>() ? slot.as<JsonObject>() : slot.to<JsonObject>();
     // Write through the member proxy, otherwise new subkeys are silently dropped.
     if (!table_obj[subkey.c_str()].set(value.as<JsonVariantConst>())) {
       ESP_LOGW(TAG, "sett failed for %s.%s: store overflow", key.c_str(), subkey.c_str());
@@ -518,7 +579,7 @@ int l_fskv_sett(lua_State *L) {
     }
   }
 
-  bool ok = save_store(file_path, doc, error);
+  bool ok = save_store(file_path, doc, error, &raw);
   if (!ok) {
     ESP_LOGW(TAG, "sett save failed for %s.%s: %s", key.c_str(), subkey.c_str(), error.c_str());
   }
@@ -533,7 +594,6 @@ int l_fskv_get(lua_State *L) {
     return 1;
   }
 
-  ensure_fskv_lock();
   LockGuard lock(g_fskv_lock);
 
   std::string package_name;
@@ -559,10 +619,17 @@ int l_fskv_get(lua_State *L) {
     return 1;
   }
 
-  if (lua_gettop(L) >= 2 && !lua_isnoneornil(L, 2) && lua_isstring(L, 2)) {
+  // A subkey argument of any other type is a caller bug: return nil instead of
+  // silently handing back the whole table.
+  if (lua_gettop(L) >= 2 && !lua_isnoneornil(L, 2)) {
+    if (!lua_isstring(L, 2)) {
+      lua_pushnil(L);
+      return 1;
+    }
     size_t len = 0;
     const char *subkey = lua_tolstring(L, 2, &len);
-    if (!value.is<JsonObjectConst>() || subkey == nullptr || len == 0) {
+    if (!value.is<JsonObjectConst>() || subkey == nullptr || len == 0 ||
+        memchr(subkey, '\0', len) != nullptr) {
       lua_pushnil(L);
       return 1;
     }
@@ -589,7 +656,6 @@ int l_fskv_del(lua_State *L) {
     return 1;
   }
 
-  ensure_fskv_lock();
   LockGuard lock(g_fskv_lock);
 
   std::string package_name;
@@ -603,14 +669,16 @@ int l_fskv_del(lua_State *L) {
   }
 
   JsonDocument doc;
-  if (!load_store(file_path, doc, error)) {
+  std::string raw;
+  if (!load_store(file_path, doc, error, &raw)) {
     ESP_LOGW(TAG, "del load failed for %s: %s", key.c_str(), error.c_str());
     lua_pushboolean(L, 0);
     return 1;
   }
 
   doc.as<JsonObject>().remove(key.c_str());
-  bool ok = save_store(file_path, doc, error);
+  // Removing an absent key changes nothing, so save_store() skips the rewrite.
+  bool ok = save_store(file_path, doc, error, &raw);
   if (!ok) {
     ESP_LOGW(TAG, "del save failed for %s: %s", key.c_str(), error.c_str());
   }
@@ -619,7 +687,6 @@ int l_fskv_del(lua_State *L) {
 }
 
 int l_fskv_clear(lua_State *L) {
-  ensure_fskv_lock();
   LockGuard lock(g_fskv_lock);
 
   std::string package_name;
@@ -659,7 +726,6 @@ void ensure_iter_metatable(lua_State *L) {
 }
 
 int l_fskv_iter(lua_State *L) {
-  ensure_fskv_lock();
   LockGuard lock(g_fskv_lock);
 
   std::string package_name;
@@ -678,11 +744,17 @@ int l_fskv_iter(lua_State *L) {
     return 1;
   }
 
+  JsonObjectConst root = doc.as<JsonObjectConst>();
+  if (root.size() == 0) {
+    // Documented as `iterator|nil`: an empty store has nothing to walk, and this
+    // makes `while it do ... end` terminate instead of relying on next().
+    lua_pushnil(L);
+    return 1;
+  }
+
   ensure_iter_metatable(L);
   void *mem = lua_newuserdatauv(L, sizeof(FskvIter), 0);
   auto *iter = new(mem) FskvIter();
-
-  JsonObjectConst root = doc.as<JsonObjectConst>();
   iter->keys.reserve(root.size());
   for (JsonPairConst kv : root) {
     iter->keys.emplace_back(kv.key().c_str());
@@ -706,7 +778,6 @@ int l_fskv_next(lua_State *L) {
 }
 
 int l_fskv_status(lua_State *L) {
-  ensure_fskv_lock();
   LockGuard lock(g_fskv_lock);
 
   std::string package_name;
