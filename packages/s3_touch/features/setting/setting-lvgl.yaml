@@ -2339,13 +2339,8 @@ lvgl:
                   width: 304
                   height: 44
                   styles: [setting_card]
-                  widgets:
-                    - label:
-                        id: lbl_lua_apps_empty
-                        align: LEFT_MID
-                        x: 12
-                        styles: [setting_hint]
-                        text: "当前没有运行中的应用"
+                  # 行和「当前没有运行中的应用」提示都由 render_lua_apps_page 动态建，
+                  # 不要在这里声明子控件：lv_obj_clean 会把它们删掉，留下的 id 是悬空的。
 
               # ── 全部停止（列表末尾，危险操作；y 由渲染脚本按行数调整） ──
               - button:

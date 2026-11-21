@@ -29,7 +29,9 @@ globals:
   - id: setting_update_ota_md5_url
     type: std::string
     restore_value: no
-  # 行内容签名：没变化就不重建子控件，避免每秒刷新时闪烁
+  # 行内容签名：没变化就不重建子控件，避免每秒刷新时闪烁。
+  # 空串只有一个含义：强制下次重绘。真实签名永远以条数开头（见 render_lua_apps_page），
+  # 所以空列表的 "0|" 不会和空串撞车。
   - id: lua_apps_signature
     type: std::string
     restore_value: no
@@ -934,35 +936,6 @@ script:
           snprintf(buf, sizeof(buf), "运行中的应用 · %u 个", (unsigned) apps.size());
           lv_label_set_text(id(lbl_lua_apps_group), buf);
 
-          // 行内容没变就不重建（每秒刷新时不闪烁、不重置布局）
-          std::string signature;
-          for (const auto &app : apps) {
-            signature += app.dir;
-            signature += app.aborting ? "|a" : (app.parked ? "|p" : "|r");
-            signature += "|" + std::to_string(app.lua_bytes / 1024) + "|" + std::to_string(app.running_ms / 1000) + ";";
-          }
-          if (signature == id(lua_apps_signature)) {
-            return;
-          }
-          id(lua_apps_signature) = signature;
-
-          lv_obj_t *list = id(obj_lua_apps_list);
-          lv_obj_clean(list);
-
-          // 列表高度随行数变化，底部的「全部停止」跟着往下走（整页可滚动）
-          const int32_t list_y = 170;
-          const int32_t list_height = apps.empty() ? 44 : (int32_t) (apps.size() * 44);
-          lv_obj_set_height(list, list_height);
-          lv_obj_set_y(id(btn_lua_apps_stop_all), list_y + list_height + 8);
-
-          if (apps.empty()) {
-            lv_obj_t *hint = lv_label_create(list);
-            lv_label_set_text(hint, "当前没有运行中的应用");
-            lv_obj_set_style_text_color(hint, lv_color_hex(0x8a9099), 0);
-            lv_obj_align(hint, LV_ALIGN_LEFT_MID, 12, 0);
-            return;
-          }
-
           auto uptime_text = [](uint32_t ms) -> std::string {
             char out[32];
             uint32_t seconds = ms / 1000;
@@ -977,76 +950,129 @@ script:
             return std::string(out);
           };
 
-          for (size_t i = 0; i < apps.size(); i++) {
-            const auto &app = apps[i];
+          // 签名只记「有哪些应用 + 各自状态」，不记时长和内存：那两项每秒都在变，放进签名
+          // 就会每秒整行重建一次，连手指正按着的「停止」按钮一起销毁（按下与松开跨过一次
+          // 重建时，这次点击可能被 LVGL 吞掉）。
+          // 签名必须以条数开头：空列表也要是 "0|" 而不是空串。空串是“强制重绘”哨兵
+          // （初值 / 全部停止都会置空），如果空列表也算空串，那一次就会被去重提前 return，
+          // lv_obj_clean 不执行，旧行留在屏幕上；之后每次刷新算出的还是空串、还是相等，
+          // 列表就永久卡在旧内容（退出页面再进来也一样）。
+          std::string signature = std::to_string(apps.size()) + "|";
+          for (const auto &app : apps) {
+            signature += app.dir;
+            signature += app.aborting ? "|a" : (app.parked ? "|p" : "|r");
+            signature += ";";
+          }
 
-            lv_obj_t *row = lv_obj_create(list);
-            lv_obj_set_size(row, 304, 44);
-            lv_obj_set_pos(row, 0, (int32_t) (i * 44));
-            lv_obj_set_style_radius(row, 0, 0);
-            lv_obj_set_style_pad_all(row, 0, 0);
-            lv_obj_set_style_bg_color(row, lv_color_white(), 0);
-            lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
-            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
-            if (i > 0) {
-              lv_obj_set_style_border_side(row, LV_BORDER_SIDE_TOP, 0);
-              lv_obj_set_style_border_width(row, 1, 0);
-              lv_obj_set_style_border_color(row, lv_color_hex(0xedeff2), 0);
-            } else {
-              lv_obj_set_style_border_width(row, 0, 0);
+          // 指向每行「状态 · 时长」「内存」两个 label，用来每秒原地刷新文本
+          static std::vector<lv_obj_t *> row_state_labels;
+          static std::vector<lv_obj_t *> row_mem_labels;
+
+          // 行结构有变化才重建（增删应用 / 运行态变化）
+          if (signature != id(lua_apps_signature)) {
+            id(lua_apps_signature) = signature;
+
+            lv_obj_t *list = id(obj_lua_apps_list);
+            lv_obj_clean(list);
+            row_state_labels.clear();
+            row_mem_labels.clear();
+
+            // 列表高度随行数变化，底部的「全部停止」跟着往下走（整页可滚动）
+            const int32_t list_y = 170;
+            const int32_t list_height = apps.empty() ? 44 : (int32_t) (apps.size() * 44);
+            lv_obj_set_height(list, list_height);
+            lv_obj_set_y(id(btn_lua_apps_stop_all), list_y + list_height + 8);
+
+            if (apps.empty()) {
+              lv_obj_t *hint = lv_label_create(list);
+              lv_label_set_text(hint, "当前没有运行中的应用");
+              lv_obj_set_style_text_color(hint, lv_color_hex(0x8a9099), 0);
+              lv_obj_align(hint, LV_ALIGN_LEFT_MID, 12, 0);
             }
 
-            lv_obj_t *name = lv_label_create(row);
-            lv_label_set_text(name, app.name.c_str());
-            lv_obj_set_style_text_color(name, lv_color_hex(0x1f1f1f), 0);
-            lv_obj_align(name, LV_ALIGN_TOP_LEFT, 12, 5);
+            for (size_t i = 0; i < apps.size(); i++) {
+              const auto &app = apps[i];
 
+              lv_obj_t *row = lv_obj_create(list);
+              lv_obj_set_size(row, 304, 44);
+              lv_obj_set_pos(row, 0, (int32_t) (i * 44));
+              lv_obj_set_style_radius(row, 0, 0);
+              lv_obj_set_style_pad_all(row, 0, 0);
+              lv_obj_set_style_bg_color(row, lv_color_white(), 0);
+              lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+              lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+              if (i > 0) {
+                lv_obj_set_style_border_side(row, LV_BORDER_SIDE_TOP, 0);
+                lv_obj_set_style_border_width(row, 1, 0);
+                lv_obj_set_style_border_color(row, lv_color_hex(0xedeff2), 0);
+              } else {
+                lv_obj_set_style_border_width(row, 0, 0);
+              }
+
+              lv_obj_t *name = lv_label_create(row);
+              lv_label_set_text(name, app.name.c_str());
+              lv_obj_set_style_text_color(name, lv_color_hex(0x1f1f1f), 0);
+              lv_obj_align(name, LV_ALIGN_TOP_LEFT, 12, 5);
+
+              // 文本先留空，由下面的刷新循环统一填（重建那一帧也会立刻被填上）
+              lv_obj_t *sub = lv_label_create(row);
+              lv_label_set_text(sub, "");
+              lv_obj_set_style_text_color(sub, lv_color_hex(0x8a9099), 0);
+              lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 12, 23);
+              row_state_labels.push_back(sub);
+
+              lv_obj_t *mem_label = lv_label_create(row);
+              lv_label_set_text(mem_label, "");
+              lv_obj_set_style_text_color(mem_label, lv_color_hex(0x8a9099), 0);
+              lv_obj_align(mem_label, LV_ALIGN_TOP_RIGHT, -64, 5);
+              row_mem_labels.push_back(mem_label);
+
+              if (!app.aborting) {
+                lv_obj_t *stop_btn = lv_obj_create(row);
+                lv_obj_set_size(stop_btn, 48, 22);
+                lv_obj_align(stop_btn, LV_ALIGN_RIGHT_MID, -8, 0);
+                lv_obj_set_style_radius(stop_btn, 6, 0);
+                lv_obj_set_style_bg_color(stop_btn, lv_color_hex(0xfdebec), 0);
+                lv_obj_set_style_bg_opa(stop_btn, LV_OPA_COVER, 0);
+                lv_obj_set_style_border_width(stop_btn, 0, 0);
+                lv_obj_set_style_shadow_width(stop_btn, 0, 0);
+                lv_obj_clear_flag(stop_btn, LV_OBJ_FLAG_SCROLLABLE);
+                lv_obj_t *stop_label = lv_label_create(stop_btn);
+                lv_label_set_text(stop_label, "停止");
+                lv_obj_set_style_text_color(stop_label, lv_color_hex(0xe5484d), 0);
+                lv_obj_center(stop_label);
+                // 目录挂在按钮的 user_data 上，随按钮一起释放
+                auto *dir_holder = new std::string(app.dir);
+                lv_obj_add_event_cb(
+                    stop_btn,
+                    [](lv_event_t *e) {
+                      auto *dir = static_cast<std::string *>(lv_event_get_user_data(e));
+                      if (dir == nullptr) {
+                        return;
+                      }
+                      ESP_LOGI("Setting", "Stopping Lua app: %s", dir->c_str());
+                      id(lua).stop_app(*dir);
+                      // 不在这里重建列表：正处在事件派发中，等 1s 自动刷新接管
+                    },
+                    LV_EVENT_CLICKED, dir_holder);
+                lv_obj_add_event_cb(
+                    stop_btn,
+                    [](lv_event_t *e) { delete static_cast<std::string *>(lv_event_get_user_data(e)); },
+                    LV_EVENT_DELETE, dir_holder);
+              }
+            }
+          }
+
+          // 行结构没变，只把每秒会变的两段文本原地写进去
+          for (size_t i = 0; i < apps.size() && i < row_state_labels.size(); i++) {
+            const auto &app = apps[i];
             const char *state_text = app.aborting ? "正在停止" : (app.parked ? "已挂起" : "运行中");
             snprintf(buf, sizeof(buf), "%s · %s", state_text, uptime_text(app.running_ms).c_str());
-            lv_obj_t *sub = lv_label_create(row);
-            lv_label_set_text(sub, buf);
-            lv_obj_set_style_text_color(sub, lv_color_hex(0x8a9099), 0);
-            lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 12, 23);
-
-            snprintf(buf, sizeof(buf), "Lua %u KB · 栈 %u KB", (unsigned) (app.lua_bytes / 1024),
-                     (unsigned) (app.stack_bytes / 1024));
-            lv_obj_t *mem_label = lv_label_create(row);
-            lv_label_set_text(mem_label, buf);
-            lv_obj_set_style_text_color(mem_label, lv_color_hex(0x8a9099), 0);
-            lv_obj_align(mem_label, LV_ALIGN_TOP_RIGHT, -64, 5);
-
-            if (!app.aborting) {
-              lv_obj_t *stop_btn = lv_obj_create(row);
-              lv_obj_set_size(stop_btn, 48, 22);
-              lv_obj_align(stop_btn, LV_ALIGN_RIGHT_MID, -8, 0);
-              lv_obj_set_style_radius(stop_btn, 6, 0);
-              lv_obj_set_style_bg_color(stop_btn, lv_color_hex(0xfdebec), 0);
-              lv_obj_set_style_bg_opa(stop_btn, LV_OPA_COVER, 0);
-              lv_obj_set_style_border_width(stop_btn, 0, 0);
-              lv_obj_set_style_shadow_width(stop_btn, 0, 0);
-              lv_obj_clear_flag(stop_btn, LV_OBJ_FLAG_SCROLLABLE);
-              lv_obj_t *stop_label = lv_label_create(stop_btn);
-              lv_label_set_text(stop_label, "停止");
-              lv_obj_set_style_text_color(stop_label, lv_color_hex(0xe5484d), 0);
-              lv_obj_center(stop_label);
-              // 目录挂在按钮的 user_data 上，随按钮一起释放
-              auto *dir_holder = new std::string(app.dir);
-              lv_obj_add_event_cb(
-                  stop_btn,
-                  [](lv_event_t *e) {
-                    auto *dir = static_cast<std::string *>(lv_event_get_user_data(e));
-                    if (dir == nullptr) {
-                      return;
-                    }
-                    ESP_LOGI("Setting", "Stopping Lua app: %s", dir->c_str());
-                    id(lua).stop_app(*dir);
-                    // 不在这里重建列表：正处在事件派发中，等 1s 自动刷新接管
-                  },
-                  LV_EVENT_CLICKED, dir_holder);
-              lv_obj_add_event_cb(
-                  stop_btn,
-                  [](lv_event_t *e) { delete static_cast<std::string *>(lv_event_get_user_data(e)); },
-                  LV_EVENT_DELETE, dir_holder);
+            lv_label_set_text(row_state_labels[i], buf);
+            if (i < row_mem_labels.size()) {
+              snprintf(buf, sizeof(buf), "Lua %u KB · 栈 %u KB", (unsigned) (app.lua_bytes / 1024),
+                       (unsigned) (app.stack_bytes / 1024));
+              lv_label_set_text(row_mem_labels[i], buf);
             }
           }
 
@@ -1061,6 +1087,7 @@ script:
       # 让事件派发先结束，再重建列表
       - delay: 150ms
       - lambda: |-
+          // 置空 = 强制重绘（真实签名非空，见 render_lua_apps_page）
           id(lua_apps_signature) = "";
       - script.execute: render_lua_apps_page
 
