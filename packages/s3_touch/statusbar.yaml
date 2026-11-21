@@ -30,6 +30,12 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  # 当前前台 Lua 应用的标题（只有 statusbar_compat 写）。与 bar_saved_title 分开，
+  # 这样别的页面写标题时不会把应用标题冲掉，应用在前台时可以把它写回状态栏。
+  - id: bar_app_title
+    type: std::string
+    restore_value: no
+    initial_value: '""'
   - id: bar_saved_back
     type: bool
     restore_value: no
@@ -324,6 +330,7 @@ script:
           lv_label_set_text(id(lbl_topbar_title), title.c_str());
           id(bar_saved_mode) = 1;
           id(bar_saved_title) = title;
+          id(bar_app_title) = title;
           id(bar_back_available) = false;
           id(bar_gesture_home) = true;
       - script.execute: statusbar_update_status
@@ -334,7 +341,9 @@ script:
     then:
       - lambda: |
           lv_label_set_text(id(lbl_topbar_title), title.c_str());
-          if (id(bar_saved_mode) == 0 || id(bar_saved_mode) == 1) {
+          // 只在普通导航栏（实底模式）下记录标题；compat 模式下这条不该覆盖应用标题，
+          // 否则解锁恢复（statusbar_restore）会用错标题重建应用状态栏。
+          if (id(bar_saved_mode) == 0) {
             id(bar_saved_title) = title;
           }
 
@@ -366,6 +375,47 @@ script:
           } else {
             id(statusbar_enter)->execute(id(bar_saved_title), id(bar_saved_back), id(bar_saved_action));
           }
+
+  # Lua 应用页在前台时，状态栏归 compat 模式独占：别的页面（消息页 tab 变化、
+  # 商店/设置页 on_load 等）可能在后台调用 statusbar_enter/statusbar_title，
+  # 把标题和动作按钮写到正在显示的应用页状态栏上。这里把 compat 状态写回去。
+  # 只在“应用页真的在屏幕上 + 状态栏可见”时动手，避免覆盖应用自己的 hide_topbar。
+  - id: statusbar_reassert_app
+    then:
+      - lambda: |
+          // 注意：这里不能用 bar_saved_mode 判断——被别的页面改写时它已经变成 0 了，
+          // 那正是要修复的情形。bar_app_title 只有 statusbar_compat 会写。
+          if (id(bar_app_title).empty()) return;
+          if (!esphome::lua_runtime::is_active_app_page()) return;
+          if (lv_obj_has_flag(id(statusbar_root), LV_OBJ_FLAG_HIDDEN)) return;
+
+          const char *current = lv_label_get_text(id(lbl_topbar_title));
+          if (current == nullptr || id(bar_app_title) != current) {
+            lv_label_set_text(id(lbl_topbar_title), id(bar_app_title).c_str());
+          }
+          if (lv_obj_get_width(id(lbl_topbar_title)) != 150) {
+            lv_obj_set_width(id(lbl_topbar_title), 150);
+          }
+          if (lv_obj_get_x(id(lbl_bar_time)) != 12) lv_obj_set_x(id(lbl_bar_time), 12);
+          if (lv_obj_get_x(id(lbl_bar_wifi)) != 52) lv_obj_set_x(id(lbl_bar_wifi), 52);
+          if (lv_obj_get_x(id(lbl_bar_battery)) != -4) lv_obj_set_x(id(lbl_bar_battery), -4);
+
+          lv_obj_t *const hide_me[] = {
+            id(statusbar_bg), id(btn_topbar_back), id(btn_app_store_refresh),
+            id(btn_message_add), id(btn_weather_refresh), id(btn_lua_apps_refresh),
+          };
+          for (lv_obj_t *obj : hide_me) {
+            if (obj != nullptr && !lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN)) {
+              lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+            }
+          }
+          // 保存的应用状态跟着修回来，避免解锁恢复（statusbar_restore）用错标题。
+          id(bar_saved_mode) = 1;
+          id(bar_saved_title) = id(bar_app_title);
+          id(bar_saved_back) = false;
+          id(bar_saved_action) = 0;
+          id(bar_back_available) = false;
+          id(bar_gesture_home) = true;
 
   # 时间 + 电量（进入页面时和每分钟各刷新一次）
   - id: statusbar_update_status
@@ -486,3 +536,10 @@ script:
             // already active and skip its on_load: restore the immersive bar explicitly.
             id(statusbar_immersive)->execute();
           }
+
+# Lua 应用页在前台期间盯住状态栏：任何后台页面把它改掉，下一拍就写回 compat 状态。
+# 只在应用页时生效（bar_saved_mode==1 + 真正在前台），对其它页面没有影响。
+interval:
+  - interval: 1s
+    then:
+      - script.execute: statusbar_reassert_app

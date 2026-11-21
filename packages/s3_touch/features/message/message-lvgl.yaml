@@ -136,6 +136,21 @@ lvgl:
             id: close_notification
             notification_message: "条私聊消息（特别关心）"
         - script.execute: message_init_chat_scroll_loaders
+        # tabview 的 tab 由内容容器滚动位置决定：如果这个位置在页面不在前台时被改动过，
+        # 进页面会停在“半格”位置（甚至纵向偏移），表现成打开消息页却停在“设置”tab 的底端。
+        # 进页面时对齐到整页，并清掉内容容器的纵向偏移。
+        - lambda: |
+            lv_obj_t *tab_cont = lv_tabview_get_content(tabview_message);
+            lv_tabview_set_act(tabview_message, lv_tabview_get_tab_act(tabview_message), LV_ANIM_OFF);
+            if (tab_cont != nullptr) {
+              lv_obj_scroll_to_y(tab_cont, 0, LV_ANIM_OFF);
+              // 各个 tab 自己的纵向滚动也归零：否则会把上次的滚动位置带进来，
+              // 表现为打开消息页停在“设置”tab 的最底部。
+              for (uint32_t i = 0; i < lv_obj_get_child_cnt(tab_cont); i++) {
+                lv_obj_t *tab_page = lv_obj_get_child(tab_cont, i);
+                if (tab_page != nullptr) lv_obj_scroll_to_y(tab_page, 0, LV_ANIM_OFF);
+              }
+            }
         - script.execute: message_resume_visible_content
         - script.execute: message_init_unread_dots
         - script.execute: message_update_unread_indicators
@@ -170,12 +185,19 @@ lvgl:
                 - lambda: |
                     lv_keyboard_reset_ime(keyboard_message_input->obj);
                     uint16_t tab_act = lv_tabview_get_tab_act(tabview_message);
-                    if (tab_act == 0) {
-                      id(statusbar_enter)->execute(std::string("消息"), false, 2);
-                    } else if (tab_act == 1) {
-                      id(statusbar_enter)->execute(std::string("广场"), false, 0);
-                    } else {
-                      id(statusbar_enter)->execute(std::string("消息"), false, 0);
+                    // tabview 的“当前 tab”是 LVGL 按内容容器的滚动位置反推的（见 lv_tabview 的
+                    // SCROLL_END 处理），所以任何对 content 的滚动/重排都会触发 value 变化，
+                    // 哪怕消息页根本不在前台。此时写状态栏会把“消息/广场”的标题和动作按钮
+                    // 盖到正在显示的页面（典型是正在阅读的 Lua 应用页）的状态栏上。
+                    // 只有消息页真的在屏幕上时才允许改写状态栏。
+                    if (id(page_message).is_showing()) {
+                      if (tab_act == 0) {
+                        id(statusbar_enter)->execute(std::string("消息"), false, 2);
+                      } else if (tab_act == 1) {
+                        id(statusbar_enter)->execute(std::string("广场"), false, 0);
+                      } else {
+                        id(statusbar_enter)->execute(std::string("消息"), false, 0);
+                      }
                     }
                     lv_obj_t *tab_btns = lv_tabview_get_tab_btns(tabview_message);
                     if (tab_btns != nullptr) {
