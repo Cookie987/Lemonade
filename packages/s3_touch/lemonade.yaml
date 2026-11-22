@@ -264,6 +264,36 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  # 本次连接尝试的起点（millis），用于判断失败原因是否属于本次尝试
+  - id: wifi_connect_attempt_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+  # 最近一次连接失败的原因，用于通知文案
+  - id: wifi_connect_error
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # 弹窗里当前选中的已保存网络
+  - id: wifi_selected_ssid
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # 本次连接是否走“先连后存”（新网络）：只有这条路径才有组件的候选网络
+  - id: wifi_connect_tentative
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # 本次连接的目标 SSID（不依赖 pending：pending 可能被 on_connect 先清掉）
+  - id: wifi_connect_target
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # 等连接结束后的成败判定结果
+  - id: wifi_connect_ok
+    type: bool
+    restore_value: no
+    initial_value: 'false'
   - id: battery_soc
     type: float
     restore_value: no
@@ -434,16 +464,21 @@ wifi:
       - lambda: |
           ESP_LOGI("MQTT_Cred", "MQTT connected, applying credentials...");
           id(mqtt_was_connected) = true;
+      # 通知与成败提示统一由 wifi_connect_wait 处理（避免两处各自清 pending 导致
+      # “正在连接”通知残留）。这里只负责记录“连上的不是用户要的那个网络”。
       - if:
           condition:
             lambda: 'return !id(wifi_pending_ssid).empty();'
           then:
-            - script.execute:
-                id: show_notification
-                notification_message: !lambda 'return "已连接 Wi-Fi：" + id(wifi_pending_ssid);'
-                suffix: !lambda 'return id(wifi_pending_ssid);'
-                delay_ms: 5000
-            - lambda: 'id(wifi_pending_ssid) = "";'
+            - lambda: |
+                auto wifi = wifi::global_wifi_component;
+                char ssid_buf[wifi::SSID_BUFFER_SIZE];
+                std::string current = wifi != nullptr ? std::string(wifi->wifi_ssid_to(ssid_buf)) : std::string();
+                if (current != id(wifi_pending_ssid)) {
+                  id(wifi_connect_error) = "已回退到其他网络";
+                  ESP_LOGW("Setting", "Connected to '%s' instead of requested '%s'", current.c_str(),
+                           id(wifi_pending_ssid).c_str());
+                }
       - script.execute: mqtt_register_credentials
       - delay: 3s
       - mqtt.enable:
@@ -454,11 +489,19 @@ wifi:
   cooldown_off_time: 10s
   on_disconnect:
     then:
-      - mqtt.disable:
-      - lambda: |
-          ESP_LOGW("MQTT_Cred", "MQTT disconnected");
-          id(mqtt_was_connected) = false;
-      - script.execute: mqtt_register_credentials
+      # 切换网络（有未确认的候选）时会主动断开一次，链路马上回来：
+      # 这时不折腾 MQTT，省掉 disable/enable 和 TLS 重连的抖动
+      - if:
+          condition:
+            lambda: |-
+              auto wifi = wifi::global_wifi_component;
+              return wifi == nullptr || !wifi->has_pending_wifi();
+          then:
+            - mqtt.disable:
+            - lambda: |
+                ESP_LOGW("MQTT_Cred", "MQTT disconnected");
+                id(mqtt_was_connected) = false;
+            - script.execute: mqtt_register_credentials
       # - if:
       #     condition:
       #       lambda: 'return id(wifi_switch).state;'

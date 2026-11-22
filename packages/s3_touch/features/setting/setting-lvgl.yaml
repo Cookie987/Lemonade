@@ -48,51 +48,50 @@ lvgl:
 
     - id: msgbox_delete_wifi_message
       close_button: false
-      title: 删除Wi-Fi
+      title: Wi-Fi 网络
       text_font: chinese_font14
       body:
-        text: "你确定删除这个Wi-Fi吗？"
+        text: "已保存的网络"
         text_font: chinese_font14
       buttons:
-        - id: btn_delete_wifi_close
-          text: "不"
+        - id: btn_wifi_msgbox_connect
+          text: "连接"
           on_click:
             then:
               - lvgl.widget.hide: msgbox_delete_wifi_message
+              - script.execute:
+                  id: wifi_connect_saved
+                  ssid: !lambda 'return id(wifi_selected_ssid);'
+        - id: btn_wifi_msgbox_disconnect
+          text: "断开"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_delete_wifi_message
+              - lambda: |
+                  auto wifi = wifi::global_wifi_component;
+                  if (wifi != nullptr) {
+                    wifi->disconnect_wifi();
+                  }
+              - lambda: 'lv_label_set_text(lbl_wifi_get_info, "已断开连接");'
+              - script.execute: refresh_wifi_list
         - id: btn_delete_wifi_ok
-          text: "好"
+          text: "删除"
           on_click:
             then:
               - lambda: |
-                  lv_obj_t * msgbox_content = lv_msgbox_get_content(msgbox_delete_wifi_message);
-                  lv_obj_t * msgbox_text =
-                      (msgbox_content != nullptr && lv_obj_get_child_count(msgbox_content) > 0)
-                          ? lv_obj_get_child(msgbox_content, 0)
-                          : nullptr;
-                  const char *txt = msgbox_text != nullptr ? lv_label_get_text(msgbox_text) : nullptr;
-                  if (txt == nullptr) {
-                      lv_obj_add_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
-                      return;
+                  // 直接交给组件删除，让它同时更新内存列表和 /data/wifilist.json，
+                  // 避免 UI 只改文件、组件仍在用旧凭据。
+                  auto wifi = wifi::global_wifi_component;
+                  if (wifi != nullptr && !id(wifi_selected_ssid).empty()) {
+                    wifi->delete_wifi_stas(id(wifi_selected_ssid).c_str());
                   }
-                  // 提取Wi-Fi名称，格式是 "确定要删除 Wi-Fi名称 吗？"
-                  std::string msg = txt;
-                  std::string prefix = "确定要删除 ";
-                  std::string suffix = " 吗？";
-
-                  size_t start = msg.find(prefix);
-                  if (start != std::string::npos)
-                  {
-                      start += prefix.length();
-                      size_t end = msg.find(suffix, start);
-
-                      if (end != std::string::npos)
-                      {
-                          std::string ssid = msg.substr(start, end - start);
-                          id(delete_wifi_from_json)->execute(ssid);
-                          id(prase_wifi_list)->execute();
-                          lv_obj_add_flag(msgbox_delete_wifi_message_outer, LV_OBJ_FLAG_HIDDEN);
-                      }
-                  }
+              - lvgl.widget.hide: msgbox_delete_wifi_message
+              - script.execute: prase_wifi_list
+        - id: btn_delete_wifi_close
+          text: "取消"
+          on_click:
+            then:
+              - lvgl.widget.hide: msgbox_delete_wifi_message
 
     - id: msgbox_update_message
       close_button: false
@@ -1207,10 +1206,6 @@ lvgl:
                           id: system_setting_wifi_config_page
                           animation: MOVE_LEFT
                           time: 200ms
-                      - lambda: |
-                          if (wifi::global_wifi_component != nullptr) {
-                            wifi::global_wifi_component->start_scanning();
-                          }
                   widgets:
                     - label:
                         styles: [setting_icon]
@@ -1255,10 +1250,6 @@ lvgl:
                           id: system_setting_wifi_config_page
                           animation: MOVE_LEFT
                           time: 200ms
-                      - lambda: |
-                          if (wifi::global_wifi_component != nullptr) {
-                            wifi::global_wifi_component->start_scanning();
-                          }
                   widgets:
                     - label:
                         styles: [setting_icon]
@@ -2381,7 +2372,7 @@ lvgl:
         - script.execute: refresh_wifi_list
         - lambda: |
             if (wifi::global_wifi_component != nullptr && id(wifi_switch).state == true) {
-              wifi::global_wifi_component->start_scanning();
+              wifi::global_wifi_component->request_scan_results();
             }
       widgets:
         - obj:
@@ -2429,12 +2420,18 @@ lvgl:
             on_release:
               then:
                 - lambda: |
+                    bool started = false;
                     if (wifi::global_wifi_component != nullptr && id(wifi_switch).state == true) {
-                      wifi::global_wifi_component->start_scanning();
+                      started = wifi::global_wifi_component->request_scan_results();
+                      if (!started) {
+                        ESP_LOGW("Setting", "request_scan_results refused (connected=%d)",
+                                 (int) wifi::global_wifi_component->is_connected());
+                      }
                     }
                     lv_obj_clean(id(list_scanned_wifi));
                     if (id(wifi_switch).state == true) {
-                      lv_list_add_text(id(list_scanned_wifi), "正在扫描……");
+                      // 驱动忙（正在连接/正在扫描）时明确告知，而不是让列表空白让人以为坏了
+                      lv_list_add_text(id(list_scanned_wifi), started ? "正在扫描……" : "正在连接，请稍后重试");
                     }
                     else {
                       lv_list_add_text(id(list_scanned_wifi), "Wi-Fi 已关闭");
@@ -2496,9 +2493,9 @@ lvgl:
                       id(lvgl_1)->show_page(system_setting_wifi_config_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
                       return;
                     }
-                    // 保存凭据到 /data/wifilist.json 并立即优先连接该网络
-                    id(append_wifi_to_json)->execute(ssid, password);
-                    id(wifi_connect_saved)->execute(ssid);
+                    // 先连后存：只有真正连上才由组件写入 /data/wifilist.json；
+                    // 密码错误不会污染凭据，也不会顶掉正在用的网络
+                    id(wifi_try_connect)->execute(ssid, password);
                     id(lvgl_1)->show_page(system_setting_wifi_config_page->index, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 200);
                     global_preferences->sync();
         - keyboard:
