@@ -11,6 +11,7 @@
 
 #include "esphome/core/log.h"
 #include "esphome/core/preferences.h"
+#include "esphome/core/time.h"
 #include "lua_app.h"
 #include "lua_fskv.h"
 #include "lua_esphome.h"
@@ -795,6 +796,48 @@ static int rtos_build_date(lua_State *L) {
   return 1;
 }
 
+// rtos.localTime([epoch]) -> table {year, month, day, hour, minute, second, weekday, yearday, isdst}, unix
+//
+// Lua 的 os.date 走 libc 的 localtime()，而 ESPHome 为了省 flash 去掉了 setenv("TZ")/tzset()，
+// 所以 os.date("*t") 在设备上拿到的是 UTC。固件自己的时区解析在 esphome::time 里（配置里的
+// timezone:），这里直接复用它，脚本就能拿到和状态栏一致的本地时间。
+// weekday: 0 = 周日（与 os.date("*t") 一致）；unix 为原始 epoch 秒。
+static int rtos_local_time(lua_State *L) {
+  time_t epoch = ::time(nullptr);
+  if (!lua_isnoneornil(L, 1)) {
+    lua_Integer raw = luaL_checkinteger(L, 1);
+    epoch = (time_t) raw;
+  }
+
+  esphome::ESPTime t = esphome::ESPTime::from_epoch_local(epoch);
+
+  lua_createtable(L, 0, 10);
+  lua_pushinteger(L, (lua_Integer) t.year);
+  lua_setfield(L, -2, "year");
+  lua_pushinteger(L, (lua_Integer) t.month);
+  lua_setfield(L, -2, "month");
+  lua_pushinteger(L, (lua_Integer) t.day_of_month);
+  lua_setfield(L, -2, "day");
+  lua_pushinteger(L, (lua_Integer) t.hour);
+  lua_setfield(L, -2, "hour");
+  lua_pushinteger(L, (lua_Integer) t.minute);
+  lua_setfield(L, -2, "minute");
+  lua_pushinteger(L, (lua_Integer) t.second);
+  lua_setfield(L, -2, "second");
+  // ESPTime 的 day_of_week 是 1=周日..7=周六；换算成 os.date 的 0=周日..6=周六
+  lua_pushinteger(L, (lua_Integer) (t.day_of_week % 7));
+  lua_setfield(L, -2, "weekday");
+  lua_pushinteger(L, (lua_Integer) t.day_of_year);
+  lua_setfield(L, -2, "yearday");
+  lua_pushboolean(L, t.is_dst);
+  lua_setfield(L, -2, "isdst");
+  lua_pushinteger(L, (lua_Integer) t.timestamp);
+  lua_setfield(L, -2, "unix");
+  lua_pushboolean(L, t.is_valid());
+  lua_setfield(L, -2, "valid");
+  return 1;
+}
+
 static int rtos_bsp(lua_State *L) {
 #if CONFIG_IDF_TARGET_ESP32S3
   lua_pushstring(L, "ESP32S3");
@@ -1092,6 +1135,8 @@ static void register_rtos_api(lua_State *L) {
   lua_setfield(L, -2, "reboot");
   lua_pushcfunction(L, rtos_build_date);
   lua_setfield(L, -2, "buildDate");
+  lua_pushcfunction(L, rtos_local_time);
+  lua_setfield(L, -2, "localTime");
   lua_pushcfunction(L, rtos_bsp);
   lua_setfield(L, -2, "bsp");
   lua_pushcfunction(L, rtos_version);

@@ -272,6 +272,25 @@ end)
 - 设置了 `opts.callback` / `opts.userdata`（进度回调）时走阻塞实现。
 - 每个脚本最多同时 4 个异步请求；应用停止时会自动取消未完成的请求。
 
+## 时间与日期
+
+设备上 `os.date("*t")` / `os.time()` 走 libc，而 ESPHome 为了省 flash 去掉了 `setenv("TZ")`/`tzset()`，所以 **`os.date` 拿到的是 UTC，不是本地时间**（差 8 小时）。要本地时间用运行时的 `rtos.localTime()`：
+
+```lua
+local t = rtos.localTime()        -- 走固件 time: 里配置的时区
+if t.valid then                   -- false = SNTP 还没同步
+    log.info("app", t.year, t.month, t.day, t.hour, t.minute)
+end
+
+local past = rtos.localTime(1700000000)   -- 指定 epoch 也行
+```
+
+`os.time{T=...}` 也不要用来做日期运算：它按 UTC 解释字段，跨时区/跨夏令时会漂。纯日期算术（加减天数、某月天数、星期几）自己算，参考 `packages/lua/com.lemonade.calendar/lib/lunar.lua` 里的 `solarDays` / `weekday`。
+
+## 中文输入
+
+Lua 应用可以像聊天页一样用固件里的拼音输入法，见 `docs/lua-api-reference.md` 的 `keyboard_set_candidate_list` / `keyboard_reset_ime`。要点是给键盘挂一个候选词容器，并**不要**覆盖键盘的默认 map（`英`/`中` 切换键在默认 map 里）。
+
 ## 开发建议
 
 - UI 应用优先使用 `sys.timerLoopStart(function() lv.poll_events(10) end, 16)`。

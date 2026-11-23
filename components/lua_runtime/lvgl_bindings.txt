@@ -261,6 +261,9 @@ lv_keyboard_set_popovers
 lv_keyboard_set_map
 lv_keyboard_get_textarea
 lv_keyboard_get_mode
+# 中文拼音输入法（LVGL 分叉新增）：候选词列表容器 + 清空当前拼音/候选状态
+lv_keyboard_set_candidate_list
+lv_keyboard_reset_ime
 
 # list
 lv_list_create

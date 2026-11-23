@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "id": "com.lemonade.calendar",
+  "platform": ["s3_t", "s3_t_3_2"],
+  "name": "日历",
+  "description": "月历视图带农历、干支与节日，可为任意日期添加备注，数据保存在应用私有目录。",
+  "author": "LemonadeOS Team",
+  "icon": "assets/icon.png"
+}

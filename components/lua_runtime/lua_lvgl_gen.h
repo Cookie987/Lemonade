@@ -1480,42 +1480,46 @@ static int l_dropdown_create(lua_State *L) {
 
 static int l_dropdown_set_text(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_text = luaL_checkstring(L, 2);
+  const char * a1_text_raw = luaL_checkstring(L, 2);
+  std::string a1_text = a1_text_raw != nullptr ? a1_text_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_dropdown_set_text(a0_obj, a1_text); });
+  lvgl_call_void([=]() { lv_dropdown_set_text(a0_obj, a1_text.c_str()); });
   return 0;
 }
 
 static int l_dropdown_set_options(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_options = luaL_checkstring(L, 2);
+  const char * a1_options_raw = luaL_checkstring(L, 2);
+  std::string a1_options = a1_options_raw != nullptr ? a1_options_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_dropdown_set_options(a0_obj, a1_options); });
+  lvgl_call_void([=]() { lv_dropdown_set_options(a0_obj, a1_options.c_str()); });
   return 0;
 }
 
 static int l_dropdown_set_options_static(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_options = luaL_checkstring(L, 2);
+  const char * a1_options_raw = luaL_checkstring(L, 2);
+  std::string a1_options = a1_options_raw != nullptr ? a1_options_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_dropdown_set_options_static(a0_obj, a1_options); });
+  lvgl_call_void([=]() { lv_dropdown_set_options_static(a0_obj, a1_options.c_str()); });
   return 0;
 }
 
 static int l_dropdown_add_option(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_option = luaL_checkstring(L, 2);
+  const char * a1_option_raw = luaL_checkstring(L, 2);
+  std::string a1_option = a1_option_raw != nullptr ? a1_option_raw : "";
   uint32_t a2_pos = (uint32_t) luaL_checkinteger(L, 3);
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_dropdown_add_option(a0_obj, a1_option, a2_pos); });
+  lvgl_call_void([=]() { lv_dropdown_add_option(a0_obj, a1_option.c_str(), a2_pos); });
   return 0;
 }
 
@@ -1642,12 +1646,13 @@ static int l_dropdown_get_option_cnt(lua_State *L) {
 
 static int l_dropdown_get_option_index(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_option = luaL_checkstring(L, 2);
+  const char * a1_option_raw = luaL_checkstring(L, 2);
+  std::string a1_option = a1_option_raw != nullptr ? a1_option_raw : "";
   if (a0_obj == nullptr) {
     lua_pushnil(L);
     return 1;
   }
-  int32_t res = lvgl_call_ret([=]() -> int32_t { return lv_dropdown_get_option_index(a0_obj, a1_option); });
+  int32_t res = lvgl_call_ret([=]() -> int32_t { return lv_dropdown_get_option_index(a0_obj, a1_option.c_str()); });
   lua_pushinteger(L, (lua_Integer) res);
   return 1;
 }
@@ -1876,11 +1881,12 @@ static int l_img_get_antialias(lua_State *L) {
 
 static int l_label_set_text_static(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_text = luaL_checkstring(L, 2);
+  const char * a1_text_raw = luaL_checkstring(L, 2);
+  std::string a1_text = a1_text_raw != nullptr ? a1_text_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_label_set_text_static(a0_obj, a1_text); });
+  lvgl_call_void([=]() { lv_label_set_text_static(a0_obj, a1_text.c_str()); });
   return 0;
 }
 
@@ -1987,11 +1993,12 @@ static int l_label_get_text_selection_end(lua_State *L) {
 static int l_label_ins_text(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
   uint32_t a1_pos = (uint32_t) luaL_checkinteger(L, 2);
-  const char * a2_txt = luaL_checkstring(L, 3);
+  const char * a2_txt_raw = luaL_checkstring(L, 3);
+  std::string a2_txt = a2_txt_raw != nullptr ? a2_txt_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_label_ins_text(a0_obj, a1_pos, a2_txt); });
+  lvgl_call_void([=]() { lv_label_ins_text(a0_obj, a1_pos, a2_txt.c_str()); });
   return 0;
 }
 
@@ -2033,11 +2040,12 @@ static int l_textarea_add_char(lua_State *L) {
 
 static int l_textarea_add_text(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_txt = luaL_checkstring(L, 2);
+  const char * a1_txt_raw = luaL_checkstring(L, 2);
+  std::string a1_txt = a1_txt_raw != nullptr ? a1_txt_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_textarea_add_text(a0_obj, a1_txt); });
+  lvgl_call_void([=]() { lv_textarea_add_text(a0_obj, a1_txt.c_str()); });
   return 0;
 }
 
@@ -2061,21 +2069,23 @@ static int l_textarea_delete_char_forward(lua_State *L) {
 
 static int l_textarea_set_text(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_txt = luaL_checkstring(L, 2);
+  const char * a1_txt_raw = luaL_checkstring(L, 2);
+  std::string a1_txt = a1_txt_raw != nullptr ? a1_txt_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_textarea_set_text(a0_obj, a1_txt); });
+  lvgl_call_void([=]() { lv_textarea_set_text(a0_obj, a1_txt.c_str()); });
   return 0;
 }
 
 static int l_textarea_set_placeholder_text(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_txt = luaL_checkstring(L, 2);
+  const char * a1_txt_raw = luaL_checkstring(L, 2);
+  std::string a1_txt = a1_txt_raw != nullptr ? a1_txt_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_textarea_set_placeholder_text(a0_obj, a1_txt); });
+  lvgl_call_void([=]() { lv_textarea_set_placeholder_text(a0_obj, a1_txt.c_str()); });
   return 0;
 }
 
@@ -2111,11 +2121,12 @@ static int l_textarea_set_password_mode(lua_State *L) {
 
 static int l_textarea_set_password_bullet(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_bullet = luaL_checkstring(L, 2);
+  const char * a1_bullet_raw = luaL_checkstring(L, 2);
+  std::string a1_bullet = a1_bullet_raw != nullptr ? a1_bullet_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_textarea_set_password_bullet(a0_obj, a1_bullet); });
+  lvgl_call_void([=]() { lv_textarea_set_password_bullet(a0_obj, a1_bullet.c_str()); });
   return 0;
 }
 
@@ -2131,11 +2142,12 @@ static int l_textarea_set_one_line(lua_State *L) {
 
 static int l_textarea_set_accepted_chars(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_list = luaL_checkstring(L, 2);
+  const char * a1_list_raw = luaL_checkstring(L, 2);
+  std::string a1_list = a1_list_raw != nullptr ? a1_list_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_textarea_set_accepted_chars(a0_obj, a1_list); });
+  lvgl_call_void([=]() { lv_textarea_set_accepted_chars(a0_obj, a1_list.c_str()); });
   return 0;
 }
 
@@ -2151,11 +2163,12 @@ static int l_textarea_set_max_length(lua_State *L) {
 
 static int l_textarea_set_insert_replace(lua_State *L) {
   lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_txt = luaL_checkstring(L, 2);
+  const char * a1_txt_raw = luaL_checkstring(L, 2);
+  std::string a1_txt = a1_txt_raw != nullptr ? a1_txt_raw : "";
   if (a0_obj == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_textarea_set_insert_replace(a0_obj, a1_txt); });
+  lvgl_call_void([=]() { lv_textarea_set_insert_replace(a0_obj, a1_txt.c_str()); });
   return 0;
 }
 
@@ -2480,6 +2493,25 @@ static int l_keyboard_get_mode(lua_State *L) {
   return 1;
 }
 
+static int l_keyboard_set_candidate_list(lua_State *L) {
+  lv_obj_t * a0_kb = (lv_obj_t *) check_obj(L, 1);
+  lv_obj_t * a1_list = (lv_obj_t *) check_obj(L, 2);
+  if (a0_kb == nullptr || a1_list == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_keyboard_set_candidate_list(a0_kb, a1_list); });
+  return 0;
+}
+
+static int l_keyboard_reset_ime(lua_State *L) {
+  lv_obj_t * a0_obj = (lv_obj_t *) check_obj(L, 1);
+  if (a0_obj == nullptr) {
+    return 0;
+  }
+  lvgl_call_void([=]() { lv_keyboard_reset_ime(a0_obj); });
+  return 0;
+}
+
 static int l_list_create(lua_State *L) {
   lv_obj_t * a0_parent = (lv_obj_t *) check_obj(L, 1);
   if (a0_parent == nullptr) {
@@ -2497,12 +2529,13 @@ static int l_list_create(lua_State *L) {
 
 static int l_list_add_text(lua_State *L) {
   lv_obj_t * a0_list = (lv_obj_t *) check_obj(L, 1);
-  const char * a1_txt = luaL_checkstring(L, 2);
+  const char * a1_txt_raw = luaL_checkstring(L, 2);
+  std::string a1_txt = a1_txt_raw != nullptr ? a1_txt_raw : "";
   if (a0_list == nullptr) {
     lua_pushnil(L);
     return 1;
   }
-  lv_obj_t * res = lvgl_call_ret([=]() -> lv_obj_t * { return lv_list_add_text(a0_list, a1_txt); });
+  lv_obj_t * res = lvgl_call_ret([=]() -> lv_obj_t * { return lv_list_add_text(a0_list, a1_txt.c_str()); });
   if (res) {
     lua_pushlightuserdata(L, (void *) res);
   } else {
@@ -2519,12 +2552,13 @@ static int l_list_add_btn(lua_State *L) {
   } else if (lua_islightuserdata(L, 2)) {
     a1_icon = lua_touserdata(L, 2);
   }
-  const char * a2_txt = luaL_checkstring(L, 3);
+  const char * a2_txt_raw = luaL_checkstring(L, 3);
+  std::string a2_txt = a2_txt_raw != nullptr ? a2_txt_raw : "";
   if (a0_list == nullptr) {
     lua_pushnil(L);
     return 1;
   }
-  lv_obj_t * res = lvgl_call_ret([=]() -> lv_obj_t * { return lv_list_add_btn(a0_list, a1_icon, a2_txt); });
+  lv_obj_t * res = lvgl_call_ret([=]() -> lv_obj_t * { return lv_list_add_btn(a0_list, a1_icon, a2_txt.c_str()); });
   if (res) {
     lua_pushlightuserdata(L, (void *) res);
   } else {
@@ -2552,11 +2586,12 @@ static int l_list_get_btn_text(lua_State *L) {
 static int l_list_set_button_text(lua_State *L) {
   lv_obj_t * a0_list = (lv_obj_t *) check_obj(L, 1);
   lv_obj_t * a1_btn = (lv_obj_t *) check_obj(L, 2);
-  const char * a2_txt = luaL_checkstring(L, 3);
+  const char * a2_txt_raw = luaL_checkstring(L, 3);
+  std::string a2_txt = a2_txt_raw != nullptr ? a2_txt_raw : "";
   if (a0_list == nullptr || a1_btn == nullptr) {
     return 0;
   }
-  lvgl_call_void([=]() { lv_list_set_button_text(a0_list, a1_btn, a2_txt); });
+  lvgl_call_void([=]() { lv_list_set_button_text(a0_list, a1_btn, a2_txt.c_str()); });
   return 0;
 }
 
@@ -3398,6 +3433,10 @@ static void register_lvgl_gen(lua_State *L) {
   lua_setfield(L, -2, "keyboard_get_textarea");
   lua_pushcfunction(L, l_keyboard_get_mode);
   lua_setfield(L, -2, "keyboard_get_mode");
+  lua_pushcfunction(L, l_keyboard_set_candidate_list);
+  lua_setfield(L, -2, "keyboard_set_candidate_list");
+  lua_pushcfunction(L, l_keyboard_reset_ime);
+  lua_setfield(L, -2, "keyboard_reset_ime");
   lua_pushcfunction(L, l_list_create);
   lua_setfield(L, -2, "list_create");
   lua_pushcfunction(L, l_list_add_text);

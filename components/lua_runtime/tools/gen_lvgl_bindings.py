@@ -277,7 +277,13 @@ def read_expr(type_name: str, arg_name: str, idx: int) -> list[str]:
     if t == "char *":
         raise ValueError("mutable char* arg is not supported")
     if t in STRING_TYPES:
-        return [f"{t} {arg_name} = luaL_checkstring(L, {idx});"]
+        # LVGL 调用是投递给 UI 线程的消息，lambda 按值捕获；直接用 luaL_checkstring 的
+        # 指针会指向 Lua 字符串，等 UI 线程真正执行时可能已经被回收。这里先复制一份。
+        raw = f"{arg_name}_raw"
+        return [
+            f"const char * {raw} = luaL_checkstring(L, {idx});",
+            f"std::string {arg_name} = {raw} != nullptr ? {raw} : \"\";",
+        ]
     if t in VOID_PTR_TYPES:
         return [
             f"{t} {arg_name} = nullptr;",
@@ -449,6 +455,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Generate Lua LVGL bindings")
     parser.add_argument("--lvgl-root", type=Path, default=None, help="Path to LVGL root (contains lvgl.h and src/)")
     parser.add_argument("--strict", action="store_true", help="Fail on any unsupported/missing function")
+    parser.add_argument("--out", type=Path, default=None, help="Output header path (default components/lua_runtime/lua_lvgl_gen.h)")
     cli_args = parser.parse_args()
 
     lvgl_root = normalize_lvgl_root(cli_args.lvgl_root) if cli_args.lvgl_root else find_default_lvgl_root()
@@ -477,7 +484,7 @@ def main() -> int:
             fn_lines = []
             fn_lines.append(f"static int l_{lua_name}(lua_State *L) {{")
 
-            arg_names = []
+            call_args = []
             obj_guard_names = []
             for idx, (type_name, source_arg_name) in enumerate(fn_args, start=1):
                 name = f"a{idx - 1}_{source_arg_name}"
@@ -486,7 +493,8 @@ def main() -> int:
                     fn_lines.append(f"  {row}")
                 if type_name in OBJ_PTR_TYPES:
                     obj_guard_names.append(name)
-                arg_names.append(name)
+                # 字符串参数在 read_expr 里已经被复制成 std::string，调用时取 c_str()
+                call_args.append(f"{name}.c_str()" if type_name in STRING_TYPES else name)
 
             if obj_guard_names:
                 guard = " || ".join(f"{n} == nullptr" for n in obj_guard_names)
@@ -498,7 +506,7 @@ def main() -> int:
                     fn_lines.append("    return 1;")
                 fn_lines.append("  }")
 
-            for row in write_ret(ret_type, c_name, arg_names):
+            for row in write_ret(ret_type, c_name, call_args):
                 fn_lines.append(f"  {row}")
             fn_lines.append("}\n")
 
@@ -537,8 +545,9 @@ def main() -> int:
     lines.append("")
     lines.append("#endif  // LUA_LVGL_IMPL")
 
-    OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Generated {OUT} ({len(bound)} functions), LVGL root: {lvgl_root}")
+    out_path = cli_args.out if cli_args.out is not None else OUT
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    print(f"Generated {out_path} ({len(bound)} functions), LVGL root: {lvgl_root}")
     if skipped:
         print(f"Skipped {len(skipped)} unsupported functions:")
         for err in skipped:

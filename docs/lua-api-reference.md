@@ -66,6 +66,18 @@ log.info("hello", "started", app.package())
 - `rtos.setPaths(path1[, path2[, path3[, path4]]])`：向 `package.path` 前追加模块路径。路径里 `%s` 会替换成 `?`。
 - `rtos.nop()`
 - `rtos.autoCollectMem([period[, mid[, high]]])`：配置自动 GC 策略。
+- `rtos.localTime([epoch]) -> table`：按**固件配置的时区**把 epoch（默认现在）转换成日期时间。
+
+  返回字段：`year`、`month`、`day`、`hour`、`minute`、`second`、`weekday`（0=周日，与 `os.date("*t").wday - 1` 一致）、`yearday`、`isdst`、`unix`、`valid`。
+
+  为什么需要它：ESPHome 为了省 flash 去掉了 `setenv("TZ")`/`tzset()`（见 fork 的 `esphome/core/time.cpp`），所以设备上 `os.date("*t")` 拿到的是 **UTC**，比本地时间差 8 小时。要拿本地时间请用这个接口，不要用 `os.date`。`valid` 为 `false` 表示 SNTP 还没同步到时间。
+
+  ```lua
+  local t = rtos.localTime()
+  if t.valid then
+      log.info("cal", string.format("%04d-%02d-%02d %02d:%02d", t.year, t.month, t.day, t.hour, t.minute))
+  end
+  ```
 
 ## `sys`
 
@@ -315,13 +327,39 @@ Lemonade UI 辅助接口：
 - `btn_create`
 - `label_create`、`label_set_text`、`label_get_text`、`label_set_long_mode`、`label_set_recolor`
 - `textarea_create` 及 `textarea_*`
-- `keyboard_create`、`keyboard_set_textarea`
+- `keyboard_create`、`keyboard_set_textarea`、`keyboard_set_mode`
+- `keyboard_set_candidate_list`、`keyboard_reset_ime`：中文拼音输入法（见下）
 - `dropdown_create` 及 `dropdown_*`
 - `img_create` 及 `img_*`
 - `list_create`、`list_add_text`、`list_add_btn`
 - `msgbox_create`、`msgbox_close`
 - `btnmatrix_create` 及 `btnmatrix_*`
 - `bar_create` 及 `bar_*`
+
+中文拼音输入（与聊天页同一套实现）：
+
+```lua
+-- 候选词容器：键盘会把候选按钮矩阵放进这个容器，自己摆一个等高（约 30px）的 obj 在键盘上方
+local cand = lv.obj_create(page)
+lv.obj_set_size(cand, 320, 30)
+lv.obj_set_scroll_dir(cand, lv.DIR_HOR)
+lv.obj_set_style_bg_opa(cand, lv.OPA_TRANSP, lv.PART_MAIN)  -- 透明，别涂白底
+lv.obj_add_flag(cand, lv.FLAG_HIDDEN)                       -- 没有候选词时不占地方
+
+local kb = lv.keyboard_create(page)
+lv.keyboard_set_candidate_list(kb, cand)        -- 必须在切中文模式前后都成立
+lv.keyboard_set_mode(kb, lv.KEYBOARD_MODE_TEXT_LOWER)  -- 默认英文；点键盘上的「英」进中文
+```
+
+要点：
+
+- **LVGL 不会「点输入框自动弹键盘」**，键盘显隐完全归应用管。必须自己给 textarea 挂 `EVENT_CLICKED` / `EVENT_FOCUSED` 去显示键盘，否则键盘一旦被收起（例如按键盘自带的「收起」），用户再点输入框就再也没有输入入口。
+- 键盘的「收起」会给自己和 textarea 各发一次 `EVENT_CANCEL`。是「只收键盘、留在编辑态」还是「退出编辑」，由应用在这个回调里决定；建议把「编辑态」和「键盘是否可见」拆成两个状态，收起后点输入框还能弹回来。
+- 不给 `keyboard_set_candidate_list` 的话，中文候选词无处显示，只能看到拼音在输入框里。
+- 键盘自带的 `英`/`中` 键在 `KEYBOARD_MODE_TEXT_LOWER` 与 `KEYBOARD_MODE_IME_CHN` 之间切换，所以**不要**给键盘设自定义 map，否则这两个键就没了。
+- 键盘在「完成」时往键盘自己和 textarea 各发一次 `EVENT_READY`。
+- 候选词容器要透明底，并且**没有候选词时整条隐藏** —— 候选按钮矩阵由键盘创建，应用只能看容器里子控件是否可见（`obj_get_child` + `obj_has_flag(FLAG_HIDDEN)`）来判断；容器一直显示会多出一条空白，盖住下面的内容。摆位也要避开键盘（或把输入框挪到键盘上方）。
+- 中文候选词依赖固件里 `fonts/glyphs.yaml` 的字表；输入法只从拼音词典里取词，字表缺字会显示成方框。
 
 完整生成绑定列表见 `components/lua_runtime/lua_lvgl_gen.h` 的 `register_lvgl_gen()`。
 
