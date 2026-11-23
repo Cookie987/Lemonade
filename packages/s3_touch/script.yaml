@@ -167,6 +167,8 @@ script:
     then:
       - lambda: |
           id(show_notification)->execute("SD 卡已插入", "卡已拔出", 2000);
+      # 卡回来了：按用户保存的偏好恢复聊天记录存储位置（拔卡时曾强制回退内部）
+      - script.execute: chat_storage_restore
       - script.execute: refresh_external_apps
 
   - id: sd_card_removed
@@ -186,6 +188,15 @@ script:
       - lambda: |
           id(lua).abort_all();
       - delay: 100ms
+      - if:
+          condition:
+            lambda: 'return id(chat_use_sdcard);'
+          then:
+            - lambda: |
+                // SD 卡拔出：聊天记录立即切回内部存储，避免写到已卸载的挂载点
+                id(chat_use_sdcard) = false;
+                lv_dropdown_set_selected(id(dropdown_message_storage)->obj, 0);
+                id(show_notification)->execute("存储卡已拔出，聊天记录暂存内部", "", 2500);
       - lambda: |
           id(show_notification)->execute("SD 卡已拔出", "卡已插入", 2000);
       - script.execute: refresh_external_apps

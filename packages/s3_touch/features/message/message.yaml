@@ -21,12 +21,25 @@ esphome:
         - lambda: lv_timer_handler();
         - script.execute: chat_storage_init
         - script.execute: contacts_init_file
+        - script.execute: chat_storage_restore
         - script.execute: contacts_refresh_list
         - script.execute: chat_public_load
         - script.execute: message_public_listen
         - script.execute: message_mqtt_handler
 
 globals:
+  # 聊天记录保存位置：false=内部 flash(/data)，true=SD 卡(/sdcard)
+  # 仅供数据读写时选路径，UI 缓存、contacts.json 等系统文件不受影响
+  - id: chat_use_sdcard
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  # 聊天记录路径生成函数：入参为联系人名（自动哈希成文件名）或完整文件名（含 .json）
+  # 在 on_boot 里赋值，脚本里不能定义函数，所以放全局
+  - id: chat_record_path_fn
+    type: 'std::function<std::string(const std::string &)>'
+    restore_value: no
+    initial_value: '{}'
   - id: unread_messages_amount_private
     type: uint8_t
     restore_value: no
@@ -1473,9 +1486,26 @@ script:
             lv_obj_add_flag(id(dot_tab_public), LV_OBJ_FLAG_HIDDEN);
           }
 
+  # 聊天记录文件路径：根据 chat_use_sdcard 选择 /data 或 /sdcard
+  # 函数体在 on_boot 里赋给 chat_record_path_fn，这里只负责占位文档
+  # 入参：联系人名（自动哈希成 chat_private_XXXXXXXX.json）或完整文件名（含 .json）
+
   - id: chat_storage_init
     then:
       - lambda: |
+          // 路径生成函数：联系人名自动哈希，含 .json 的入参原样使用
+          id(chat_record_path_fn) = [](const std::string &name) -> std::string {
+            std::string file = name;
+            if (file.empty()) file = "chat_public.json";
+            if (file.find(".json") == std::string::npos) {
+              char buf[64];
+              uint32_t h = 2166136261u;
+              for (unsigned char c : file) { h ^= c; h *= 16777619u; }
+              snprintf(buf, sizeof(buf), "chat_private_%08X.json", (unsigned) h);
+              file = buf;
+            }
+            return std::string(id(chat_use_sdcard) ? "/sdcard/" : "/data/") + file;
+          };
           struct stat st;
           if (stat("/data/chat_private.json", &st) != 0) {
             std::ofstream f1("/data/chat_private.json");
@@ -1488,11 +1518,51 @@ script:
             f2.close();
           }
 
+  # 读取聊天记录存储位置偏好并应用（启动时、SD 卡重新插入后都会执行）
+  # 只应用不回写：偏好记录的是用户意图，卡暂时不在时本次回退内部，不丢偏好
+  - id: chat_storage_restore
+    then:
+      - lambda: |
+          uint32_t pref = 0;
+          auto p = global_preferences->make_preference<uint32_t>(0x43484154 /* 'CHAT' */);
+          if (p.load(&pref)) id(chat_use_sdcard) = (pref != 0);
+          id(chat_storage_apply)->execute();
+          // 恢复时下拉框要跟着实际生效的值走（set_selected 不触发 VALUE_CHANGED）
+          lv_dropdown_set_selected(id(dropdown_message_storage)->obj, id(chat_use_sdcard) ? 1 : 0);
+
+  # 用户切换存储位置下拉框
+  - id: message_storage_change
+    then:
+      - lambda: |
+          id(chat_use_sdcard) = lv_dropdown_get_selected(id(dropdown_message_storage)->obj) == 1;
+          id(chat_storage_apply)->execute();
+          uint32_t pref = id(chat_use_sdcard) ? 1u : 0u;
+          auto p = global_preferences->make_preference<uint32_t>(0x43484154 /* 'CHAT' */);
+          p.save(&pref);
+          global_preferences->sync();
+
+  # 校验并应用当前 chat_use_sdcard：卡不在则回退内部存储并同步 UI
+  - id: chat_storage_apply
+    then:
+      - lambda: |
+          if (!id(chat_use_sdcard)) return;
+          bool sd_ready = false;
+          struct stat st;
+          if (stat("/sdcard", &st) == 0 && S_ISDIR(st.st_mode)) sd_ready = true;
+          if (!sd_ready) {
+            id(chat_use_sdcard) = false;
+            lv_dropdown_set_selected(id(dropdown_message_storage)->obj, 0);
+            id(show_notification)->execute("未检测到存储卡，已回退内部存储", "", 2500);
+          } else {
+            id(show_notification)->execute("聊天记录将保存到存储卡", "存储卡", 2000);
+          }
+
   - id: chat_public_clear_local
     mode: queued
     then:
       - lambda: |
-          std::ofstream f("/data/chat_public.json", std::ios::trunc);
+          std::string chat_public_path = id(chat_record_path_fn)("chat_public.json");
+          std::ofstream f(chat_public_path, std::ios::trunc);
           f << "{\"messages\":[]}";
           f.close();
 
@@ -1520,11 +1590,13 @@ script:
     mode: queued
     then:
       - lambda: |
-          std::ofstream legacy("/data/chat_private.json", std::ios::trunc);
+          std::string legacy_path = id(chat_record_path_fn)("chat_private.json");
+          std::ofstream legacy(legacy_path, std::ios::trunc);
           legacy << "{\"contacts\":{}}";
           legacy.close();
 
-          DIR *dir = opendir("/data");
+          std::string base = id(chat_use_sdcard) ? "/sdcard" : "/data";
+          DIR *dir = opendir(base.c_str());
           if (dir != nullptr) {
             struct dirent *ent;
             while ((ent = readdir(dir)) != nullptr) {
@@ -1534,7 +1606,7 @@ script:
               bool match_prefix = filename.rfind("chat_private_", 0) == 0;
               bool match_suffix = filename.size() >= 5 && filename.substr(filename.size() - 5) == ".json";
               if (match_prefix && match_suffix) {
-                std::string path = std::string("/data/") + filename;
+                std::string path = base + "/" + filename;
                 remove(path.c_str());
               }
             }
@@ -1575,19 +1647,8 @@ script:
             void deallocate(void* p) { heap_caps_free(p); }
             void* reallocate(void* p, size_t n) { return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM); }
           } psram_allocator;
-          // 1. 路径生成优化：直接引用参数，不创建新的 string name = contact
-          auto get_path = [&]() -> std::string {
-            uint32_t h = 2166136261u;
-            for (unsigned char c : contact) { // 直接遍历参数
-              h ^= c;
-              h *= 16777619u;
-            }
-            char buf[64];
-            snprintf(buf, sizeof(buf), "/data/chat_private_%08X.json", (unsigned)h);
-            return std::string(buf);
-          };
-
-          std::string path = get_path();
+          // 1. 路径生成优化：按存储位置选项生成，不创建新的 string name = contact
+          std::string path = id(chat_record_path_fn)(contact);
           JsonDocument doc(&psram_allocator);
 
           // 3. 文件读取优化：【最关键改动】
@@ -1632,7 +1693,7 @@ script:
       time: string
     then:
       - lambda: |
-          const char* path = "/data/chat_public.json";
+          std::string path = id(chat_record_path_fn)("chat_public.json");
           struct PsramAllocator : ArduinoJson::Allocator{
             void* allocate(size_t n) { return heap_caps_malloc(n, MALLOC_CAP_SPIRAM); }
             void deallocate(void* p) { heap_caps_free(p); }
@@ -1697,7 +1758,7 @@ script:
             uint32_t h = 2166136261u;
             for (uint8_t c : n) { h = (h ^ c) * 16777619u; }
             char buf[48];
-            snprintf(buf, sizeof(buf), "/data/chat_private_%08X.json", h);
+            snprintf(buf, sizeof(buf), "chat_private_%08X.json", h);
             return std::string(buf);
           };
 
@@ -1711,7 +1772,7 @@ script:
             return time_str.substr(0, 16);
           };
 
-          std::string path = get_path(contact);
+          std::string path = id(chat_record_path_fn)(get_path(contact));
           JsonDocument doc(&psram_alloc);
           bool modified = false;
 
@@ -1993,7 +2054,8 @@ script:
           JsonDocument doc(&psram_allocator);
           bool modified = false;
 
-          std::ifstream file("/data/chat_public.json");
+          std::string chat_public_path = id(chat_record_path_fn)("chat_public.json");
+          std::ifstream file(chat_public_path);
           if (file.is_open()) {
             DeserializationError error = deserializeJson(doc, file);
             file.close();
@@ -2238,7 +2300,7 @@ script:
           }
 
           if (modified) {
-            std::ofstream out("/data/chat_public.json", std::ios::trunc);
+            std::ofstream out(chat_public_path, std::ios::trunc);
             if (out.is_open()) {
               serializeJson(doc, out);
               out.close();
