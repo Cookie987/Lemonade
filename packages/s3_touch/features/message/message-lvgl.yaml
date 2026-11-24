@@ -448,29 +448,6 @@ lvgl:
                             on_click:
                               then:
                                 - lvgl.widget.show: msgbox_clear_private_history
-                  - obj:
-                      align: TOP_MID
-                      y: 344
-                      width: 304
-                      height: 48
-                      styles: [setting_card]
-                      widgets:
-                        - label:
-                            text: "存储位置"
-                            x: 12
-                            y: 15
-                            styles: [setting_title]
-                        - dropdown:
-                            id: dropdown_message_storage
-                            x: 150
-                            y: 8
-                            width: 140
-                            options:
-                              - "内部存储"
-                              - "存储卡"
-                            on_change:
-                              then:
-                                - script.execute: message_storage_change
         - obj:
             id: dot_tab_contacts
             width: 8
