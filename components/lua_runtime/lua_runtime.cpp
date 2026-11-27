@@ -4,6 +4,7 @@
 #include <array>
 #include <cctype>
 #include <cstdio>
+#include <cstring>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -17,6 +18,7 @@
 #include "lua_esphome.h"
 #include "lua_fs.h"
 #include "lua_lvgl.h"
+#include "lua_manifest.h"
 #include "lua_usb.h"
 
 #include "freertos/FreeRTOS.h"
@@ -29,6 +31,9 @@
 #include "esp_random.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+
+#include <dirent.h>
+#include <sys/stat.h>
 
 #ifdef LUA_RUNTIME_STUB
 // Stub mode: no Lua linked. Build succeeds but run_file always fails.
@@ -229,6 +234,33 @@ static RtosContext *get_ctx(lua_State *L) {
 }
 
 // ---------------------------------------------------------------- app lifecycle
+static const char *LIB_PACKAGES_ROOT = "/sdcard/lib_packages";
+
+// type=lib 包的 require 搜索路径。lib 包安装在 /sdcard/lib_packages/<id>/，
+// 模块查找顺序：包根目录（require "foo" → /sdcard/lib_packages/<id>/foo.lua）
+// 和包的 lib/ 子目录（require "foo" → /sdcard/lib_packages/<id>/lib/foo.lua）。
+// 目录不存在或打开失败时返回空串（dirent 枚举失败只会少路径，不该让启动失败）。
+static std::string build_lib_package_path() {
+  std::string result;
+  DIR *dirp = opendir(LIB_PACKAGES_ROOT);
+  if (dirp == nullptr) return result;
+  struct dirent *ent;
+  while ((ent = readdir(dirp)) != nullptr) {
+    const char *name = ent->d_name;
+    if (name == nullptr || strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+    std::string pkg_dir = std::string(LIB_PACKAGES_ROOT) + "/" + name;
+    struct stat stbuf;
+    if (stat(pkg_dir.c_str(), &stbuf) != 0 || !S_ISDIR(stbuf.st_mode)) continue;
+    // 只有真的带 manifest 且 type=lib 的目录才进路径，装错位置的普通应用目录
+    // 不会被当成库搜索。
+    LuaManifest manifest = read_lua_manifest(pkg_dir);
+    if (manifest.type != "lib") continue;
+    result += pkg_dir + "/?.lua;" + pkg_dir + "/lib/?.lua;";
+  }
+  closedir(dirp);
+  return result;
+}
+
 static void ensure_lifecycle_locks() {
   if (g_ctx_lock == nullptr) g_ctx_lock = xSemaphoreCreateMutex();
 }
@@ -516,7 +548,9 @@ static void set_package_path(lua_State *L, const std::string &script_path) {
   // 1) script directory
   // 2) script directory /lib
   // 3) shared /sdcard/lib
+  // 4) type=lib 包（/sdcard/lib_packages/<id>/ 与其 lib/ 子目录）
   std::string prefix = dir + "/?.lua;" + dir + "/lib/?.lua;" + "/sdcard/lib/?.lua;";
+  prefix += build_lib_package_path();
   new_path = prefix + new_path;
 
   lua_pop(L, 1);  // pop old path
@@ -1141,6 +1175,8 @@ static void register_rtos_api(lua_State *L) {
   lua_setfield(L, -2, "bsp");
   lua_pushcfunction(L, rtos_version);
   lua_setfield(L, -2, "version");
+  lua_pushinteger(L, LUA_API_LEVEL);
+  lua_setfield(L, -2, "api_level");
   lua_pushcfunction(L, rtos_standy);
   lua_setfield(L, -2, "standy");
   lua_pushcfunction(L, rtos_meminfo);
@@ -1419,36 +1455,14 @@ void LuaRuntime::abort_all() {
 #endif
 }
 
-// Reads the display name out of <dir>/manifest.json without pulling in a JSON dependency:
-// the manifest is a flat object, so the first "name" key is the app name.
+// Reads the display name out of <dir>/manifest.json via the shared manifest parser.
 static std::string app_display_name(const std::string &dir) {
   static std::unordered_map<std::string, std::string> cache;
   auto cached = cache.find(dir);
   if (cached != cache.end()) return cached->second;
 
-  std::string name;
-  FILE *file = fopen((dir + "/manifest.json").c_str(), "r");
-  if (file != nullptr) {
-    char buffer[1024];
-    size_t len = fread(buffer, 1, sizeof(buffer) - 1, file);
-    buffer[len] = '\0';
-    fclose(file);
-
-    std::string body(buffer, len);
-    size_t key = body.find("\"name\"");
-    if (key != std::string::npos) {
-      size_t colon = body.find(':', key + 6);
-      size_t quote = colon == std::string::npos ? std::string::npos : body.find('"', colon);
-      if (quote != std::string::npos) {
-        size_t end = quote + 1;
-        while (end < body.size() && body[end] != '"') {
-          if (body[end] == '\\') end++;
-          end++;
-        }
-        if (end <= body.size()) name = body.substr(quote + 1, end - quote - 1);
-      }
-    }
-  }
+  LuaManifest manifest = read_lua_manifest(dir);
+  std::string name = manifest.name;
   if (name.empty()) {
     size_t slash = dir.find_last_of('/');
     name = slash == std::string::npos ? dir : dir.substr(slash + 1);
@@ -1550,6 +1564,19 @@ bool LuaRuntime::run_file(const std::string &path) {
   if (ota_is_active()) {
     ESP_LOGW(TAG, "Skip Lua file while OTA is in progress: %s", path.c_str());
     return false;
+  }
+
+  // 应用私有数据/包名上下文来自 /sdcard/opt/<pkg>/ 前缀；不在该前缀下的脚本
+  // （如 /sdcard/init.lua）没有 manifest，跳过校验。
+  std::string app_dir = app_dir_of_script(path);
+  if (app_dir.rfind("/sdcard/opt/", 0) == 0) {
+    LuaManifest manifest = read_lua_manifest(app_dir);
+    std::string reason;
+    if (!lua_manifest_api_supported(manifest, reason)) {
+      ESP_LOGE(TAG, "Lua app requires newer API: %s (%s)", path.c_str(), reason.c_str());
+      show_lua_error_on_app_page(path, "该应用需要更新版本的系统（" + reason + "）。");
+      return false;
+    }
   }
 
   lua_State *L = luaL_newstate();

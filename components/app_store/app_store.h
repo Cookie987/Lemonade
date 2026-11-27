@@ -41,6 +41,9 @@ class AppStore : public Component, public Parented<http_request::HttpRequestComp
   bool request_refresh();
   bool request_install_selected();
   bool request_uninstall_selected();
+  // 按 id 卸载/清除数据（设置页「应用管理」入口，不依赖商店的选中项）
+  bool request_uninstall(const std::string &app_id);
+  bool request_clear_data(const std::string &app_id);
   void request_refresh_if_empty();
 
   void set_selected_index(int index);
@@ -69,6 +72,7 @@ class AppStore : public Component, public Parented<http_request::HttpRequestComp
     REFRESH,
     INSTALL,
     UNINSTALL,
+    CLEAR_DATA,
   };
 
   bool start_worker_(WorkerOp op, const std::string &app_id);
@@ -78,6 +82,7 @@ class AppStore : public Component, public Parented<http_request::HttpRequestComp
   bool fetch_index_();
   bool install_app_(const std::string &app_id);
   bool uninstall_app_(const std::string &app_id);
+  bool clear_app_data_(const std::string &app_id);
   bool read_http_text_(const std::string &url, std::string &body, std::string &error);
   bool download_to_file_(const std::string &url, const std::string &dst_path, std::string &error);
   bool extract_zip_to_dir_(const std::string &zip_path, const std::string &dst_dir, std::string &error);

@@ -34,6 +34,9 @@
   "id": "com.lemonade.hello",
   "name": "Hello",
   "version": "1.0.0",
+  "manifest_version": 2,
+  "min_api": 1,
+  "type": "app",
   "description": "一个 Lemonade Lua 示例应用",
   "author": "Lemonade",
   "platform": ["s3_t"],
@@ -46,10 +49,24 @@
 - `id`：应用唯一 ID，建议反向域名，例如 `com.lemonade.calculator`。
 - `name`：桌面显示名称。
 - `version`：版本号。应用商店会用它判断升级。
+- `manifest_version`：manifest 结构版本，当前为 `2`。固件遇到更高的结构版本会拒绝安装。
+- `min_api`：应用需要的最低 Lua API level（见 `rtos.api_level`）。缺省视为 `0`，
+  兼容任意版本。高于固件当前 API level 的包会在安装和启动时被拒绝并提示更新系统。
+- `type`：`"app"`（默认）或 `"lib"`。`lib` 是纯库包：没有图标和页面，不出现在桌面，
+  也不会出现在设置的应用管理里；其目录与 `lib/` 子目录会被加入所有应用的
+  `package.path`（`require` 可直接加载）。安装位置为 `/sdcard/lib_packages/<id>/`。
 - `description`：详情页描述，也会作为本地已安装描述缓存。
 - `author`：作者。
 - `platform`：数组；当前触屏平台使用 `s3_t`。桌面扫描要求匹配。
-- `icon`：相对应用目录的图标路径。桌面要求存在，推荐 96x96 PNG。
+- `icon`：相对应用目录的图标路径。桌面要求存在（`lib` 包可省略），推荐 96x96 PNG。
+
+### API level 升级规则
+
+- 新增绑定或模块：**不升级** API level，旧应用不受影响。
+- 删除函数、修改函数签名或语义：API level 必须 +1，并在
+  [lua-api-reference.md](lua-api-reference.md) 标注「引入于 API level N」。
+- 应用可用 `rtos.api_level` 做能力探测（`if rtos.api_level >= 2 then ... end`），
+  或用 `min_api` 整体声明最低要求，让旧固件给出明确提示而不是运行时报错。
 
 ## 启动流程
 

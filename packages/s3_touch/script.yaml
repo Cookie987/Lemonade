@@ -1274,6 +1274,11 @@ script:
                     ESP_LOGD("AppScan", "Skip %s (platform mismatch)", pkg.c_str());
                     continue;
                   }
+                  // type=lib 是纯库包（require 用），没有图标/页面，不进桌面。
+                  if (!Helper::str_eq(doc["type"] | "app", "app")) {
+                    ESP_LOGD("AppScan", "Skip %s (type=lib)", pkg.c_str());
+                    continue;
+                  }
 
                   const char *app_name = doc["name"] | pkg.c_str();
                   const char *icon_rel = doc["icon"] | "";
@@ -1629,6 +1634,10 @@ script:
                       }
                     }
                     if (!platform_ok) {
+                      continue;
+                    }
+                    // type=lib 是纯库包（require 用），不进桌面。
+                    if (!Helper::str_eq(doc["type"] | "app", "app")) {
                       continue;
                     }
 

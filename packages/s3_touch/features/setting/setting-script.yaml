@@ -36,6 +36,21 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '""'
+  # 已安装应用列表签名（同上约定）
+  - id: lua_installed_signature
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  # 待确认操作：类型（uninstall / clear）+ 应用 id，msgbox「确认」时由
+  # lua_app_confirm_action 消费
+  - id: lua_app_pending_action
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: lua_app_pending_id
+    type: std::string
+    restore_value: no
+    initial_value: '""'
 
 script:
   # ------------------------------------------------------------------
@@ -1048,6 +1063,151 @@ script:
             }
           }
 
+          // 「应用管理」入口和「全部停止」跟在运行中列表后面（整页可滚动）
+          const int32_t list_y = 170;
+          const int32_t list_height = apps.empty() ? 44 : (int32_t) (apps.size() * 44);
+          lv_obj_set_y(id(btn_lua_apps_manage), list_y + list_height + 8);
+          lv_obj_set_y(id(btn_lua_apps_stop_all), list_y + list_height + 8 + 52);
+
+  # 应用管理子页（system_setting_app_manage_page）：已安装应用列表 + 卸载/清除数据。
+  # 独立页面，固定从 y=34 开始排布，不受运行中列表影响。列表不参与每秒刷新：
+  # 卸载/清除完成后由 lua_app_confirm_action 置空签名强制重绘，on_load 也会重建。
+  - id: render_app_manage_page
+    then:
+      - lambda: |-
+          if (!id(system_setting_app_manage_page)->is_showing()) {
+            return;
+          }
+
+          const char *opt_base = "/sdcard/opt";
+          std::vector<std::pair<std::string, std::string>> installed;  // (id, 显示名)
+          DIR *dirp = opendir(opt_base);
+          if (dirp != nullptr) {
+            struct dirent *ent;
+            while ((ent = readdir(dirp)) != nullptr) {
+              const char *name = ent->d_name;
+              if (name == nullptr || strcmp(name, ".") == 0 || strcmp(name, "..") == 0) continue;
+              std::string pkg_dir = std::string(opt_base) + "/" + name;
+              struct stat stbuf;
+              if (stat(pkg_dir.c_str(), &stbuf) != 0 || !S_ISDIR(stbuf.st_mode)) continue;
+
+              JsonDocument doc;
+              std::ifstream mfile(pkg_dir + "/manifest.json");
+              if (!mfile.is_open()) continue;
+              DeserializationError merr = deserializeJson(doc, mfile);
+              mfile.close();
+              if (merr) continue;
+              // lib 包没有独立入口，不进应用管理列表
+              const char *type = doc["type"] | "app";
+              if (strcmp(type, "app") != 0) continue;
+
+              const char *disp = doc["name"] | name;
+              std::string version = doc["version"] | "";
+              installed.emplace_back(name, std::string(disp) + (version.empty() ? "" : "  v" + version));
+            }
+            closedir(dirp);
+          }
+
+          // 签名以条数开头，空串仅用于强制重绘（同 render_lua_apps_page 的约定）
+          std::string installed_sig = std::to_string(installed.size()) + "|";
+          for (const auto &item : installed) {
+            installed_sig += item.first + ";";
+          }
+          if (installed_sig == id(lua_installed_signature)) {
+            return;
+          }
+          id(lua_installed_signature) = installed_sig;
+
+          lv_obj_t *ilist = id(obj_app_manage_list);
+          lv_obj_clean(ilist);
+
+          const int32_t list_height =
+              installed.empty() ? 44 : (int32_t) (installed.size() * 52);
+          lv_obj_set_height(ilist, list_height);
+
+          if (installed.empty()) {
+            lv_obj_t *hint = lv_label_create(ilist);
+            lv_label_set_text(hint, "没有已安装的应用");
+            lv_obj_set_style_text_color(hint, lv_color_hex(0x8a9099), 0);
+            lv_obj_align(hint, LV_ALIGN_LEFT_MID, 12, 0);
+          }
+
+          for (size_t i = 0; i < installed.size(); i++) {
+            lv_obj_t *row = lv_obj_create(ilist);
+            lv_obj_set_size(row, 304, 52);
+            lv_obj_set_pos(row, 0, (int32_t) (i * 52));
+            lv_obj_set_style_radius(row, 0, 0);
+            lv_obj_set_style_pad_all(row, 0, 0);
+            lv_obj_set_style_bg_color(row, lv_color_white(), 0);
+            lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+            if (i > 0) {
+              lv_obj_set_style_border_side(row, LV_BORDER_SIDE_TOP, 0);
+              lv_obj_set_style_border_width(row, 1, 0);
+              lv_obj_set_style_border_color(row, lv_color_hex(0xedeff2), 0);
+            } else {
+              lv_obj_set_style_border_width(row, 0, 0);
+            }
+
+            lv_obj_t *iname = lv_label_create(row);
+            lv_label_set_text(iname, installed[i].second.c_str());
+            lv_obj_set_style_text_color(iname, lv_color_hex(0x1f1f1f), 0);
+            lv_obj_align(iname, LV_ALIGN_LEFT_MID, 12, 0);
+            lv_obj_set_width(iname, 170);
+            lv_label_set_long_mode(iname, LV_LABEL_LONG_DOT);
+
+            // 两个小按钮共用一套回调构造：action = "clear" / "uninstall"
+            const char *actions[] = {"clear", "uninstall"};
+            const char *labels[] = {"数据", "卸载"};
+            for (int a = 0; a < 2; a++) {
+              lv_obj_t *btn = lv_obj_create(row);
+              lv_obj_set_size(btn, 44, 24);
+              lv_obj_align(btn, LV_ALIGN_RIGHT_MID, -8 - a * 50, 0);
+              lv_obj_set_style_radius(btn, 6, 0);
+              lv_obj_set_style_bg_color(btn, a == 0 ? lv_color_hex(0xeef1f4) : lv_color_hex(0xfdebec), 0);
+              lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
+              lv_obj_set_style_border_width(btn, 0, 0);
+              lv_obj_set_style_shadow_width(btn, 0, 0);
+              lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+              lv_obj_t *blbl = lv_label_create(btn);
+              lv_label_set_text(blbl, labels[a]);
+              lv_obj_set_style_text_color(blbl, a == 0 ? lv_color_hex(0x565b63) : lv_color_hex(0xe5484d), 0);
+              lv_obj_center(blbl);
+
+              // (action, app_id) 成对挂在 user_data 上，随按钮释放
+              auto *holder = new std::pair<std::string, std::string>(actions[a], installed[i].first);
+              lv_obj_add_event_cb(
+                  btn,
+                  [](lv_event_t *e) {
+                    auto *p = static_cast<std::pair<std::string, std::string> *>(lv_event_get_user_data(e));
+                    if (p == nullptr) return;
+                    id(lua_app_pending_action) = p->first;
+                    id(lua_app_pending_id) = p->second;
+                    // msgbox 正文按操作类型改写
+                    const char *text = (p->first == "uninstall")
+                                           ? "卸载后应用将从设备删除（数据保留）。确认卸载？"
+                                           : "将删除该应用的所有数据（fskv、文件），不可恢复。确认清除？";
+                    lv_obj_t *content = lv_msgbox_get_content(id(msgbox_lua_app_confirm));
+                    if (content != nullptr && lv_obj_get_child_cnt(content) > 0) {
+                      lv_label_set_text(lv_obj_get_child(content, 0), text);
+                    }
+                    // ESPHome 的 msgbox 是「outer 全屏背景 + msgbox 本体」两层，且都带
+                    // HIDDEN。lvgl.widget.show 操作的是 outer 并 move_to_foreground；
+                    // C API 侧必须做同样的事，只 clear 本体的话 outer 仍隐藏，
+                    // 事件不会分发到 msgbox，表现为「点不动」。
+                    lv_obj_clear_flag(id(msgbox_lua_app_confirm), LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_t *outer = lv_obj_get_parent(id(msgbox_lua_app_confirm));
+                    lv_obj_clear_flag(outer, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_move_foreground(outer);
+                  },
+                  LV_EVENT_CLICKED, holder);
+              lv_obj_add_event_cb(
+                  btn,
+                  [](lv_event_t *e) { delete static_cast<std::pair<std::string, std::string> *>(lv_event_get_user_data(e)); },
+                  LV_EVENT_DELETE, holder);
+            }
+          }
+
   - id: stop_all_lua_apps
     then:
       - lambda: |-
@@ -1062,6 +1222,33 @@ script:
           // 置空 = 强制重绘（真实签名非空，见 render_lua_apps_page）
           id(lua_apps_signature) = "";
       - script.execute: render_lua_apps_page
+
+  # 应用管理确认框（msgbox_lua_app_confirm）点「确认」后的动作消费者。
+  # pending action 由已安装列表的按钮写入（见 render_lua_apps_page）。
+  - id: lua_app_confirm_action
+    mode: single
+    then:
+      - lambda: |-
+          std::string action = id(lua_app_pending_action);
+          std::string app_id = id(lua_app_pending_id);
+          // 消费掉 pending，避免重复执行
+          id(lua_app_pending_action) = "";
+          id(lua_app_pending_id) = "";
+          if (action.empty() || app_id.empty()) return;
+
+          if (action == "uninstall") {
+            ESP_LOGI("Setting", "Uninstalling app from settings: %s", app_id.c_str());
+            // 卸载走组件 worker（含 abort_all 与扫描刷新）
+            id(app_store_component).request_uninstall(app_id);
+          } else if (action == "clear") {
+            ESP_LOGI("Setting", "Clearing app data from settings: %s", app_id.c_str());
+            id(app_store_component).request_clear_data(app_id);
+          }
+      # worker 完成后组件会触发商店 UI 刷新；这里强制重绘应用管理列表
+      - delay: 300ms
+      - lambda: |-
+          id(lua_installed_signature) = "";
+      - script.execute: render_app_manage_page
 
 interval:
   - interval: 1s

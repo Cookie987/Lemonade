@@ -50,6 +50,8 @@ log.info("hello", "started", app.package())
 
 - `rtos.INF_TIMEOUT`：无限等待。
 - `rtos.MSG_TIMER`：定时器消息 ID。
+- `rtos.api_level`：当前固件的 Lua API level（整数）。新绑定引入时不变，
+  语义破坏性变更时 +1；manifest 的 `min_api` 与它比较（见开发指南 Manifest 一节）。
 
 函数：
 

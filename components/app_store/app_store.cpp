@@ -14,6 +14,7 @@
 
 #include "esp_heap_caps.h"
 #include "esphome/components/json/json_util.h"
+#include "esphome/components/lua_runtime/lua_manifest.h"
 #include "esphome/components/lua_runtime/lua_runtime.h"
 #include "esphome/core/application.h"
 #include "esphome/core/log.h"
@@ -196,6 +197,24 @@ bool AppStore::request_uninstall_selected() {
   return this->start_worker_(WorkerOp::UNINSTALL, app_id);
 }
 
+// 设置页「应用管理」的卸载入口：按 id 卸载，不依赖商店选中项。
+bool AppStore::request_uninstall(const std::string &app_id) {
+  if (app_id.empty()) {
+    ESP_LOGW(TAG, "Uninstall requested without an app id");
+    return false;
+  }
+  return this->start_worker_(WorkerOp::UNINSTALL, app_id);
+}
+
+// 设置页「应用管理」的清除数据入口。app_id 来自调用方（设置页已经过校验的目录名）。
+bool AppStore::request_clear_data(const std::string &app_id) {
+  if (app_id.empty()) {
+    ESP_LOGW(TAG, "Clear data requested without an app id");
+    return false;
+  }
+  return this->start_worker_(WorkerOp::CLEAR_DATA, app_id);
+}
+
 void AppStore::set_selected_index(int index) {
   LockGuard lock(this->mutex_);
   if (index < 0 || static_cast<size_t>(index) >= this->entries_.size()) {
@@ -367,6 +386,8 @@ bool AppStore::start_worker_(WorkerOp op, const std::string &app_id) {
       this->status_message_ = "正在安装 " + app_id;
     } else if (op == WorkerOp::UNINSTALL) {
       this->status_message_ = "正在卸载 " + app_id;
+    } else if (op == WorkerOp::CLEAR_DATA) {
+      this->status_message_ = "正在清除数据 " + app_id;
     }
     this->ui_refresh_requested_ = true;
   }
@@ -451,6 +472,9 @@ void AppStore::run_worker_(WorkerOp op, std::string app_id) {
       break;
     case WorkerOp::UNINSTALL:
       success = this->uninstall_app_(app_id);
+      break;
+    case WorkerOp::CLEAR_DATA:
+      success = this->clear_app_data_(app_id);
       break;
     default:
       break;
@@ -651,6 +675,41 @@ bool AppStore::uninstall_app_(const std::string &app_id) {
   this->mark_external_apps_refresh_();
   this->set_status_("已卸载 " + app_id);
   this->queue_notification_("已卸载 " + app_id, 2200);
+  return true;
+}
+
+// 清除应用私有数据（/sdcard/var/opt/<app_id>/，含 fskv.json 和 app.data_path() 写入的
+// 文件）。卸载流程不在这里（uninstall_app_ 只删应用目录、保留数据），两者独立。
+// 与卸载一样先 abort_all：运行中的应用可能正在写数据，删一半会留下损坏的 fskv.json。
+bool AppStore::clear_app_data_(const std::string &app_id) {
+  if (app_id.find('/') != std::string::npos || app_id.find("..") != std::string::npos) {
+    ESP_LOGW(TAG, "Clear data rejected, suspicious app id: %s", app_id.c_str());
+    return false;
+  }
+
+  const std::string data_dir = std::string("/sdcard/var/opt/") + app_id;
+  if (!path_exists_(data_dir)) {
+    ESP_LOGI(TAG, "Clear data skipped, no data dir: %s", data_dir.c_str());
+    this->set_status_("没有数据: " + app_id);
+    this->queue_notification_("该应用没有数据", 2200);
+    return true;
+  }
+
+  if (this->lua_runtime_ != nullptr) {
+    this->lua_runtime_->abort_all();
+  }
+
+  this->set_status_("正在清除数据 " + app_id);
+  ESP_LOGI(TAG, "Clearing app data %s", data_dir.c_str());
+  if (!remove_recursive_(data_dir)) {
+    ESP_LOGE(TAG, "Failed to delete app data dir %s", data_dir.c_str());
+    this->set_status_("清除数据失败: " + app_id);
+    this->queue_notification_("清除数据失败: " + app_id, 3000);
+    return false;
+  }
+
+  this->set_status_("已清除 " + app_id + " 的数据");
+  this->queue_notification_("已清除应用数据", 2200);
   return true;
 }
 
@@ -1119,6 +1178,32 @@ bool AppStore::validate_stage_manifest_(const std::string &stage_dir, const Remo
   std::string manifest_version = doc["version"] | "";
   if (!manifest_version.empty() && !entry.version.empty() && manifest_version != entry.version) {
     error = "manifest 版本与索引不一致";
+    return false;
+  }
+
+  // manifest 结构版本：高于本固件支持的版本时拒绝安装（旧固件可能理解不了
+  // 新字段语义）。低于 2 的旧包（没有 min_api/type）按缺省值放行。
+  int manifest_struct_version = doc["manifest_version"] | 1;
+  if (manifest_struct_version > lua_runtime::LUA_MANIFEST_VERSION) {
+    error = "manifest 版本过新: " + std::to_string(manifest_struct_version) + " > " +
+            std::to_string(lua_runtime::LUA_MANIFEST_VERSION);
+    return false;
+  }
+
+  // min_api：应用声明需要的最低 API level，高于当前固件则拒绝。
+  // 缺省 0 = 兼容任意版本（旧包 / 不依赖新 API 的包）。
+  int min_api = doc["min_api"] | 0;
+  if (min_api > lua_runtime::LUA_API_LEVEL) {
+    error = "需要 API level " + std::to_string(min_api) + "，当前固件为 " +
+            std::to_string(lua_runtime::LUA_API_LEVEL) + "，请更新系统";
+    return false;
+  }
+
+  // type：目前只接受 app 和 lib；lib 不出现在桌面（桌面扫描会跳过），但同样
+  // 走商店安装流程。未知类型拒绝，避免装上固件不认识的包。
+  std::string manifest_type = doc["type"] | "app";
+  if (manifest_type != "app" && manifest_type != "lib") {
+    error = "manifest type 不支持: " + manifest_type;
     return false;
   }
 
